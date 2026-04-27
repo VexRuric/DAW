@@ -2148,7 +2148,11 @@ export default function AdminPage() {
   const [approvalCount, setApprovalCount] = useState(0)
 
   useEffect(() => {
-    if (!loading && !isAdmin) router.push('/login')
+    console.log('[admin] loading:', loading, 'isAdmin:', isAdmin)
+    if (!loading && !isAdmin) {
+      console.log('[admin] redirecting to /login')
+      router.push('/login')
+    }
   }, [isAdmin, loading, router])
 
   if (loading || !isAdmin) return null
