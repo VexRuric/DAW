@@ -23,7 +23,7 @@ const INJURY_STATUS = ['Active', 'Injured', 'Inactive']
 
 const CHAMPIONS_SET = new Set(['Potassium','Kate','Ando','Speczii','Meeks','Slaghammers','Slapjax'])
 
-type Section = 'approvals' | 'booker' | 'results' | 'ownership' | 'images' | 'edits' | 'story'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story'
 
 /* ── Story note ────────────────────────────────────── */
 
@@ -1384,6 +1384,248 @@ interface ProfileResult {
   twitch_handle: string | null
 }
 
+/* ── Champions Management ──────────────────────────── */
+
+interface TitleRow {
+  id: string
+  name: string
+  category: string
+  display_order: number
+}
+
+interface ChampRow {
+  title_id: string
+  title_name: string
+  holder_name: string
+  holder_wrestler_id: string | null
+  holder_team_id: string | null
+  won_date: string
+  days_held: number
+}
+
+function ChampionsSection() {
+  const [titles, setTitles]       = useState<TitleRow[]>([])
+  const [champs, setChamps]       = useState<ChampRow[]>([])
+  const [wrestlers, setWrestlers] = useState<{ id: string; name: string }[]>([])
+  const [teams, setTeams]         = useState<{ id: string; name: string }[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [editId, setEditId]       = useState<string | null>(null)
+  const [holderType, setHolderType] = useState<'wrestler' | 'team'>('wrestler')
+  const [holderId, setHolderId]   = useState('')
+  const [wonDate, setWonDate]     = useState(new Date().toISOString().slice(0, 10))
+  const [saving, setSaving]       = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => { loadAll() }, [])
+
+  async function loadAll() {
+    setLoading(true)
+    const [tRes, cRes, wRes, tmRes] = await Promise.all([
+      supabase.from('titles').select('id, name, category, display_order').eq('active', true).order('display_order'),
+      supabase.from('current_champions').select('*'),
+      supabase.from('wrestlers').select('id, name').eq('active', true).eq('brand', 'DAW').order('name'),
+      supabase.from('teams').select('id, name').eq('active', true).order('name'),
+    ])
+    setTitles(tRes.data ?? [])
+    setChamps(cRes.data ?? [])
+    setWrestlers(wRes.data ?? [])
+    setTeams(tmRes.data ?? [])
+    setLoading(false)
+  }
+
+  function getChamp(titleId: string) {
+    return champs.find((c) => c.title_id === titleId) ?? null
+  }
+
+  function openEdit(titleId: string) {
+    const title = titles.find((t) => t.id === titleId)
+    const isTag = title?.category === 'Tag'
+    setEditId(titleId)
+    setHolderType(isTag ? 'team' : 'wrestler')
+    setHolderId('')
+    setWonDate(new Date().toISOString().slice(0, 10))
+    setSaveError(null)
+  }
+
+  async function save() {
+    if (!editId || !holderId) return
+    setSaving(true)
+    setSaveError(null)
+
+    // Close any existing open reign for this title
+    await supabase
+      .from('title_reigns')
+      .update({ lost_date: wonDate })
+      .eq('title_id', editId)
+      .is('lost_date', null)
+
+    // Get next reign number
+    const { data: prev } = await supabase
+      .from('title_reigns')
+      .select('reign_number')
+      .eq('title_id', editId)
+      .order('reign_number', { ascending: false })
+      .limit(1)
+
+    const nextNum = ((prev?.[0]?.reign_number ?? 0) as number) + 1
+
+    const { error } = await supabase.from('title_reigns').insert({
+      title_id:            editId,
+      holder_wrestler_id:  holderType === 'wrestler' ? holderId : null,
+      holder_team_id:      holderType === 'team'     ? holderId : null,
+      won_date:            wonDate,
+      reign_number:        nextNum,
+    })
+
+    if (error) {
+      setSaveError(error.message)
+      setSaving(false)
+      return
+    }
+
+    await loadAll()
+    setEditId(null)
+    setSaving(false)
+  }
+
+  async function vacate(titleId: string) {
+    await supabase
+      .from('title_reigns')
+      .update({ lost_date: new Date().toISOString().slice(0, 10) })
+      .eq('title_id', titleId)
+      .is('lost_date', null)
+    await loadAll()
+  }
+
+  if (loading) return (
+    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>Loading…</p>
+  )
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+        Champion Management
+      </h2>
+      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: '2rem', lineHeight: 1.8 }}>
+        Assign or change the current holder for each active title. Changes take effect immediately on the site.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        {titles.map((title) => {
+          const champ    = getChamp(title.id)
+          const isEditing = editId === title.id
+
+          return (
+            <div
+              key={title.id}
+              style={{
+                background: 'var(--surface)',
+                border: `1px solid ${champ ? 'rgba(255,201,51,0.3)' : 'var(--border)'}`,
+              }}
+            >
+              {/* Title row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem' }}>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.2em', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                    {title.category}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
+                    {title.name}
+                  </p>
+                  {champ ? (
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.1em', marginTop: '0.3rem' }}>
+                      ★ {champ.holder_name} — {champ.days_held} days
+                    </p>
+                  ) : (
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.3rem' }}>
+                      VACANT
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => isEditing ? setEditId(null) : openEdit(title.id)}
+                    style={{ padding: '0.5rem 1rem', background: isEditing ? 'var(--surface-3)' : 'rgba(255,201,51,0.12)', border: `1px solid ${isEditing ? 'var(--border)' : 'var(--gold)'}`, color: isEditing ? 'var(--text-dim)' : 'var(--gold)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'none' }}
+                  >
+                    {isEditing ? 'Cancel' : champ ? 'Change' : 'Assign'}
+                  </button>
+                  {champ && !isEditing && (
+                    <button
+                      onClick={() => vacate(title.id)}
+                      style={{ padding: '0.5rem 1rem', background: 'rgba(255,51,85,0.08)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'none' }}
+                    >
+                      Vacate
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Inline assignment form */}
+              {isEditing && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '1.25rem', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  {saveError && (
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--accent-red)', letterSpacing: '0.08em' }}>{saveError}</p>
+                  )}
+
+                  {/* Wrestler vs Team toggle */}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {(['wrestler', 'team'] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => { setHolderType(t); setHolderId('') }}
+                        style={{ padding: '0.35rem 0.85rem', background: holderType === t ? 'var(--purple)' : 'transparent', border: '1px solid var(--border)', color: holderType === t ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'none' }}
+                      >
+                        {t === 'wrestler' ? 'Wrestler' : 'Tag Team'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px auto', gap: '0.75rem', alignItems: 'end' }}>
+                    {/* Holder select */}
+                    <div className="form-field" style={{ marginBottom: 0 }}>
+                      <label className="form-label">{holderType === 'wrestler' ? 'Wrestler' : 'Tag Team'}</label>
+                      <select
+                        className="form-input form-select"
+                        value={holderId}
+                        onChange={(e) => setHolderId(e.target.value)}
+                      >
+                        <option value="">— Select —</option>
+                        {(holderType === 'wrestler' ? wrestlers : teams).map((w) => (
+                          <option key={w.id} value={w.id}>{w.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Won date */}
+                    <div className="form-field" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Won Date</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={wonDate}
+                        onChange={(e) => setWonDate(e.target.value)}
+                      />
+                    </div>
+
+                    <button
+                      onClick={save}
+                      disabled={!holderId || saving}
+                      style={{ padding: '0.65rem 1.25rem', background: holderId ? 'var(--gold)' : 'var(--surface-3)', border: 'none', color: holderId ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'none', opacity: saving ? 0.6 : 1, height: 'fit-content' }}
+                    >
+                      {saving ? 'Saving…' : 'Set Champion'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function OwnershipSection() {
   const [tab, setTab]               = useState<'wrestlers' | 'factions'>('wrestlers')
   const [items, setItems]           = useState<OwnerRow[]>([])
@@ -1915,10 +2157,11 @@ export default function AdminPage() {
   }
 
   const SECTIONS: { id: Section; label: string; badge?: number }[] = [
-    { id: 'approvals', label: 'Pending Approvals', badge: approvalCount },
-    { id: 'booker',    label: 'Show Booker' },
-    { id: 'results',   label: 'Results Entry' },
-    { id: 'ownership', label: 'Assign Ownership' },
+    { id: 'approvals',  label: 'Pending Approvals', badge: approvalCount },
+    { id: 'booker',     label: 'Show Booker' },
+    { id: 'results',    label: 'Results Entry' },
+    { id: 'champions',  label: 'Champions' },
+    { id: 'ownership',  label: 'Assign Ownership' },
     { id: 'images',    label: 'Roster Images' },
     { id: 'edits',     label: 'Roster Edits' },
     { id: 'story',     label: 'Story Development' },
@@ -1977,6 +2220,9 @@ export default function AdminPage() {
           )}
           {section === 'results' && (
             <ResultsEntry />
+          )}
+          {section === 'champions' && (
+            <ChampionsSection />
           )}
           {section === 'ownership' && (
             <OwnershipSection />
