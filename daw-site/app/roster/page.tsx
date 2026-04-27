@@ -14,8 +14,8 @@ async function getData() {
   try {
     const supabase = await createClient()
     const [wrestlerRes, alumniRes, recordRes, champRes] = await Promise.all([
-      supabase.from('roster_wrestlers').select('*').order('name', { ascending: true }),
-      supabase.from('roster_alumni').select('*').order('name', { ascending: true }),
+      supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', true).order('name', { ascending: true }),
+      supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', false).order('name', { ascending: true }),
       supabase.from('wrestler_records').select('*'),
       supabase.from('current_champions').select('*'),
     ])
