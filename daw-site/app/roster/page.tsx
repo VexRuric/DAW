@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { Metadata } from 'next'
+import Link from 'next/link'
 import { CurrentChampion, Wrestler, WrestlerRecord } from '@/lib/types'
 import ChampionStrip from '@/components/ChampionStrip'
 import RosterClient from '@/components/RosterClient'
@@ -69,6 +70,22 @@ export default async function RosterPage() {
       </section>
 
       <div style={{ padding: '0 3rem' }}>
+        {/* Roster tab switcher */}
+        <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
+          <Link
+            href="/roster"
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'none', padding: '0.65rem 1.25rem', color: 'var(--purple-hot)', borderBottom: '2px solid var(--purple-hot)' }}
+          >
+            Wrestlers
+          </Link>
+          <Link
+            href="/roster/factions"
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'none', padding: '0.65rem 1.25rem', color: 'var(--text-dim)', borderBottom: '2px solid transparent' }}
+          >
+            Factions
+          </Link>
+        </div>
+
         <RosterClient wrestlers={wrestlers} alumni={alumni} records={records} champions={champions} />
       </div>
     </>

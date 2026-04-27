@@ -1,21 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const { login } = useAuth()
-  const router = useRouter()
   const [emailExpanded, setEmailExpanded] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
-  function demoLogin(role: 'fan' | 'admin') {
-    login(role)
-    router.push('/')
-  }
 
   return (
     <div
@@ -282,80 +275,6 @@ export default function LoginPage() {
                 </button>
               </div>
             )}
-          </div>
-
-          {/* Divider */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              margin: '2rem 0',
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span
-              style={{
-                fontFamily: 'var(--font-meta)',
-                fontSize: '0.62rem',
-                color: 'var(--text-dim)',
-                letterSpacing: '0.2em',
-              }}
-            >
-              DEMO ACCESS
-            </span>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
-
-          {/* Demo shortcuts */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <button
-              onClick={() => demoLogin('fan')}
-              style={{
-                padding: '0.85rem',
-                background: 'rgba(168,77,255,0.1)',
-                border: '1px solid var(--purple)',
-                color: 'var(--purple-hot)',
-                fontFamily: 'var(--font-meta)',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                cursor: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.4rem',
-                transition: 'background 0.2s',
-              }}
-            >
-              <span style={{ fontSize: '1.3rem' }}>👤</span>
-              Fan Account
-            </button>
-
-            <button
-              onClick={() => demoLogin('admin')}
-              style={{
-                padding: '0.85rem',
-                background: 'rgba(255,201,51,0.08)',
-                border: '1px solid var(--gold)',
-                color: 'var(--gold)',
-                fontFamily: 'var(--font-meta)',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                cursor: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.4rem',
-                transition: 'background 0.2s',
-              }}
-            >
-              <span style={{ fontSize: '1.3rem' }}>⚙️</span>
-              Admin Account
-            </button>
           </div>
 
           <p

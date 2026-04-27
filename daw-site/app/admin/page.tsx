@@ -920,6 +920,7 @@ interface ShowStub {
   name: string
   show_date: string
   status: string
+  stream_url: string | null
 }
 
 interface Participant {
@@ -962,12 +963,24 @@ function ResultsEntry() {
   const [submitting, setSubmitting] = useState(false)
   const [submitDone, setSubmitDone] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [streamUrl, setStreamUrl]   = useState('')
+  const [savingStream, setSavingStream] = useState(false)
+  const [streamSaved, setStreamSaved]  = useState(false)
+
+  async function saveStreamUrl() {
+    if (!selectedShow) return
+    setSavingStream(true)
+    await supabase.from('shows').update({ stream_url: streamUrl.trim() || null }).eq('id', selectedShow.id)
+    setStreamSaved(true)
+    setSavingStream(false)
+    setTimeout(() => setStreamSaved(false), 3000)
+  }
 
   useEffect(() => {
     async function loadShows() {
       const { data } = await supabase
         .from('shows')
-        .select('id, name, show_date, status')
+        .select('id, name, show_date, status, stream_url')
         .in('status', ['committed', 'completed'])
         .order('show_date', { ascending: false })
         .limit(20)
@@ -979,6 +992,8 @@ function ResultsEntry() {
 
   async function selectShow(show: ShowStub) {
     setSelectedShow(show)
+    setStreamUrl(show.stream_url ?? '')
+    setStreamSaved(false)
     setLoadingMatches(true)
     setSubmitDone(false)
     setSubmitError(null)
@@ -1180,6 +1195,29 @@ function ResultsEntry() {
           style={{ padding:'0.65rem 1.5rem' }}
         >
           {submitting ? 'Saving…' : submitDone ? '✓ Results Saved' : 'Submit All Results'}
+        </button>
+      </div>
+
+      {/* Stream URL field */}
+      <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:'1.25rem', padding:'1rem', background:'var(--surface)', border:'1px solid var(--border)', flexWrap:'wrap' }}>
+        <div style={{ flex:1, minWidth:240 }}>
+          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.3rem' }}>
+            ▶ YOUTUBE STREAM URL
+          </p>
+          <input
+            className="form-input"
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={streamUrl}
+            onChange={(e) => { setStreamUrl(e.target.value); setStreamSaved(false) }}
+            style={{ fontSize:'0.72rem' }}
+          />
+        </div>
+        <button
+          onClick={saveStreamUrl}
+          disabled={savingStream}
+          style={{ padding:'0.5rem 1rem', background: streamSaved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${streamSaved ? '#00c864' : 'var(--purple)'}`, color: streamSaved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'none', flexShrink:0 }}
+        >
+          {savingStream ? 'Saving…' : streamSaved ? '✓ Saved' : 'Save URL'}
         </button>
       </div>
 
