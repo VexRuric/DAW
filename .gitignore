@@ -1,0 +1,35 @@
+# ── Environment / secrets ────────────────────────────
+.env
+.env.local
+.env*.local
+dbpw.txt
+*.pw.txt
+
+# ── Next.js build artifacts ──────────────────────────
+daw-site/.next/
+daw-site/out/
+daw-site/build/
+daw-site/node_modules/
+daw-site/.vercel/
+daw-site/*.tsbuildinfo
+daw-site/next-env.d.ts
+
+# ── PHP / server ─────────────────────────────────────
+vendor/
+*.log
+
+# ── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ── OS ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp

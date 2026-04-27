@@ -1,0 +1,237 @@
+/* DAW Home Page Styles */
+
+.hero-section {
+  padding: 60px 20px;
+  background: linear-gradient(135deg, rgba(128, 0, 218, 0.1) 0%, rgba(157, 46, 255, 0.05) 100%);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.hero-content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--purple);
+  margin-bottom: 12px;
+}
+
+.hero-title {
+  font-size: 48px;
+  font-family: Bebas Neue, Impact, sans-serif;
+  color: #fff;
+  margin: 20px 0;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  color: var(--text-dim);
+  margin: 20px 0;
+}
+
+.hero-meta {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin: 20px 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.hero-card-preview {
+  margin-top: 30px;
+  padding: 20px;
+  background: rgba(128, 0, 218, 0.15);
+  border: 1px solid rgba(128, 0, 218, 0.3);
+  border-radius: 8px;
+}
+
+.card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--purple);
+  margin-bottom: 8px;
+}
+
+.card-match-type {
+  font-size: 24px;
+  margin: 12px 0;
+  color: #fff;
+}
+
+.hero-button {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: var(--purple);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.hero-button:hover {
+  background: var(--purple-hot);
+}
+
+/* Sections */
+.section {
+  padding: 40px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-title {
+  font-size: 28px;
+  font-family: Bebas Neue, Impact, sans-serif;
+  color: #fff;
+}
+
+.section-link {
+  color: var(--purple);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.section-link:hover {
+  color: var(--purple-hot);
+}
+
+/* Champions Grid */
+.champions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.champion-card {
+  padding: 20px;
+  background: rgba(128, 0, 218, 0.1);
+  border: 1px solid rgba(128, 0, 218, 0.2);
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.champion-card:hover {
+  border-color: var(--purple);
+  background: rgba(128, 0, 218, 0.15);
+}
+
+.champ-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--purple);
+  margin-bottom: 8px;
+}
+
+.champ-holder {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin: 8px 0;
+}
+
+.champ-days {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Results List */
+.results-list {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.result-item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 20px;
+  padding: 16px;
+  background: rgba(128, 0, 218, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.result-item:hover {
+  background: rgba(128, 0, 218, 0.1);
+  border-color: rgba(128, 0, 218, 0.3);
+}
+
+.result-date {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--purple);
+}
+
+.result-match {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.result-type {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.result-winner {
+  font-size: 16px;
+  color: #fff;
+  margin-top: 4px;
+}
+
+.result-rating {
+  display: inline-block;
+  margin-left: 12px;
+  color: #ffc933;
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 32px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .result-item {
+    grid-template-columns: 1fr;
+  }
+
+  .champions-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}

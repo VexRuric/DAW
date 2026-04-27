@@ -1,0 +1,152 @@
+/* ============================================================
+   DAW Warehouse LIVE — Schedule Page CSS
+   ============================================================ */
+
+/* YEAR TAB BAR */
+.year-tabs {
+  display: flex; gap: 0; padding: 0 3rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.6);
+  position: sticky; top: 80px; z-index: 80;
+  backdrop-filter: blur(12px);
+}
+.year-tab {
+  background: transparent; border: none; border-bottom: 3px solid transparent;
+  font-family: 'Anton', 'Bebas Neue', sans-serif; font-size: 1.5rem;
+  letter-spacing: .05em; color: var(--text-dim);
+  padding: .9rem 2rem; cursor: none; transition: all .2s;
+}
+.year-tab:hover { color: var(--text-muted); }
+.year-tab.active { color: var(--text-strong); border-bottom-color: var(--purple-hot); }
+
+/* PPV LEGEND */
+.ppv-legend {
+  padding: 1.5rem 3rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+}
+.ppv-legend-label {
+  font-family: 'JetBrains Mono', monospace; font-size: .7rem;
+  text-transform: uppercase; letter-spacing: .2em; color: var(--text-dim); font-weight: 700;
+}
+.ppv-legend-items { display: flex; gap: .75rem; flex-wrap: wrap; }
+.ppv-pill {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .3rem .75rem;
+  font-family: 'JetBrains Mono', monospace; font-size: .65rem;
+  font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  border: 1px solid; cursor: none; transition: opacity .2s, transform .15s;
+  text-decoration: none; color: inherit;
+}
+.ppv-pill:hover { transform: translateY(-1px); opacity: .85; }
+.ppv-pill .pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* SCHEDULE BODY */
+.schedule-body { padding: 2.5rem 3rem 5rem; }
+
+/* YEAR VIEW: 3 columns of months */
+.months-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+
+/* MONTH BLOCK */
+.month-block { display: flex; flex-direction: column; gap: 0; }
+.month-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+.month-name {
+  font-family: 'Anton', 'Bebas Neue', sans-serif;
+  font-size: 1.5rem; letter-spacing: .04em; color: var(--text-strong); text-transform: uppercase;
+}
+.month-ppv-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: .6rem; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; padding: .2rem .6rem; border: 1px solid;
+}
+
+/* CALENDAR GRID */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-head {
+  font-family: 'JetBrains Mono', monospace; font-size: .6rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-dim);
+  text-align: center; padding: .35rem 0; background: var(--surface);
+}
+.cal-cell {
+  min-height: 38px; background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: .35rem .2rem; position: relative; transition: background .15s;
+}
+.cal-cell.empty { background: transparent; }
+.cal-num { font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 700; color: var(--text-dim); line-height: 1; }
+.cal-cell.daw-show { background: var(--surface-2); border-bottom: 2px solid var(--purple); cursor: none; }
+.cal-cell.daw-show:hover { background: #242430; }
+.cal-cell.daw-show .cal-num { color: var(--purple-hot); }
+.cal-show-label {
+  font-family: 'JetBrains Mono', monospace; font-size: .5rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--purple-hot); margin-top: .2rem; line-height: 1;
+}
+.cal-cell.ppv-show { border-bottom: 3px solid; cursor: none; }
+.cal-cell.ppv-show:hover { filter: brightness(1.1); }
+.cal-cell.ppv-show .cal-num { color: #000; font-weight: 700; }
+.cal-cell.ppv-show .cal-show-label { color: #000; }
+.cal-cell.today { outline: 2px solid var(--purple-hot); outline-offset: -2px; }
+.cal-cell.today .cal-num { color: var(--text-strong); }
+.cal-cell.past-show { opacity: .55; }
+
+/* PPV COLOR SCHEME */
+.ppv-jan  { --ppv-color: #e040fb; }
+.ppv-feb  { --ppv-color: #f06292; }
+.ppv-mar  { --ppv-color: #ef5350; }
+.ppv-apr  { --ppv-color: #ff7043; }
+.ppv-may  { --ppv-color: #ffca28; }
+.ppv-jun  { --ppv-color: #66bb6a; }
+.ppv-jul  { --ppv-color: #26c6da; }
+.ppv-aug  { --ppv-color: #42a5f5; }
+.ppv-sep  { --ppv-color: #7e57c2; }
+.ppv-oct  { --ppv-color: #ff6e40; }
+.ppv-nov  { --ppv-color: #ab47bc; }
+.ppv-dec  { --ppv-color: #26a69a; }
+
+.cal-cell.ppv-show  { background: var(--ppv-color); border-bottom-color: color-mix(in srgb, var(--ppv-color), #000 40%); }
+.month-ppv-tag      { color: var(--ppv-color); border-color: var(--ppv-color); }
+.ppv-pill           { border-color: var(--ppv-color); color: var(--ppv-color); }
+.ppv-pill .pip      { background: var(--ppv-color); }
+
+/* UPCOMING SHOWS LIST */
+.upcoming-section { margin-top: 2.5rem; }
+.upcoming-label {
+  font-family: 'JetBrains Mono', monospace; font-size: .75rem;
+  text-transform: uppercase; letter-spacing: .25em; color: var(--purple-hot); font-weight: 700;
+  margin-bottom: 1.25rem; display: flex; align-items: center; gap: .75rem;
+}
+.upcoming-label::before { content: ''; display: inline-block; width: 28px; height: 2px; background: var(--purple-hot); }
+.upcoming-list { display: flex; flex-direction: column; gap: .5rem; }
+.upcoming-row {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface); border: 1px solid var(--border);
+  text-decoration: none; color: inherit;
+  transition: border-color .2s, background .2s, transform .2s; cursor: none;
+}
+.upcoming-row:hover { border-color: var(--purple-hot); background: var(--surface-2); transform: translateX(4px); }
+.upcoming-row.ppv-row { border-left: 3px solid var(--ppv-color); }
+.upcoming-row.daw-row { border-left: 3px solid var(--purple); }
+.upcoming-date {
+  font-family: 'Anton', 'Bebas Neue', sans-serif;
+  font-size: 1.25rem; line-height: 1; color: var(--text-strong); min-width: 120px; text-transform: uppercase;
+}
+.upcoming-type {
+  font-family: 'JetBrains Mono', monospace; font-size: .65rem; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase; padding: .2rem .55rem; min-width: 60px; text-align: center;
+}
+.upcoming-type.weekly { background: rgba(168,77,255,0.15); color: var(--purple-hot); }
+.upcoming-type.ppv { background: var(--ppv-color); color: #000; }
+.upcoming-title {
+  font-family: 'Anton', 'Bebas Neue', sans-serif;
+  font-size: 1.4rem; color: var(--text-strong); text-transform: uppercase; letter-spacing: .02em; flex: 1;
+}
+.upcoming-arrow { color: var(--text-dim); font-size: 1rem; }
+.upcoming-row:hover .upcoming-arrow { color: var(--purple-hot); }
+
+/* MOBILE */
+@media (max-width: 1100px) { .months-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 820px) {
+  .year-tabs { padding: 0 1.5rem; }
+  .ppv-legend { padding: 1.25rem 1.5rem; }
+  .schedule-body { padding: 1.5rem 1.5rem 3rem; }
+  .months-grid { grid-template-columns: 1fr; }
+}

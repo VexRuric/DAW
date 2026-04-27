@@ -1,0 +1,818 @@
+'use client'
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+
+/* ── Types ────────────────────────────────────────── */
+
+type StylePill = 'Striker' | 'Technician' | 'Powerhouse' | 'High Flyer'
+type WeightClass = 'Lightweight' | 'Cruiserweight' | 'Middleweight' | 'Heavyweight' | 'Super Heavyweight'
+type Gender = 'Male' | 'Female' | 'Other'
+type Alignment = 'Face' | 'Heel' | 'Tweener'
+
+interface PersonalityTrait {
+  faceA: string
+  faceB: string
+}
+
+const PERSONALITY_TRAITS: PersonalityTrait[] = [
+  { faceA: 'Brave',       faceB: 'Cowardly'    },
+  { faceA: 'Humble',      faceB: 'Cocky'       },
+  { faceA: 'Serious',     faceB: 'Fun'         },
+  { faceA: 'Calculated',  faceB: 'Wild'        },
+  { faceA: 'Friendly',    faceB: 'Vicious'     },
+  { faceA: 'Respectful',  faceB: 'Dirty'       },
+]
+
+/* ── Pill Selector ────────────────────────────────── */
+
+function PillSelector<T extends string>({
+  options,
+  value,
+  onChange,
+  multi = false,
+}: {
+  options: T[]
+  value: T | T[] | null
+  onChange: (v: T | T[]) => void
+  multi?: boolean
+}) {
+  function isSelected(opt: T) {
+    if (multi) return Array.isArray(value) && value.includes(opt)
+    return value === opt
+  }
+  function toggle(opt: T) {
+    if (multi && Array.isArray(value)) {
+      onChange(value.includes(opt) ? value.filter((v) => v !== opt) : [...value, opt])
+    } else {
+      onChange(opt)
+    }
+  }
+  return (
+    <div className="style-pills">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className={`style-pill${isSelected(opt) ? ' selected' : ''}`}
+          onClick={() => toggle(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ── Color Picker Row ─────────────────────────────── */
+
+function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="form-field">
+      <label className="form-label">{label}</label>
+      <div className="color-row">
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div className="color-swatch" style={{ backgroundColor: value }} />
+          <input
+            type="color"
+            className="color-input-native"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: 36, height: 36, cursor: 'none' }}
+          />
+        </div>
+        <input
+          type="text"
+          className="form-input"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          maxLength={7}
+          placeholder="#8000da"
+          style={{ fontFamily: 'var(--font-meta)', letterSpacing: '0.15em' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ── Drop Zone ────────────────────────────────────── */
+
+function DropZone({ preview, onFile }: { preview: string | null; onFile: (f: File) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [drag, setDrag] = useState(false)
+
+  return (
+    <div
+      className={`drop-zone${drag ? ' drag-over' : ''}`}
+      onClick={() => ref.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={(e) => {
+        e.preventDefault(); setDrag(false)
+        const file = e.dataTransfer.files?.[0]
+        if (file) onFile(file)
+      }}
+    >
+      {preview ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview} alt="preview" style={{ maxHeight: 160, maxWidth: '100%', objectFit: 'contain' }} />
+      ) : (
+        <>
+          <span style={{ fontSize: '2rem' }}>🖼️</span>
+          <span>Drop image here or <span style={{ color: 'var(--purple-hot)' }}>browse</span></span>
+          <span style={{ fontSize: '0.55rem', opacity: 0.6 }}>PNG / JPG — Max 5MB</span>
+        </>
+      )}
+      <input ref={ref} type="file" accept="image/*" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
+    </div>
+  )
+}
+
+/* ── Toast ────────────────────────────────────────── */
+
+function Toast({ message, onDone }: { message: string; onDone: () => void }) {
+  useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t) }, [onDone])
+  return (
+    <div className="toast">
+      <span style={{ fontSize: '1.2rem' }}>⏳</span>
+      {message}
+    </div>
+  )
+}
+
+/* ── Wrestler Builder Modal ───────────────────────── */
+
+interface WrestlerBuilderProps {
+  onClose: () => void
+  onSubmitted?: () => void
+  userId: string
+  editName?: string
+}
+
+export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }: WrestlerBuilderProps) {
+  const [style, setStyle]       = useState<StylePill[]>([])
+  const [weight, setWeight]     = useState<WeightClass | null>(null)
+  const [height, setHeight]     = useState('')
+  const [ringName, setRingName] = useState(editName ?? '')
+  const [gender, setGender]     = useState<Gender | null>(null)
+  const [primary, setPrimary]   = useState('#8000da')
+  const [secondary, setSecondary] = useState('#ff3355')
+  const [homeState, setHomeState] = useState('')
+  const [hair, setHair]         = useState('')
+  const [eyes, setEyes]         = useState('')
+  const [alignment, setAlignment] = useState<Alignment | null>(null)
+  const [finisher, setFinisher] = useState('')
+  const [songUrl, setSongUrl]   = useState('')
+  const [imgPreview, setImgPreview] = useState<string | null>(null)
+  const [sliders, setSliders]   = useState<number[]>(PERSONALITY_TRAITS.map(() => 50))
+  const [toast, setToast]       = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  function handleFile(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => setImgPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  async function handleSubmit() {
+    if (!ringName.trim()) {
+      setSubmitError('Ring name is required.')
+      return
+    }
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const { error } = await supabase.from('wrestlers').insert({
+      name:         ringName.trim(),
+      gender:       gender ?? null,
+      role:         alignment ?? null,
+      country:      homeState || null,
+      gimmick:      style.length ? style.join(', ') : null,
+      status:       'pending',
+      submitted_by: userId,
+      bio: JSON.stringify({
+        style,
+        weightClass:         weight,
+        height,
+        primaryColor:        primary,
+        secondaryColor:      secondary,
+        hair,
+        eyes,
+        finisher,
+        songUrl,
+        personalitySliders:  sliders,
+      }),
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      setSubmitError(
+        error.code === '23505'
+          ? 'That ring name is already taken. Try a different name.'
+          : 'Submission failed — please try again.'
+      )
+      return
+    }
+
+    setToast(true)
+    onSubmitted?.()
+  }
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="modal" style={{ maxWidth: 760 }}>
+          {/* Header */}
+          <div className="modal-header">
+            <span className="modal-title">{editName ? `Edit: ${editName}` : 'New Wrestler'}</span>
+            <button className="modal-close" onClick={onClose}>✕</button>
+          </div>
+
+          {/* Body */}
+          <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            {/* 1. Style */}
+            <div className="form-section">
+              <div className="form-section-label">Fighting Style</div>
+              <PillSelector<StylePill>
+                options={['Striker','Technician','Powerhouse','High Flyer']}
+                value={style} onChange={(v) => setStyle(v as StylePill[])} multi
+              />
+            </div>
+
+            {/* 2. Weight Class */}
+            <div className="form-section">
+              <div className="form-section-label">Weight Class</div>
+              <PillSelector<WeightClass>
+                options={['Lightweight','Cruiserweight','Middleweight','Heavyweight','Super Heavyweight']}
+                value={weight} onChange={(v) => setWeight(v as WeightClass)}
+              />
+            </div>
+
+            {/* 3–6: Basic info grid */}
+            <div className="form-section">
+              <div className="form-section-label">Identity</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-field">
+                  <label className="form-label">Height</label>
+                  <input className="form-input" placeholder="e.g. 6ft 2in" value={height} onChange={(e) => setHeight(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Announced As</label>
+                  <input className="form-input" placeholder="Ring name" value={ringName} onChange={(e) => setRingName(e.target.value)} />
+                </div>
+              </div>
+              <div className="form-field" style={{ marginBottom: '0.75rem' }}>
+                <label className="form-label">Gender</label>
+                <PillSelector<Gender>
+                  options={['Male','Female','Other']}
+                  value={gender} onChange={(v) => setGender(v as Gender)}
+                />
+              </div>
+            </div>
+
+            {/* 7–8: Colors */}
+            <div className="form-section">
+              <div className="form-section-label">Brand Colors</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+                <ColorPicker label="Primary Color" value={primary} onChange={setPrimary} />
+                <ColorPicker label="Secondary Color" value={secondary} onChange={setSecondary} />
+                <div className="form-field">
+                  <label className="form-label">Preview</label>
+                  <div
+                    style={{
+                      height: 44,
+                      background: `linear-gradient(90deg, ${primary} 0%, ${secondary} 100%)`,
+                      border: '1px solid var(--border)',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 9–14: Details */}
+            <div className="form-section">
+              <div className="form-section-label">Details</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-field">
+                  <label className="form-label">Home State / Country</label>
+                  <input className="form-input" placeholder="e.g. Texas, USA" value={homeState} onChange={(e) => setHomeState(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Hair (Color + Style)</label>
+                  <input className="form-input" placeholder="e.g. Black, Braids" value={hair} onChange={(e) => setHair(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Eye Color</label>
+                  <input className="form-input" placeholder="e.g. Brown" value={eyes} onChange={(e) => setEyes(e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Finishing Move</label>
+                  <input className="form-input" placeholder="e.g. The Killswitch" value={finisher} onChange={(e) => setFinisher(e.target.value)} />
+                </div>
+              </div>
+              <div className="form-field">
+                <label className="form-label">Alignment</label>
+                <PillSelector<Alignment>
+                  options={['Face','Heel','Tweener']}
+                  value={alignment} onChange={(v) => setAlignment(v as Alignment)}
+                />
+              </div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Entrance Song URL (YouTube / Spotify)</label>
+                <input className="form-input" placeholder="https://youtube.com/..." value={songUrl} onChange={(e) => setSongUrl(e.target.value)} />
+              </div>
+            </div>
+
+            {/* 15–19: Personality sliders */}
+            <div className="form-section">
+              <div className="form-section-label">Personality Traits</div>
+              {PERSONALITY_TRAITS.map((trait, i) => (
+                <div key={i} className="personality-row">
+                  <span className="personality-label" style={{ textAlign: 'right' }}>{trait.faceA}</span>
+                  <input
+                    type="range"
+                    className="personality-slider"
+                    min={0} max={100}
+                    value={sliders[i]}
+                    onChange={(e) => {
+                      const next = [...sliders]
+                      next[i] = Number(e.target.value)
+                      setSliders(next)
+                    }}
+                  />
+                  <span className="personality-label">{trait.faceB}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Image upload */}
+            <div className="form-section" style={{ marginBottom: 0 }}>
+              <div className="form-section-label">Character Image</div>
+              <DropZone preview={imgPreview} onFile={handleFile} />
+            </div>
+          </div>
+
+          {/* Error message */}
+          {submitError && (
+            <div style={{ padding: '0.75rem 1.5rem', background: 'rgba(255,51,85,0.1)', borderTop: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
+              ✕ {submitError}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="modal-footer">
+            {editName && (
+              <button className="btn btn-red" style={{ marginRight: 'auto' }}>
+                Retire Character
+              </button>
+            )}
+            <button className="btn btn-ghost" onClick={onClose} disabled={submitting}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Submitting…' : editName ? 'Save Changes' : 'Submit for Approval'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {toast && (
+        <Toast
+          message="Submitted! Daware will review your character shortly."
+          onDone={() => { setToast(false); onClose() }}
+        />
+      )}
+    </>
+  )
+}
+
+/* ── Faction Builder Modal ────────────────────────── */
+
+interface FactionBuilderProps {
+  onClose: () => void
+  onSubmitted?: () => void
+  userId: string
+}
+
+export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBuilderProps) {
+  const [name, setName]       = useState('')
+  const [color, setColor]     = useState('#8000da')
+  const [motion, setMotion]   = useState<'Single' | 'Double' | null>(null)
+  const [songUrl, setSongUrl] = useState('')
+  const [memberCount, setMemberCount] = useState(2)
+  const [members, setMembers] = useState<string[]>(['', ''])
+  const [imgPreview, setImgPreview] = useState<string | null>(null)
+  const [toast, setToast]     = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  function updateMemberCount(n: number) {
+    setMemberCount(n)
+    setMembers((prev) => {
+      const next = [...prev]
+      while (next.length < n) next.push('')
+      return next.slice(0, n)
+    })
+  }
+
+  function handleFile(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => setImgPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  async function handleSubmit() {
+    if (!name.trim()) {
+      setSubmitError('Faction name is required.')
+      return
+    }
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const { error } = await supabase.from('teams').insert({
+      name:         name.trim(),
+      status:       'pending',
+      submitted_by: userId,
+      bio: JSON.stringify({
+        color,
+        motion,
+        songUrl,
+        members: members.filter(Boolean),
+      }),
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      setSubmitError(
+        error.code === '23505'
+          ? 'That faction name is already taken.'
+          : 'Submission failed — please try again.'
+      )
+      return
+    }
+
+    setToast(true)
+    onSubmitted?.()
+  }
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="modal" style={{ maxWidth: 560 }}>
+          <div className="modal-header">
+            <span className="modal-title">New Faction</span>
+            <button className="modal-close" onClick={onClose}>✕</button>
+          </div>
+
+          <div className="modal-body">
+            <div className="form-field">
+              <label className="form-label">Faction Name</label>
+              <input className="form-input" placeholder="e.g. The Syndicate" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+              <ColorPicker label="Faction Color" value={color} onChange={setColor} />
+              <div className="form-field">
+                <label className="form-label">Color Preview</label>
+                <div style={{ height: 44, background: color, border: '1px solid var(--border)' }} />
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Title Motion</label>
+              <div className="style-pills">
+                {(['Single','Double'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`style-pill${motion === opt ? ' selected' : ''}`}
+                    onClick={() => setMotion(opt)}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Entrance Song (YouTube URL)</label>
+              <input className="form-input" placeholder="https://youtube.com/..." value={songUrl} onChange={(e) => setSongUrl(e.target.value)} />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Member Count: {memberCount}</label>
+              <input
+                type="range" min={2} max={5} value={memberCount}
+                onChange={(e) => updateMemberCount(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'none' }}
+              />
+            </div>
+
+            <div className="form-section">
+              <div className="form-section-label">Members</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {members.map((m, i) => (
+                  <div key={i} className="form-field" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Member {i + 1}</label>
+                    <input
+                      className="form-input"
+                      placeholder={`Member ${i + 1} name`}
+                      value={m}
+                      onChange={(e) => {
+                        const next = [...members]
+                        next[i] = e.target.value
+                        setMembers(next)
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-section" style={{ marginBottom: 0 }}>
+              <div className="form-section-label">Faction Image</div>
+              <DropZone preview={imgPreview} onFile={handleFile} />
+            </div>
+          </div>
+
+          {submitError && (
+            <div style={{ padding: '0.75rem 1.5rem', background: 'rgba(255,51,85,0.1)', borderTop: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
+              ✕ {submitError}
+            </div>
+          )}
+
+          <div className="modal-footer">
+            <button className="btn btn-ghost" onClick={onClose} disabled={submitting}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit for Approval'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {toast && (
+        <Toast
+          message="Faction submitted! Daware will review it shortly."
+          onDone={() => { setToast(false); onClose() }}
+        />
+      )}
+    </>
+  )
+}
+
+/* ── Creation Card ────────────────────────────────── */
+
+type CreationStatus = 'hired' | 'pending' | 'rejected'
+
+interface Creation {
+  id: string
+  name: string
+  type: 'wrestler' | 'faction'
+  status: CreationStatus
+}
+
+const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: string; icon: string }> = {
+  hired:    { label: 'Hired!',   color: '#00c864', bg: 'rgba(0,200,100,0.12)',   icon: '✓' },
+  pending:  { label: 'Pending',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: '⏳' },
+  rejected: { label: 'Rejected', color: 'var(--accent-red)', bg: 'rgba(255,51,85,0.12)', icon: '✕' },
+}
+
+/* ── Portal Page ──────────────────────────────────── */
+
+export default function PortalPage() {
+  const { isFan, user } = useAuth()
+  const router = useRouter()
+  const [openWrestler, setOpenWrestler] = useState<string | null>(null)
+  const [openFaction,  setOpenFaction]  = useState(false)
+  const [creations, setCreations]       = useState<Creation[]>([])
+  const [loadingCreations, setLoadingCreations] = useState(true)
+
+  useEffect(() => {
+    if (!isFan) router.push('/login')
+  }, [isFan, router])
+
+  const fetchCreations = useCallback(async () => {
+    if (!user) return
+    setLoadingCreations(true)
+
+    const [wRes, tRes] = await Promise.all([
+      supabase
+        .from('wrestlers')
+        .select('id, name, status')
+        .eq('submitted_by', user.id)
+        .in('status', ['pending', 'hired', 'rejected']),
+      supabase
+        .from('teams')
+        .select('id, name, status')
+        .eq('submitted_by', user.id)
+        .in('status', ['pending', 'hired', 'rejected']),
+    ])
+
+    const wrestlers: Creation[] = (wRes.data ?? []).map((w) => ({
+      id: w.id,
+      name: w.name,
+      type: 'wrestler' as const,
+      status: w.status as CreationStatus,
+    }))
+    const factions: Creation[] = (tRes.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      type: 'faction' as const,
+      status: t.status as CreationStatus,
+    }))
+
+    setCreations([...wrestlers, ...factions])
+    setLoadingCreations(false)
+  }, [user])
+
+  useEffect(() => { fetchCreations() }, [fetchCreations])
+
+  if (!isFan || !user) return null
+
+  return (
+    <>
+      <div className="section-sm" style={{ borderTop: 'none' }}>
+        <p className="section-label">Fan Portal</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
+          <h1 className="section-title">My Creations</h1>
+          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em', maxWidth: 400, textAlign: 'right', lineHeight: 1.8 }}>
+            Submit wrestlers and factions for Daware to review.<br />
+            Approved characters may appear on upcoming shows.
+          </p>
+        </div>
+      </div>
+
+      <div className="section" style={{ paddingTop: '2rem' }}>
+        {/* Creations grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem',
+          }}
+        >
+          {/* Existing creations */}
+          {loadingCreations ? (
+            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-dim)', letterSpacing: '0.12em', gridColumn: '1/-1', padding: '1rem 0' }}>
+              Loading…
+            </div>
+          ) : (
+            creations.map((c) => {
+              const cfg = STATUS_CONFIG[c.status]
+              return (
+                <div
+                  key={c.id}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    textAlign: 'left',
+                    aspectRatio: '3/4',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: c.type === 'faction' ? '3rem' : '2rem',
+                    }}
+                  >
+                    {c.type === 'faction' ? '🤝' : '🧍'}
+                  </div>
+                  <div style={{ padding: '0.75rem 0.85rem', borderTop: '1px solid var(--border)' }}>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: '0.35rem' }}>
+                      {c.name}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        {c.type}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-meta)',
+                          fontSize: '0.6rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.1em',
+                          padding: '0.2rem 0.5rem',
+                          background: cfg.bg,
+                          color: cfg.color,
+                          border: `1px solid ${cfg.color}`,
+                        }}
+                      >
+                        {cfg.icon} {cfg.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+
+          {/* New Wrestler card */}
+          <NewCard
+            icon="⚡"
+            label="New Wrestler"
+            sub="Submit a character"
+            onClick={() => setOpenWrestler('')}
+          />
+
+          {/* New Faction card */}
+          <NewCard
+            icon="🤝"
+            label="New Faction"
+            sub="Build a stable"
+            onClick={() => setOpenFaction(true)}
+          />
+        </div>
+
+        {/* Status legend */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '2rem',
+            padding: '1.5rem',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', marginRight: '0.5rem', flexShrink: 0 }}>
+            STATUS KEY:
+          </p>
+          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: cfg.color, fontWeight: 700, letterSpacing: '0.1em' }}>
+                {cfg.icon} {cfg.label.toUpperCase()}
+              </span>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
+                {key === 'hired'    && '— Character approved and active on the roster'}
+                {key === 'pending'  && '— Awaiting Daware review (usually within 48h)'}
+                {key === 'rejected' && "— Didn't meet guidelines, see notes"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modals */}
+      {openWrestler !== null && (
+        <WrestlerBuilderModal
+          userId={user.id}
+          onClose={() => setOpenWrestler(null)}
+          onSubmitted={fetchCreations}
+          editName={openWrestler || undefined}
+        />
+      )}
+      {openFaction && (
+        <FactionBuilderModal
+          userId={user.id}
+          onClose={() => setOpenFaction(false)}
+          onSubmitted={fetchCreations}
+        />
+      )}
+    </>
+  )
+}
+
+function NewCard({ icon, label, sub, onClick }: { icon: string; label: string; sub: string; onClick: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? 'rgba(128,0,218,0.08)' : 'transparent',
+        border: `2px dashed ${hover ? 'var(--purple-hot)' : 'var(--border-hot)'}`,
+        cursor: 'none',
+        aspectRatio: '3/4',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.75rem',
+        transition: 'all 0.2s',
+      }}
+    >
+      <span style={{ fontSize: '2.5rem', opacity: hover ? 1 : 0.4 }}>{icon}</span>
+      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: hover ? 'var(--purple-hot)' : 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
+        + {label}
+      </p>
+      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
+        {sub}
+      </p>
+    </button>
+  )
+}

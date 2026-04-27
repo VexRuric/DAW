@@ -1,0 +1,341 @@
+/* DAW Admin Dashboard Styles */
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 20px;
+  background: rgba(128, 0, 218, 0.05);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-tab {
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-tab:hover {
+  color: #fff;
+  border-color: var(--purple);
+}
+
+.admin-tab.active {
+  background: var(--purple);
+  color: #fff;
+  border-color: var(--purple);
+}
+
+.admin-tab .count {
+  margin-left: 6px;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+/* Admin Panels */
+.admin-panel {
+  display: none;
+  padding: 40px 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-panel.active {
+  display: block;
+}
+
+.panel-header {
+  margin-bottom: 30px;
+}
+
+.panel-header h2 {
+  font-size: 28px;
+  font-family: Bebas Neue, Impact, sans-serif;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.panel-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* Forms */
+.booking-form,
+.story-form {
+  background: rgba(128, 0, 218, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 30px;
+  max-width: 600px;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+legend {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="url"],
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(128, 0, 218, 0.2);
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="url"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--purple);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 10px 20px;
+  background: var(--purple);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: var(--purple-hot);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--purple);
+  border: 1px solid var(--purple);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-small:hover {
+  background: rgba(128, 0, 218, 0.1);
+}
+
+.btn-approve {
+  padding: 8px 16px;
+  background: #66bb6a;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+
+.btn-approve:hover {
+  background: #4caf50;
+}
+
+.btn-reject {
+  padding: 8px 16px;
+  background: #ef5350;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-reject:hover {
+  background: #e53935;
+}
+
+/* Lists */
+.submissions-list,
+.shows-list,
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submission-item,
+.show-item,
+.note-item {
+  padding: 16px;
+  background: rgba(128, 0, 218, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.submission-item:hover,
+.show-item:hover,
+.note-item:hover {
+  border-color: var(--purple);
+  background: rgba(128, 0, 218, 0.1);
+}
+
+.submission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.submission-title,
+.show-item strong,
+.story-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  margin: 0;
+}
+
+.submission-type,
+.note-type {
+  display: inline-block;
+  padding: 4px 8px;
+  background: rgba(128, 0, 218, 0.2);
+  color: var(--purple);
+  border-radius: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.submission-meta,
+.note-date {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 8px 0;
+}
+
+.submission-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.note-preview {
+  font-size: 13px;
+  color: #fff;
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+/* Tables */
+.roster-table-wrap {
+  overflow-x: auto;
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.roster-table thead {
+  background: rgba(128, 0, 218, 0.1);
+  border-bottom: 1px solid var(--border);
+}
+
+.roster-table th {
+  padding: 12px;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.roster-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  color: #fff;
+  font-size: 14px;
+}
+
+.roster-table tr:hover {
+  background: rgba(128, 0, 218, 0.05);
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-tabs {
+    flex-direction: column;
+  }
+
+  .admin-tab {
+    width: 100%;
+  }
+
+  .roster-table {
+    font-size: 12px;
+  }
+
+  .roster-table th,
+  .roster-table td {
+    padding: 8px;
+  }
+}

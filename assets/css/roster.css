@@ -1,0 +1,187 @@
+/* ============================================================
+   DAW Warehouse LIVE — Roster Page CSS
+   ============================================================ */
+
+/* ============ FILTER / SEARCH BAR ============ */
+.filter-bar {
+  position: sticky; top: 80px; z-index: 90;
+  background: rgba(0,0,0,0.92); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 3rem;
+  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+}
+.filter-tabs { display: flex; gap: 0; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.filter-tabs::-webkit-scrollbar { display: none; }
+.filter-tab {
+  background: transparent; border: none; border-bottom: 3px solid transparent;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: .78rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 1.1rem 1.1rem; cursor: none; transition: all .2s; white-space: nowrap;
+}
+.filter-tab:hover { color: var(--text-muted); }
+.filter-tab.active { color: var(--text-strong); border-bottom-color: var(--purple-hot); }
+.filter-count {
+  font-size: .65rem; background: var(--surface-2);
+  padding: .15rem .45rem; margin-left: .4rem; color: var(--text-dim); font-weight: 400;
+  vertical-align: middle;
+}
+.filter-tab.active .filter-count { background: rgba(168,77,255,0.2); color: var(--purple-hot); }
+.filter-right { display: flex; align-items: center; gap: .75rem; padding: .75rem 0; flex-shrink: 0; }
+.search-wrap { position: relative; }
+.search-icon { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: .95rem; pointer-events: none; }
+.search-input {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: .8rem; font-weight: 700;
+  letter-spacing: .08em; padding: .6rem 1rem .6rem 2.25rem;
+  width: 200px; transition: border-color .2s, width .3s; outline: none;
+}
+.search-input::placeholder { color: var(--text-dim); }
+.search-input:focus { border-color: var(--purple); width: 240px; }
+.role-toggle { display: flex; border: 1px solid var(--border); overflow: hidden; }
+.role-btn {
+  background: transparent; border: none; padding: .6rem .9rem;
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem;
+  font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  cursor: none; transition: all .2s; color: var(--text-dim);
+}
+.role-btn:hover { color: var(--text-muted); }
+.role-btn.active-face { background: rgba(61,184,245,0.15); color: var(--face); }
+.role-btn.active-heel { background: rgba(255,51,85,0.15); color: var(--heel); }
+
+/* ============ CHAMPIONS STRIP ============ */
+.champs-section { padding: 2rem 3rem 0; border-bottom: 1px solid var(--border); }
+.champs-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .3em;
+  color: var(--gold); margin-bottom: 1.25rem;
+  display: flex; align-items: center; gap: .75rem;
+}
+.champs-eyebrow::before { content: ''; display: inline-block; width: 24px; height: 2px; background: var(--gold); }
+.champs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem; padding-bottom: 2rem;
+}
+.champ-card {
+  position: relative; background: var(--surface);
+  border: 1px solid rgba(255,201,51,0.5); border-top: 3px solid var(--gold);
+  overflow: hidden; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column;
+  transition: border-color .25s, transform .25s, box-shadow .25s; cursor: none;
+  box-shadow: 0 0 16px rgba(255,201,51,0.06);
+}
+.champ-card:hover { transform: translateY(-5px); box-shadow: 0 8px 32px rgba(255,201,51,0.18); border-color: var(--gold); }
+.champ-card:hover .card-name { color: var(--gold); }
+.champ-card:hover .champ-image::before { opacity: 1; }
+.champ-image { aspect-ratio: 3 / 4; background: var(--surface-2); position: relative; overflow: hidden; }
+.champ-image::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.45) 35%, transparent 65%);
+  pointer-events: none;
+}
+.champ-image::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 80%, rgba(255,201,51,0.22) 0%, transparent 65%);
+  pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 1;
+}
+.champ-image svg { width: 100%; height: 100%; position: absolute; inset: 0; display: block; }
+.champ-crown {
+  position: absolute; top: .55rem; left: .55rem;
+  background: var(--gold); color: #000;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .5rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; padding: .2rem .5rem; z-index: 3; line-height: 1.5;
+}
+.champ-info {
+  padding: .85rem .85rem .9rem;
+  position: relative; z-index: 2; background: var(--surface);
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.champ-days {
+  font-family: 'JetBrains Mono', monospace; font-size: .58rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim);
+}
+
+/* ============ RESULT COUNT ============ */
+.result-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .75rem; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--text-dim);
+  padding: 1rem 3rem .25rem;
+}
+
+/* ============ ROSTER GRID ============ */
+.roster-wrap { padding: 0 3rem 4rem; }
+.roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+
+/* ============ WRESTLER CARD ============ */
+.wrestler-card {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  overflow: hidden; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column;
+  transition: border-color .25s, transform .25s; cursor: none;
+}
+.wrestler-card.face { border-top: 3px solid var(--face); }
+.wrestler-card.heel { border-top: 3px solid var(--heel); }
+.wrestler-card:hover { border-color: var(--purple-hot); transform: translateY(-5px); }
+.wrestler-card:hover .card-name { color: var(--purple-hot); }
+.wrestler-card:hover .card-image::before { opacity: 1; }
+.card-image { aspect-ratio: 3 / 4; background: var(--surface-2); position: relative; overflow: hidden; }
+.card-image::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.45) 35%, transparent 65%);
+  pointer-events: none;
+}
+.card-image::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 80%, rgba(128,0,218,0.35) 0%, transparent 65%);
+  pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 1;
+}
+.card-image svg { width: 100%; height: 100%; position: absolute; inset: 0; display: block; }
+.card-belt {
+  position: absolute; top: .55rem; right: .55rem;
+  background: var(--gold); color: #000;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .5rem; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; padding: .2rem .45rem;
+  z-index: 3; line-height: 1.4; text-align: center; max-width: 76px;
+}
+.card-info {
+  padding: .8rem .8rem .85rem; position: relative; z-index: 2; background: var(--surface);
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.card-name {
+  font-family: 'Anton', 'Bebas Neue', sans-serif;
+  font-size: 1.25rem; line-height: 1; color: var(--text-strong);
+  text-transform: uppercase; letter-spacing: .02em; transition: color .2s; word-break: break-word;
+}
+.card-division {
+  font-family: 'JetBrains Mono', monospace; font-size: .62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .15em; color: var(--text-dim);
+}
+.card-role {
+  font-family: 'JetBrains Mono', monospace; font-size: .62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .15em; display: inline-block;
+}
+.card-role.face { color: var(--face); }
+.card-role.heel { color: var(--heel); }
+.card-meta { display: flex; align-items: center; gap: .4rem; }
+
+/* ============ EMPTY STATE ============ */
+.empty-state { display: none; text-align: center; padding: 5rem 2rem; }
+.empty-state.visible { display: block; }
+.empty-title { font-family: 'Anton', 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: .5rem; }
+.empty-sub { font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; font-weight: 700; }
+
+/* ============ MOBILE ============ */
+@media (max-width: 820px) {
+  .filter-bar { padding: 0 1.5rem; gap: .75rem; }
+  .result-count, .roster-wrap { padding-left: 1.5rem; padding-right: 1.5rem; }
+  .roster-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; }
+  .search-input { width: 150px; }
+  .search-input:focus { width: 175px; }
+  .role-btn { padding: .6rem .65rem; font-size: .68rem; }
+  .champs-section { padding: 1.5rem 1.5rem 0; }
+}
