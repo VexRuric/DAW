@@ -40,7 +40,7 @@ const PROVIDERS: ProviderConfig[] = [
     id: 'google',
     label: 'Google',
     color: '#4285f4',
-    getHandle: (i) => i.identity_data?.email ?? i.email ?? null,
+    getHandle: (i) => i.identity_data?.email ?? null,
   },
 ]
 
