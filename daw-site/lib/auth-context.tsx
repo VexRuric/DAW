@@ -59,8 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(mapUser(session?.user))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        // Force refresh to pick up latest app_metadata (e.g. admin role set server-side)
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        setUser(mapUser(refreshed.session?.user ?? session.user))
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     })
 
