@@ -1,12 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return supabaseResponse
@@ -31,6 +27,7 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  // Refreshes the session and writes updated cookies back — required for SSR auth
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
@@ -41,9 +38,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && path.startsWith('/admin')) {
-    const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL('/portal', request.url))
+    if (user.app_metadata?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
