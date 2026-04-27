@@ -70,6 +70,16 @@ export default async function RosterPage() {
       </section>
 
       <div style={{ padding: '0 3rem' }}>
+        {/* Current Champions — links to title history pages */}
+        {champions.length > 0 && (
+          <div style={{ marginBottom: '2.5rem' }}>
+            <ChampionStrip
+              champions={champions}
+              renderMap={new Map(wrestlers.map(w => [w.id, w.render_url ?? null]))}
+            />
+          </div>
+        )}
+
         {/* Roster tab switcher */}
         <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
           <Link

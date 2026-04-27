@@ -111,9 +111,6 @@ export default function RosterClient({ wrestlers, alumni, records, champions }: 
         </span>
       </div>
 
-      {/* Champion strip */}
-      <ChampionStrip champions={champions} renderMap={renderMap} />
-
       {/* Active roster grid */}
       <div style={{ marginTop: '2rem' }}>
         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1rem' }}>

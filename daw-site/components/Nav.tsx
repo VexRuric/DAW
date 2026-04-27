@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth-context'
 const BASE_NAV = [
   { href: '/',         label: 'Home' },
   { href: '/roster',   label: 'Roster' },
-  { href: '/titles',   label: 'Titles' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/archive',  label: 'Archive' },
 ]
