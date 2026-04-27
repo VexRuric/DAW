@@ -1,107 +1,108 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 
+type EmailMode = 'signin' | 'signup'
+
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, loginWithEmail, signUpWithEmail, user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) router.push('/portal')
+  }, [user, loading, router])
+
   const [emailExpanded, setEmailExpanded] = useState(false)
+  const [emailMode, setEmailMode] = useState<EmailMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  async function handleEmailSubmit() {
+    setError(null)
+    setSuccessMsg(null)
+    if (!email.trim() || !password.trim()) {
+      setError('Email and password are required.')
+      return
+    }
+    if (emailMode === 'signup' && !displayName.trim()) {
+      setError('Display name is required.')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      if (emailMode === 'signin') {
+        const { error: err } = await loginWithEmail(email.trim(), password)
+        if (err) { setError(err); return }
+        router.push('/portal')
+      } else {
+        const { error: err, needsConfirmation } = await signUpWithEmail(email.trim(), password, displayName.trim())
+        if (err) { setError(err); return }
+        if (needsConfirmation) {
+          setSuccessMsg('Account created! Check your email for a confirmation link, then sign in.')
+          setEmailMode('signin')
+          setPassword('')
+        } else {
+          router.push('/portal')
+        }
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function toggleEmailMode(mode: EmailMode) {
+    setEmailMode(mode)
+    setError(null)
+    setSuccessMsg(null)
+  }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-      }}
-    >
-      {/* ── LEFT: Brand Pitch ─────────────────────────────── */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, var(--purple-deep) 0%, #0a000f 100%)',
-          padding: '5rem 4rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          borderRight: '1px solid var(--border)',
-        }}
-      >
-        {/* Background glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '20%',
-            left: '-10%',
-            width: 500,
-            height: 500,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(128,0,218,0.3) 0%, transparent 65%)',
-            pointerEvents: 'none',
-          }}
-        />
+    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
 
-        <Link
-          href="/"
-          style={{ textDecoration: 'none', marginBottom: '3rem', display: 'inline-block' }}
-        >
-          <span
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '3.5rem',
-              color: 'var(--text-strong)',
-              textTransform: 'uppercase',
-              letterSpacing: '-0.01em',
-              lineHeight: 1,
-            }}
-          >
+      {/* ── LEFT: Brand Pitch ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--purple-deep) 0%, #0a000f 100%)',
+        padding: '5rem 4rem',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        position: 'relative', overflow: 'hidden',
+        borderRight: '1px solid var(--border)',
+      }}>
+        <div style={{
+          position: 'absolute', top: '20%', left: '-10%',
+          width: 500, height: 500, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(128,0,218,0.3) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
+
+        <Link href="/" style={{ textDecoration: 'none', marginBottom: '3rem', display: 'inline-block' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '3.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', letterSpacing: '-0.01em', lineHeight: 1 }}>
             DAW{' '}
             <span style={{ color: 'var(--purple-hot)' }}>WAREHOUSE</span>
-            <sup
-              style={{
-                fontSize: '0.75rem',
-                fontFamily: 'var(--font-meta)',
-                color: '#fff',
-                background: 'var(--accent-red)',
-                padding: '2px 6px',
-                marginLeft: '0.4rem',
-                verticalAlign: 'middle',
-                letterSpacing: '0.15em',
-              }}
-            >
+            <sup style={{ fontSize: '0.75rem', fontFamily: 'var(--font-meta)', color: '#fff', background: 'var(--accent-red)', padding: '2px 6px', marginLeft: '0.4rem', verticalAlign: 'middle', letterSpacing: '0.15em' }}>
               LIVE
             </sup>
           </span>
         </Link>
 
-        <p
-          style={{
-            fontSize: '1.15rem',
-            color: 'var(--text-muted)',
-            marginBottom: '3rem',
-            lineHeight: 1.7,
-            maxWidth: 420,
-            position: 'relative',
-          }}
-        >
+        <p style={{ fontSize: '1.15rem', color: 'var(--text-muted)', marginBottom: '3rem', lineHeight: 1.7, maxWidth: 420, position: 'relative' }}>
           The only wrestling federation where{' '}
           <em style={{ color: 'var(--text-strong)', fontStyle: 'normal' }}>you</em> are the star.
           Stream live on Twitch, track every win, and build your legacy.
         </p>
 
-        {/* Feature list */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.1rem',
-            position: 'relative',
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', position: 'relative' }}>
           {[
             { icon: '📡', text: 'Watch every match live on Twitch' },
             { icon: '🎮', text: 'AI vs AI — pure strategy, zero skill gap' },
@@ -109,143 +110,115 @@ export default function LoginPage() {
             { icon: '⚡', text: 'Real stats, real title histories, real rivalries' },
             { icon: '🎭', text: 'Build your wrestler, join a faction, shape your story' },
           ].map(({ icon, text }) => (
-            <div
-              key={text}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-              }}
-            >
+            <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{icon}</span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-meta)',
-                  fontSize: '0.75rem',
-                  color: 'var(--text-strong)',
-                  letterSpacing: '0.1em',
-                }}
-              >
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-strong)', letterSpacing: '0.1em' }}>
                 {text}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Twitch link */}
         <a
           href="https://twitch.tv/daware"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            marginTop: '3rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            fontFamily: 'var(--font-meta)',
-            fontSize: '0.72rem',
-            color: '#a970ff',
-            letterSpacing: '0.15em',
-            textDecoration: 'none',
-            position: 'relative',
-          }}
+          target="_blank" rel="noopener noreferrer"
+          style={{ marginTop: '3rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: '#a970ff', letterSpacing: '0.15em', textDecoration: 'none', position: 'relative' }}
         >
           <span style={{ fontSize: '1rem' }}>📺</span>
-          TWITCH.TV/DAWARE — LIVE FRIDAYS
+          TWITCH.TV/DAWARE — LIVE THURSDAYS
         </a>
       </div>
 
-      {/* ── RIGHT: Auth Panel ─────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '4rem 3rem',
-          background: 'var(--bg-mid)',
-        }}
-      >
+      {/* ── RIGHT: Auth Panel ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '4rem 3rem', background: 'var(--bg-mid)' }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
-          {/* Header */}
+
           <div style={{ marginBottom: '2.5rem' }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-meta)',
-                fontSize: '0.65rem',
-                color: 'var(--purple-hot)',
-                letterSpacing: '0.3em',
-                marginBottom: '0.75rem',
-              }}
-            >
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.3em', marginBottom: '0.75rem' }}>
               JOIN THE FEDERATION
             </p>
-            <h1
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '3rem',
-                color: 'var(--text-strong)',
-                textTransform: 'uppercase',
-                lineHeight: 1,
-              }}
-            >
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '3rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
               Sign In
             </h1>
           </div>
 
           {/* OAuth Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            <button
-              className="oauth-btn"
-              style={{ borderColor: '#9147ff' }}
-              onClick={() => login('twitch')}
-            >
+
+            <OAuthButton color="#9147ff" onClick={() => login('twitch')}>
               <TwitchIcon />
-              <span>Continue with Twitch</span>
-            </button>
+              Continue with Twitch
+            </OAuthButton>
 
-            <button
-              className="oauth-btn"
-              style={{ borderColor: '#7289da' }}
-              onClick={() => login('discord')}
-            >
+            <OAuthButton color="#7289da" onClick={() => login('discord')}>
               <DiscordIcon />
-              <span>Continue with Discord</span>
-            </button>
+              Continue with Discord
+            </OAuthButton>
 
-            <button
-              className="oauth-btn"
-              style={{ borderColor: '#4285f4' }}
-              onClick={() => alert('Google OAuth coming in Phase 2')}
-            >
+            <OAuthButton color="#4285f4" onClick={() => login('google')}>
               <GoogleIcon />
-              <span>Continue with Google</span>
-            </button>
+              Continue with Google
+            </OAuthButton>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0.25rem 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>OR</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
 
             {/* Email toggle */}
             <button
               className="oauth-btn"
               onClick={() => setEmailExpanded(!emailExpanded)}
+              style={{ justifyContent: 'space-between' }}
             >
-              <span style={{ fontSize: '1.1rem' }}>✉</span>
-              <span>Continue with Email</span>
-              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', opacity: 0.5 }}>
-                {emailExpanded ? '▲' : '▼'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>✉</span>
+                <span>Continue with Email</span>
+              </div>
+              <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>{emailExpanded ? '▲' : '▼'}</span>
             </button>
 
-            {/* Email inline form */}
+            {/* Email form */}
             {emailExpanded && (
-              <div
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  padding: '1.25rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                }}
-              >
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+                {/* Sign In / Sign Up toggle */}
+                <div style={{ display: 'flex', border: '1px solid var(--border)', background: 'var(--surface-2)', marginBottom: '0.25rem' }}>
+                  {(['signin', 'signup'] as EmailMode[]).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => toggleEmailMode(m)}
+                      style={{
+                        flex: 1, padding: '0.45rem',
+                        background: emailMode === m ? 'var(--purple)' : 'transparent',
+                        border: 'none',
+                        color: emailMode === m ? 'var(--text-strong)' : 'var(--text-dim)',
+                        fontFamily: 'var(--font-meta)', fontSize: '0.62rem',
+                        fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                        cursor: 'none', transition: 'all .15s',
+                      }}
+                    >
+                      {m === 'signin' ? 'Sign In' : 'Sign Up'}
+                    </button>
+                  ))}
+                </div>
+
+                {emailMode === 'signup' && (
+                  <div className="form-field" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Display Name</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Your wrestler name"
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      autoComplete="nickname"
+                    />
+                  </div>
+                )}
+
                 <div className="form-field" style={{ marginBottom: 0 }}>
                   <label className="form-label">Email</label>
                   <input
@@ -253,9 +226,12 @@ export default function LoginPage() {
                     className="form-input"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
+                    onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
                   />
                 </div>
+
                 <div className="form-field" style={{ marginBottom: 0 }}>
                   <label className="form-label">Password</label>
                   <input
@@ -263,31 +239,37 @@ export default function LoginPage() {
                     className="form-input"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={e => setPassword(e.target.value)}
+                    autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
+                    onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
                   />
                 </div>
+
+                {error && (
+                  <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--accent-red)', letterSpacing: '0.08em', padding: '0.5rem 0.75rem', background: 'rgba(255,51,85,0.08)', border: '1px solid rgba(255,51,85,0.25)' }}>
+                    {error}
+                  </div>
+                )}
+
+                {successMsg && (
+                  <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: '#34d399', letterSpacing: '0.08em', padding: '0.5rem 0.75rem', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                    {successMsg}
+                  </div>
+                )}
+
                 <button
                   className="btn btn-primary"
-                  style={{ width: '100%' }}
-                  onClick={() => alert('Email auth coming in Phase 2')}
+                  style={{ width: '100%', opacity: submitting ? 0.6 : 1 }}
+                  onClick={handleEmailSubmit}
+                  disabled={submitting}
                 >
-                  Continue →
+                  {submitting ? 'Please wait…' : emailMode === 'signin' ? 'Sign In →' : 'Create Account →'}
                 </button>
               </div>
             )}
           </div>
 
-          <p
-            style={{
-              marginTop: '2rem',
-              fontFamily: 'var(--font-meta)',
-              fontSize: '0.62rem',
-              color: 'var(--text-dim)',
-              letterSpacing: '0.1em',
-              textAlign: 'center',
-              lineHeight: 1.8,
-            }}
-          >
+          <p style={{ marginTop: '2rem', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em', textAlign: 'center', lineHeight: 1.8 }}>
             By continuing, you agree to the DAW rules and community standards.
             <br />
             Wrestler submissions are subject to Daware approval.
@@ -298,11 +280,24 @@ export default function LoginPage() {
   )
 }
 
-/* ── SVG Icons ─────────────────────────────────── */
+/* ── Shared OAuth button ── */
+function OAuthButton({ children, color, onClick }: { children: React.ReactNode; color?: string; onClick: () => void }) {
+  return (
+    <button
+      className="oauth-btn"
+      style={color ? { borderColor: color } : undefined}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
+/* ── SVG Icons ── */
 
 function TwitchIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#9147ff">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#9147ff" aria-hidden>
       <path d="M4.285 0L1 3.48v17.04h5.71V24l3.715-3.48h3.429L21 12V0H4.285zM19.286 11.14l-2.857 2.86h-4.286l-2.5 2.5v-2.5H5.857V1.714h13.429V11.14z" />
       <path d="M16.43 4.286h-1.716v5h1.716v-5zM11.715 4.286H10v5h1.715v-5z" />
     </svg>
@@ -311,7 +306,7 @@ function TwitchIcon() {
 
 function DiscordIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="#7289da">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#7289da" aria-hidden>
       <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z" />
     </svg>
   )
@@ -319,7 +314,7 @@ function DiscordIcon() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
       <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
       <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
       <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />

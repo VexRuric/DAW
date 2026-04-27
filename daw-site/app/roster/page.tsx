@@ -75,7 +75,7 @@ export default async function RosterPage() {
           <div style={{ marginBottom: '2.5rem' }}>
             <ChampionStrip
               champions={champions}
-              renderMap={new Map(wrestlers.map(w => [w.id, w.render_url ?? null]))}
+              renderMap={new Map([...wrestlers, ...alumni].map(w => [w.id, w.render_url ?? null]))}
             />
           </div>
         )}

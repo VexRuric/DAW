@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import WrestlerCard from '@/components/WrestlerCard'
 import { Wrestler, WrestlerRecord, CurrentChampion } from '@/lib/types'
-import ChampionStrip from '@/components/ChampionStrip'
 
 interface RosterClientProps {
   wrestlers: Wrestler[]

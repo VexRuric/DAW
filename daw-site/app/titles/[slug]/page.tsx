@@ -155,7 +155,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
             {/* Portrait */}
-            <Link href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : '#'} style={{ textDecoration: 'none', flexShrink: 0 }}>
+            <Link href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : `/roster/factions`} style={{ textDecoration: 'none', flexShrink: 0 }}>
               <div
                 style={{
                   width: 120,
@@ -181,7 +181,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
 
             <div>
               <Link
-                href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : '#'}
+                href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : `/roster/factions`}
                 style={{ textDecoration: 'none' }}
               >
                 <h2
@@ -273,6 +273,20 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                     {reign.wrestlers ? (
                       <Link
                         href={`/roster/${toSlug(holder.name)}`}
+                        style={{
+                          fontFamily: 'var(--font-display)',
+                          fontSize: '1rem',
+                          color: isCurrent ? 'var(--gold)' : 'var(--text-strong)',
+                          textTransform: 'uppercase',
+                          textDecoration: 'none',
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        {holder.name}
+                      </Link>
+                    ) : reign.teams ? (
+                      <Link
+                        href={`/roster/factions`}
                         style={{
                           fontFamily: 'var(--font-display)',
                           fontSize: '1rem',

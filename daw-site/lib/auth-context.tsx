@@ -15,7 +15,9 @@ export interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null
-  login: (provider: 'discord' | 'twitch') => Promise<void>
+  login: (provider: 'discord' | 'twitch' | 'google') => Promise<void>
+  loginWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>
   logout: () => Promise<void>
   isAdmin: boolean
   isFan: boolean
@@ -25,59 +27,78 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async () => {},
+  loginWithEmail: async () => ({ error: null }),
+  signUpWithEmail: async () => ({ error: null }),
   logout: async () => {},
   isAdmin: false,
   isFan: false,
   loading: true,
 })
 
+function mapUser(su: User | undefined): AuthUser | null {
+  if (!su) return null
+  const isAdmin = su.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const meta = su.user_metadata ?? {}
+  const name =
+    meta.full_name ||
+    meta.name ||
+    meta.custom_claims?.global_name ||
+    meta.preferred_username ||
+    su.email?.split('@')[0] ||
+    'Fan'
+  return {
+    id: su.id,
+    role: isAdmin ? 'admin' : 'fan',
+    name,
+    email: su.email,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Map Supabase User to our AuthUser
-  const mapUser = (su: User | undefined): AuthUser | null => {
-    if (!su) return null
-    // You can customize this logic, e.g. check an admin email list
-    const isAdmin = su.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    
-    return {
-      id: su.id,
-      role: isAdmin ? 'admin' : 'fan',
-      name: su.user_metadata?.full_name || su.user_metadata?.custom_claims?.global_name || su.email?.split('@')[0] || 'Fan',
-      email: su.email
-    }
-  }
-
   useEffect(() => {
-    const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(mapUser(session?.user))
       setLoading(false)
-    }
+    })
 
-    initSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session)
-        setUser(mapUser(session?.user))
-        setLoading(false)
-      }
-    )
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(mapUser(session?.user))
+      setLoading(false)
+    })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const login = async (provider: 'discord' | 'twitch') => {
+  const login = async (provider: 'discord' | 'twitch' | 'google') => {
     await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
+  }
+
+  const loginWithEmail = async (email: string, password: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error: error.message }
+    return { error: null }
+  }
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    name: string,
+  ): Promise<{ error: string | null; needsConfirmation?: boolean }> => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    })
+    if (error) return { error: error.message }
+    // If email confirmation is required, identities array is empty
+    const needsConfirmation = !data.session
+    return { error: null, needsConfirmation }
   }
 
   const logout = async () => {
@@ -85,16 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        isAdmin: user?.role === 'admin',
-        isFan: !!user, // Any logged-in user is at least a fan
-        loading,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      login,
+      loginWithEmail,
+      signUpWithEmail,
+      logout,
+      isAdmin: user?.role === 'admin',
+      isFan: !!user,
+      loading,
+    }}>
       {children}
     </AuthContext.Provider>
   )

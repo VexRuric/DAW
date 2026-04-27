@@ -585,7 +585,7 @@ const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: 
 /* ── Portal Page ──────────────────────────────────── */
 
 export default function PortalPage() {
-  const { isFan, user } = useAuth()
+  const { isFan, user, loading } = useAuth()
   const router = useRouter()
   const [openWrestler, setOpenWrestler] = useState<string | null>(null)
   const [openFaction,  setOpenFaction]  = useState(false)
@@ -593,8 +593,8 @@ export default function PortalPage() {
   const [loadingCreations, setLoadingCreations] = useState(true)
 
   useEffect(() => {
-    if (!isFan) router.push('/login')
-  }, [isFan, router])
+    if (!loading && !isFan) router.push('/login')
+  }, [isFan, loading, router])
 
   const fetchCreations = useCallback(async () => {
     if (!user) return
@@ -632,7 +632,7 @@ export default function PortalPage() {
 
   useEffect(() => { fetchCreations() }, [fetchCreations])
 
-  if (!isFan || !user) return null
+  if (loading || !isFan || !user) return null
 
   return (
     <>
