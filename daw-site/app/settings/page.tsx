@@ -304,7 +304,7 @@ export default function SettingsPage() {
                           Email / Password
                         </p>
                         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: '0.2rem' }}>
-                          ✓ {getIdentity('email')?.email ?? user.email}
+                          ✓ {getIdentity('email')?.identity_data?.email ?? user.email}
                         </p>
                       </div>
                     </div>
