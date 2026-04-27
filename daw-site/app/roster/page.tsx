@@ -11,36 +11,34 @@ export const metadata: Metadata = {
 }
 
 async function getData() {
-  const supabase = await createClient()
-  const [wrestlerRes, alumniRes, recordRes, champRes] = await Promise.all([
-    supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', true).order('name', { ascending: true }),
-    supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', false).order('name', { ascending: true }),
-    supabase.from('wrestler_records').select('*'),
-    supabase.from('current_champions').select('*'),
-  ])
+  try {
+    const supabase = await createClient()
+    const [wrestlerRes, alumniRes, recordRes, champRes] = await Promise.all([
+      supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', true).order('name', { ascending: true }),
+      supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', false).order('name', { ascending: true }),
+      supabase.from('wrestler_records').select('*'),
+      supabase.from('current_champions').select('*'),
+    ])
 
-  return {
-    wrestlers: (wrestlerRes.data ?? []) as Wrestler[],
-    alumni:    (alumniRes.data   ?? []) as Wrestler[],
-    records:   (recordRes.data   ?? []) as WrestlerRecord[],
-    champions: (champRes.data    ?? []) as CurrentChampion[],
-    debugError: wrestlerRes.error?.message ?? null,
+    return {
+      wrestlers: (wrestlerRes.data ?? []) as Wrestler[],
+      alumni:    (alumniRes.data   ?? []) as Wrestler[],
+      records:   (recordRes.data   ?? []) as WrestlerRecord[],
+      champions: (champRes.data    ?? []) as CurrentChampion[],
+    }
+  } catch {
+    return { wrestlers: [], alumni: [], records: [], champions: [] }
   }
 }
 
 export default async function RosterPage() {
-  const { wrestlers, alumni, records, champions, debugError } = await getData()
+  const { wrestlers, alumni, records, champions } = await getData()
 
   const totalMens   = wrestlers.filter(w => w.gender === 'Male').length
   const totalWomens = wrestlers.filter(w => w.gender === 'Female').length
 
   return (
     <>
-      {debugError && (
-        <div style={{ background: 'red', color: 'white', padding: '1rem', fontFamily: 'monospace' }}>
-          DB ERROR: {debugError}
-        </div>
-      )}
       {/* ── Top Hero section ─────────────────────── */}
       <section style={{ padding: '4rem 3rem 1.5rem' }}>
         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
