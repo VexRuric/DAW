@@ -2140,17 +2140,18 @@ function StoryNotesWindow({ notes, onClose }: { notes: StoryNote[]; onClose: () 
 /* ── Admin Page ────────────────────────────────────── */
 
 export default function AdminPage() {
-  const { isAdmin }  = useAuth()
-  const router       = useRouter()
+  const { isAdmin, loading } = useAuth()
+  const router               = useRouter()
   const [section, setSection]  = useState<Section>('approvals')
   const [notes, setNotes]      = useState<StoryNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
   const [approvalCount, setApprovalCount] = useState(0)
 
-  if (!isAdmin) {
-    if (typeof window !== 'undefined') router.push('/login')
-    return null
-  }
+  useEffect(() => {
+    if (!loading && !isAdmin) router.push('/login')
+  }, [isAdmin, loading, router])
+
+  if (loading || !isAdmin) return null
 
   function addNote(n: StoryNote) {
     setNotes((prev) => [n, ...prev])
