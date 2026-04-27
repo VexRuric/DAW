@@ -37,7 +37,6 @@ const AuthContext = createContext<AuthContextType>({
 
 function mapUser(su: User | undefined): AuthUser | null {
   if (!su) return null
-  console.log('[auth] app_metadata:', JSON.stringify(su.app_metadata))
   const isAdmin = su.app_metadata?.role === 'admin'
   const meta = su.user_metadata ?? {}
   const name =
