@@ -2142,6 +2142,7 @@ function StoryNotesWindow({ notes, onClose }: { notes: StoryNote[]; onClose: () 
 export default function AdminPage() {
   const { isAdmin, loading } = useAuth()
   const router               = useRouter()
+  console.log('[admin-render] loading:', loading, 'isAdmin:', isAdmin)
   const [section, setSection]  = useState<Section>('approvals')
   const [notes, setNotes]      = useState<StoryNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
