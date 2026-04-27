@@ -2150,13 +2150,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     console.log('[admin] loading:', loading, 'isAdmin:', isAdmin)
-    if (!loading && !isAdmin) {
-      console.log('[admin] redirecting to /login')
-      router.push('/login')
-    }
-  }, [isAdmin, loading, router])
+  }, [isAdmin, loading])
 
-  if (loading || !isAdmin) return null
+  if (loading) return <div style={{ color: 'white', padding: '2rem', fontFamily: 'monospace' }}>AUTH LOADING...</div>
+  if (!isAdmin) return <div style={{ color: 'red', padding: '2rem', fontFamily: 'monospace' }}>NOT ADMIN — isAdmin={String(isAdmin)} loading={String(loading)}</div>
 
   function addNote(n: StoryNote) {
     setNotes((prev) => [n, ...prev])
