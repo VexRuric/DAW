@@ -28,7 +28,7 @@ async function getData() {
     const [activeRes, inactiveRes, recordRes] = await Promise.all([
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', true).order('name'),
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', false).order('name'),
-      supabase.from('team_records').select('*').then((r) => r).catch(() => ({ data: [] })),
+      supabase.from('team_records').select('*'),
     ])
     return {
       teams:    (activeRes.data   ?? []) as Team[],
