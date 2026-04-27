@@ -109,7 +109,7 @@ export default function SettingsPage() {
               {user?.name}
             </p>
             <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.2rem' }}>
-              {user?.handle}
+              {user?.email}
             </p>
           </div>
 
