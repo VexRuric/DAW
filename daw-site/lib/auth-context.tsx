@@ -37,7 +37,7 @@ const AuthContext = createContext<AuthContextType>({
 
 function mapUser(su: User | undefined): AuthUser | null {
   if (!su) return null
-  const isAdmin = su.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const isAdmin = su.app_metadata?.role === 'admin'
   const meta = su.user_metadata ?? {}
   const name =
     meta.full_name ||
