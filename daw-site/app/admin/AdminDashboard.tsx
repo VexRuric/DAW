@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth-context'
 
 type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story'
 
@@ -1039,10 +1040,28 @@ function StoryNotesWindow({ notes, onClose }: { notes: StoryNote[]; onClose: () 
 /* ── Admin Page ──────────────────────────────────────── */
 
 export default function AdminDashboard() {
+  const { isAdmin, loading } = useAuth()
   const [section, setSection]    = useState<Section>('approvals')
   const [notes, setNotes]        = useState<StoryNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
   const [approvalCount, setApprovalCount] = useState(0)
+
+  if (loading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh' }}>
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.2em' }}>LOADING…</p>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh', flexDirection:'column', gap:'1rem' }}>
+        <p style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--accent-red)', textTransform:'uppercase' }}>Access Denied</p>
+        <Link href="/" style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>← Back to Site</Link>
+      </div>
+    )
+  }
 
   function addNote(n: StoryNote) { setNotes((prev) => [n, ...prev]) }
 
