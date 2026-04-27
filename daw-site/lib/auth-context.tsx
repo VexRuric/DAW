@@ -68,12 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null)
       }
-      setLoading(false)
+      setLoading(false)  // only set here, after refresh completes
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Don't set loading here — it races with refreshSession() above and
+      // can mark loading=false before the admin role is populated.
       setUser(mapUser(session?.user))
-      setLoading(false)
     })
 
     return () => subscription.unsubscribe()
