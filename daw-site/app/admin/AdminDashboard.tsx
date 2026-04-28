@@ -560,6 +560,9 @@ function ChampionsSection() {
   const [wonDate, setWonDate]     = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [renamingId, setRenamingId]   = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -614,6 +617,20 @@ function ChampionsSection() {
     await loadAll()
   }
 
+  async function startRename(titleId: string, currentName: string) {
+    setRenamingId(titleId); setRenameValue(currentName)
+  }
+
+  async function saveRename(titleId: string) {
+    const trimmed = renameValue.trim()
+    if (!trimmed) return
+    setRenameSaving(true)
+    await supabase.from('titles').update({ name: trimmed }).eq('id', titleId)
+    setRenamingId(null)
+    setRenameSaving(false)
+    await loadAll()
+  }
+
   async function rebuildFromMatches() {
     if (!confirm('This will DELETE all existing title reigns and regenerate them from match results. Continue?')) return
     setRebuilding(true); setRebuildResult(null); setRebuildError(null)
@@ -650,7 +667,25 @@ function ChampionsSection() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr auto', alignItems:'center', gap:'1rem', padding:'1rem 1.25rem' }}>
                 <div>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, textTransform:'uppercase', marginBottom:'0.2rem' }}>{title.category}</p>
-                  <p style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{title.name}</p>
+                  {renamingId === title.id ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem' }}>
+                      <input
+                        className="form-input"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveRename(title.id); if (e.key === 'Escape') setRenamingId(null) }}
+                        autoFocus
+                        style={{ fontFamily:'var(--font-display)', fontSize:'1rem', textTransform:'uppercase', padding:'0.3rem 0.6rem', width: 280 }}
+                      />
+                      <button onClick={() => saveRename(title.id)} disabled={renameSaving || !renameValue.trim()} style={{ padding:'0.3rem 0.75rem', background:'var(--gold)', border:'none', color:'var(--bg-top)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{renameSaving ? '…' : '✓'}</button>
+                      <button onClick={() => setRenamingId(null)} style={{ padding:'0.3rem 0.6rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'pointer' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                      <p style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{title.name}</p>
+                      <button onClick={() => startRename(title.id, title.name)} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'pointer', padding:'0 0.25rem', lineHeight:1, flexShrink:0 }} title="Rename title">✎</button>
+                    </div>
+                  )}
                   {champ ? (
                     <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.1em', marginTop:'0.3rem' }}>★ {champ.holder_name} — {champ.days_held} days</p>
                   ) : (
