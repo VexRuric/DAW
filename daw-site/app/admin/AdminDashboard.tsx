@@ -553,6 +553,9 @@ function ChampionsSection() {
   const [loading, setLoading]     = useState(true)
   const [editId, setEditId]       = useState<string | null>(null)
   const [holderType, setHolderType] = useState<'wrestler' | 'team'>('wrestler')
+  const [rebuilding, setRebuilding] = useState(false)
+  const [rebuildResult, setRebuildResult] = useState<string | null>(null)
+  const [rebuildError, setRebuildError]   = useState<string | null>(null)
   const [holderId, setHolderId]   = useState('')
   const [wonDate, setWonDate]     = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving]       = useState(false)
@@ -603,12 +606,33 @@ function ChampionsSection() {
     await loadAll()
   }
 
+  async function rebuildFromMatches() {
+    if (!confirm('This will DELETE all existing title reigns and regenerate them from match results. Continue?')) return
+    setRebuilding(true); setRebuildResult(null); setRebuildError(null)
+    const res = await fetch('/api/admin/rebuild-reigns', { method: 'POST' })
+    const data = await res.json()
+    if (data.error) { setRebuildError(data.error) }
+    else { setRebuildResult(data.message); await loadAll() }
+    setRebuilding(false)
+  }
+
   if (loading) return <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
 
   return (
     <div>
-      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'0.5rem' }}>Champion Management</h2>
-      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'2rem', lineHeight:1.8 }}>Assign or change the current holder for each active title. Changes take effect immediately on the site.</p>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.5rem', flexWrap:'wrap', gap:'1rem' }}>
+        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Champion Management</h2>
+        <button
+          onClick={rebuildFromMatches}
+          disabled={rebuilding}
+          style={{ padding:'0.55rem 1.1rem', background:'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', flexShrink:0, opacity: rebuilding ? 0.5 : 1 }}
+        >
+          {rebuilding ? 'Rebuilding…' : '⟳ Rebuild from Matches'}
+        </button>
+      </div>
+      {rebuildResult && <div style={{ padding:'0.65rem 1rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✓ {rebuildResult}</div>}
+      {rebuildError  && <div style={{ padding:'0.65rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✕ {rebuildError}</div>}
+      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'2rem', lineHeight:1.8 }}>Assign or change the current holder for each active title. Use "Rebuild from Matches" to auto-generate all reigns from recorded match results.</p>
       <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
         {titles.map((title) => {
           const champ = getChamp(title.id)
