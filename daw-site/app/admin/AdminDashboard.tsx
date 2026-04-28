@@ -797,7 +797,7 @@ function OwnershipSection() {
     setActing(true)
     const res = await fetch('/api/admin/assign-owner', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetId: itemId, targetType: tab, userId }),
+      body: JSON.stringify({ targetId: itemId, targetType: tab === 'factions' ? 'teams' : 'wrestlers', userId }),
     })
     const data = await res.json()
     const item = items.find((i) => i.id === itemId)
