@@ -606,6 +606,14 @@ function ChampionsSection() {
     await loadAll()
   }
 
+  async function retire(titleId: string, titleName: string) {
+    if (!confirm(`Retire "${titleName}"? This will close the current reign and mark the title inactive. It will no longer appear on the site but its history is preserved.`)) return
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.from('title_reigns').update({ lost_date: today }).eq('title_id', titleId).is('lost_date', null)
+    await supabase.from('titles').update({ active: false }).eq('id', titleId)
+    await loadAll()
+  }
+
   async function rebuildFromMatches() {
     if (!confirm('This will DELETE all existing title reigns and regenerate them from match results. Continue?')) return
     setRebuilding(true); setRebuildResult(null); setRebuildError(null)
@@ -652,6 +660,7 @@ function ChampionsSection() {
                 <div style={{ display:'flex', gap:'0.5rem' }}>
                   <button onClick={() => isEditing ? setEditId(null) : openEdit(title.id)} style={{ padding:'0.5rem 1rem', background: isEditing ? 'var(--surface-3)' : 'rgba(255,201,51,0.12)', border:`1px solid ${isEditing ? 'var(--border)' : 'var(--gold)'}`, color: isEditing ? 'var(--text-dim)' : 'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{isEditing ? 'Cancel' : champ ? 'Change' : 'Assign'}</button>
                   {champ && !isEditing && <button onClick={() => vacate(title.id)} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Vacate</button>}
+                  {!isEditing && <button onClick={() => retire(title.id, title.name)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }} title="Mark this title as retired and remove it from the active roster">Retire</button>}
                 </div>
               </div>
               {isEditing && (
