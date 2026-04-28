@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -1037,10 +1037,148 @@ function StoryNotesWindow({ notes, onClose }: { notes: StoryNote[]; onClose: () 
   )
 }
 
+/* ── Account Management ──────────────────────────────── */
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  creative: 'Creative Team',
+  writer: 'Writer',
+  fan: 'Fan',
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: 'var(--gold)',
+  creative: 'var(--purple-hot)',
+  writer: '#00c864',
+  fan: 'var(--text-dim)',
+}
+
+interface AccountRow { id: string; email: string; name: string; role: string; created_at: string }
+
+function AccountManagement() {
+  const [users, setUsers]       = useState<AccountRow[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [saving, setSaving]     = useState<string | null>(null)
+  const [search, setSearch]     = useState('')
+  const [filterRole, setFilterRole] = useState('all')
+
+  useEffect(() => {
+    fetch('/api/admin/users')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setUsers(d.users)
+      })
+      .catch(() => setError('Failed to load users'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function changeRole(userId: string, newRole: string) {
+    setSaving(userId)
+    const res = await fetch('/api/admin/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, role: newRole }),
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert(data.error)
+    } else {
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u))
+    }
+    setSaving(null)
+  }
+
+  const filtered = users.filter((u) => {
+    const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || (u.email ?? '').toLowerCase().includes(search.toLowerCase())
+    const matchRole = filterRole === 'all' || u.role === filterRole
+    return matchSearch && matchRole
+  })
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'0.5rem' }}>Account Management</h2>
+      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'1.5rem' }}>
+        Change user roles. Creative Team can access the admin panel but cannot edit accounts. Writers can edit news.
+      </p>
+
+      {error && (
+        <div style={{ padding:'0.75rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>
+          ✕ {error}{error.includes('SERVICE_ROLE_KEY') ? ' — add SUPABASE_SERVICE_ROLE_KEY to your Vercel environment variables.' : ''}
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:'0.75rem', marginBottom:'1.25rem', flexWrap:'wrap' }}>
+        <input
+          className="form-input"
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex:1, minWidth:200, fontSize:'0.75rem' }}
+        />
+        <select
+          className="form-input form-select"
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value)}
+          style={{ width:'auto', fontSize:'0.72rem' }}
+        >
+          <option value="all">All Roles</option>
+          {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading users…</p>
+      ) : filtered.length === 0 ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No users found.</p>
+      ) : (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+          {/* Header */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px', gap:'0.75rem', padding:'0.6rem 1.25rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['User', 'Email', 'Joined', 'Role'].map((h) => (
+              <span key={h} style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>
+            ))}
+          </div>
+          {filtered.map((u) => (
+            <div key={u.id} style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px', gap:'0.75rem', padding:'0.75rem 1.25rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', opacity: saving === u.id ? 0.5 : 1, transition:'opacity 0.15s' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                <div style={{ width:32, height:32, borderRadius:'50%', background: `${ROLE_COLORS[u.role] ?? 'var(--surface-2)'}22`, border:`1px solid ${ROLE_COLORS[u.role] ?? 'var(--border)'}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ fontFamily:'var(--font-display)', fontSize:'0.8rem', color: ROLE_COLORS[u.role] ?? 'var(--text-dim)', textTransform:'uppercase' }}>{u.name.charAt(0)}</span>
+                </div>
+                <div>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', fontWeight:700, letterSpacing:'0.05em' }}>{u.name}</p>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
+                </div>
+              </div>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-muted)', letterSpacing:'0.04em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email ?? '—'}</span>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.06em' }}>
+                {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              <select
+                className="form-input form-select"
+                value={u.role}
+                onChange={(e) => changeRole(u.id, e.target.value)}
+                disabled={saving === u.id}
+                style={{ fontSize:'0.65rem', padding:'0.3rem 2rem 0.3rem 0.6rem', color: ROLE_COLORS[u.role] ?? 'var(--text-muted)', fontWeight:700 }}
+              >
+                {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'1rem' }}>
+        {filtered.length} of {users.length} user{users.length !== 1 ? 's' : ''}
+      </p>
+    </div>
+  )
+}
+
 /* ── Admin Page ──────────────────────────────────────── */
 
 export default function AdminDashboard() {
-  const { isAdmin, loading } = useAuth()
+  const { isAdmin, isCreative, loading } = useAuth()
   const [section, setSection]    = useState<Section>('approvals')
   const [notes, setNotes]        = useState<StoryNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
@@ -1054,7 +1192,7 @@ export default function AdminDashboard() {
     )
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isCreative) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh', flexDirection:'column', gap:'1rem' }}>
         <p style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--accent-red)', textTransform:'uppercase' }}>Access Denied</p>
@@ -1074,6 +1212,7 @@ export default function AdminDashboard() {
     { id: 'images',    label: 'Roster Images' },
     { id: 'edits',     label: 'Roster Edits' },
     { id: 'story',     label: 'Story Development' },
+    ...(isAdmin ? [{ id: 'accounts' as Section, label: 'Account Management' }] : []),
   ]
 
   return (
@@ -1081,7 +1220,7 @@ export default function AdminDashboard() {
       <div className="admin-layout">
         <aside className="admin-sidebar">
           <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid var(--border)', marginBottom:'0.5rem' }}>
-            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.25em', fontWeight:700 }}>ADMIN PANEL</p>
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing:'0.25em', fontWeight:700 }}>{isAdmin ? 'ADMIN PANEL' : 'CREATIVE TEAM'}</p>
             <p style={{ fontFamily:'var(--font-display)', fontSize:'1.5rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1, marginTop:'0.25rem' }}>Dashboard</p>
           </div>
           {SECTIONS.map((s) => (
@@ -1104,6 +1243,7 @@ export default function AdminDashboard() {
           {section === 'images'     && <RosterImages />}
           {section === 'edits'      && <RosterEdits />}
           {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
+          {section === 'accounts'   && isAdmin && <AccountManagement />}
         </main>
       </div>
       {showNotes && <StoryNotesWindow notes={notes} onClose={() => setShowNotes(false)} />}

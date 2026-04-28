@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && path.startsWith('/admin')) {
-    if (user.app_metadata?.role !== 'admin') {
+    const role = user.app_metadata?.role
+    if (role !== 'admin' && role !== 'creative') {
       return NextResponse.redirect(new URL('/', request.url))
     }
   }

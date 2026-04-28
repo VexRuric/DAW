@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from './supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
-export type AuthRole = 'fan' | 'admin' | null
+export type AuthRole = 'admin' | 'creative' | 'writer' | 'fan' | null
 
 export interface AuthUser {
   id: string
@@ -20,6 +20,8 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>
   logout: () => Promise<void>
   isAdmin: boolean
+  isCreative: boolean
+  isWriter: boolean
   isFan: boolean
   loading: boolean
 }
@@ -31,13 +33,19 @@ const AuthContext = createContext<AuthContextType>({
   signUpWithEmail: async () => ({ error: null }),
   logout: async () => {},
   isAdmin: false,
+  isCreative: false,
+  isWriter: false,
   isFan: false,
   loading: true,
 })
 
 function mapUser(su: User | undefined): AuthUser | null {
   if (!su) return null
-  const isAdmin = su.app_metadata?.role === 'admin'
+  const raw = su.app_metadata?.role
+  const role: AuthRole =
+    raw === 'admin' ? 'admin' :
+    raw === 'creative' ? 'creative' :
+    raw === 'writer' ? 'writer' : 'fan'
   const meta = su.user_metadata ?? {}
   const name =
     meta.full_name ||
@@ -46,12 +54,7 @@ function mapUser(su: User | undefined): AuthUser | null {
     meta.preferred_username ||
     su.email?.split('@')[0] ||
     'Fan'
-  return {
-    id: su.id,
-    role: isAdmin ? 'admin' : 'fan',
-    name,
-    email: su.email,
-  }
+  return { id: su.id, role, name, email: su.email }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -120,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpWithEmail,
       logout,
       isAdmin: user?.role === 'admin',
+      isCreative: user?.role === 'creative',
+      isWriter: user?.role === 'writer',
       isFan: !!user,
       loading,
     }}>
