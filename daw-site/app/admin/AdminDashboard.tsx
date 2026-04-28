@@ -20,7 +20,7 @@ interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestle
 interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
-interface BookerSlot { id: number; matchType: string; stipulation: string; isTitleMatch: boolean; titleId: string; participants: BookerParticipant[]; isMainEvent: boolean }
+interface BookerSlot { id: number; matchType: string; stipulation: string; isTitleMatch: boolean; titleId: string; participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[] }
 interface ShowStub { id: string; name: string; show_date: string; status: string; stream_url: string | null }
 interface Participant { mp_id: string; name: string; result: string | null }
 interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; participants: Participant[] }
@@ -46,13 +46,31 @@ function participantCount(matchType: string): number {
   }
 }
 
+function getParticipantsPerSide(matchType: string): number[] {
+  switch (matchType) {
+    case 'Tag Team':      return [2, 2]
+    case 'Triple Threat': return [1, 1, 1]
+    case 'Fatal 4-Way':   return [1, 1, 1, 1]
+    case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
+    case 'Battle Royal':  return [1, 1, 1, 1, 1, 1, 1, 1]
+    case 'Handicap':      return [2, 1]
+    default:              return [1, 1]
+  }
+}
+
+function buildSideGroups(participants: BookerParticipant[], matchType: string): { side: BookerParticipant[]; startIdx: number }[] {
+  const perSide = getParticipantsPerSide(matchType)
+  let idx = 0
+  return perSide.map(n => { const s = { side: participants.slice(idx, idx + n), startIdx: idx }; idx += n; return s })
+}
+
 function emptyParticipant(): BookerParticipant { return { type: 'roster', wrestlerId: null, name: '' } }
 
 function makeBookerSlots(count: number): BookerSlot[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1, matchType: 'Singles', stipulation: 'Standard',
     isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()],
-    isMainEvent: i === count - 1,
+    isMainEvent: i === count - 1, sideNames: ['', ''],
   }))
 }
 
@@ -159,7 +177,7 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
     load()
   }, [])
 
-  function changeMode(m: 'weekly' | 'ppv') { setMode(m); setSlots(makeBookerSlots(m === 'weekly' ? 9 : 11)); setSelectedSlot(null) }
+  function changeMode(m: 'weekly' | 'ppv') { setMode(m); setSlots(makeBookerSlots(m === 'weekly' ? 9 : 12)); setSelectedSlot(null) }
 
   function assignRosterWrestler(entry: BookerRosterEntry) {
     if (selectedSlot === null) return
@@ -193,6 +211,10 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
     setSlots((prev) => prev.map((s) => { if (s.id !== slotId) return s; const parts = [...s.participants]; parts[idx] = emptyParticipant(); return { ...s, participants: parts } }))
   }
 
+  function updateSideName(slotId: number, sideIdx: number, name: string) {
+    setSlots((prev) => prev.map((s) => { if (s.id !== slotId) return s; const sideNames = [...s.sideNames]; sideNames[sideIdx] = name; return { ...s, sideNames } }))
+  }
+
   function updateSlotField(id: number, key: keyof BookerSlot, value: any) {
     setSlots((prev) => prev.map((s) => {
       if (s.id !== id) return s
@@ -202,6 +224,7 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
         const existing = s.participants.slice(0, count)
         while (existing.length < count) existing.push(emptyParticipant())
         updated.participants = existing
+        updated.sideNames = Array(getParticipantsPerSide(value as string).length).fill('')
       }
       return updated
     }))
@@ -236,7 +259,7 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
   function exportToDiscord() {
     const header = mode === 'ppv' && ppvName ? `**DAW ${ppvName.toUpperCase()} — MATCH CARD**` : `**DAW ${mode === 'ppv' ? 'PPV' : 'WEEKLY'} — MATCH CARD**`
     const dateStr = showDate ? `📅 ${new Date(showDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''
-    const lines = [header, ...(dateStr ? [dateStr] : []), '```', ...slots.map((s) => { const count = participantCount(s.matchType); const names = s.participants.slice(0, count).filter((p) => p.name).map((p) => p.name).join(' vs '); const label = s.isMainEvent ? '★ MAIN EVENT — ' : `Match ${s.id} — `; const extra = [s.matchType !== 'Singles' ? s.matchType : '', s.stipulation !== 'Standard' ? s.stipulation : '', s.isTitleMatch ? 'TITLE' : ''].filter(Boolean).join(' · '); return `${label}${names || 'TBA'}${extra ? ` (${extra})` : ''}` }), '```']
+    const lines = [header, ...(dateStr ? [dateStr] : []), '```', ...slots.map((s) => { const names = buildSideGroups(s.participants, s.matchType).map(({ side }, sideIdx) => { const faction = s.sideNames[sideIdx]?.trim(); return faction || side.filter((p) => p.name).map((p) => p.name).join(' & ') }).join(' vs '); const label = s.isMainEvent ? '★ MAIN EVENT — ' : `Match ${s.id} — `; const extra = [s.matchType !== 'Singles' ? s.matchType : '', s.stipulation !== 'Standard' ? s.stipulation : '', s.isTitleMatch ? 'TITLE' : ''].filter(Boolean).join(' · '); return `${label}${names || 'TBA'}${extra ? ` (${extra})` : ''}` }), '```']
     navigator.clipboard.writeText(lines.join('\n'))
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
@@ -250,7 +273,7 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
         <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
           <div className="tab-group">
             <button className={`tab${mode === 'weekly' ? ' active' : ''}`} onClick={() => changeMode('weekly')}>Weekly (9)</button>
-            <button className={`tab${mode === 'ppv' ? ' active' : ''}`} onClick={() => changeMode('ppv')}>PPV (11)</button>
+            <button className={`tab${mode === 'ppv' ? ' active' : ''}`} onClick={() => changeMode('ppv')}>PPV (12)</button>
           </div>
           <button className="btn" onClick={exportToDiscord} style={{ padding:'0.6rem 1.25rem' }}>{copied ? '✓ Copied!' : '📋 Discord'}</button>
           <button className="btn btn-primary" onClick={commitShow} disabled={committing || commitDone} style={{ padding:'0.6rem 1.25rem' }}>{committing ? 'Committing…' : commitDone ? '✓ Show Committed!' : 'Commit Show'}</button>
@@ -336,14 +359,22 @@ function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
                     )}
                   </div>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
-                  {slot.participants.slice(0, count).map((p, i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                      {i > 0 && <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--accent-red)', opacity:0.6 }}>vs</span>}
-                      <div style={{ padding:'0.4rem 0.75rem', background: p.name ? (p.type === 'writein' ? 'rgba(128,0,218,0.1)' : 'var(--surface-2)') : 'transparent', border:`1px solid ${p.name ? (p.type === 'writein' ? 'var(--purple)' : 'var(--border-hot)') : 'rgba(42,42,51,0.5)'}`, display:'flex', alignItems:'center', gap:'0.45rem', minWidth:110 }}>
-                        {p.type === 'writein' && p.name && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', color:'var(--purple-hot)', fontWeight:700, letterSpacing:'0.08em', background:'rgba(128,0,218,0.2)', padding:'1px 4px', flexShrink:0 }}>GUEST</span>}
-                        <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: p.name ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing:'0.08em', flex:1 }}>{p.name || `Slot ${i + 1}`}</span>
-                        {p.name && <button onClick={(e) => { e.stopPropagation(); removeParticipant(slot.id, i) }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.7rem', cursor:'pointer', padding:0, lineHeight:1 }}>✕</button>}
+                <div style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', flexWrap:'wrap' }}>
+                  {buildSideGroups(slot.participants, slot.matchType).map(({ side, startIdx }, sideIdx) => (
+                    <div key={sideIdx} style={{ display:'flex', alignItems:'flex-start', gap:'0.5rem' }}>
+                      {sideIdx > 0 && <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--accent-red)', opacity:0.6, paddingTop:'0.35rem' }}>vs</span>}
+                      <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                        {side.map((p, i) => (
+                          <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                            {i > 0 && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)' }}>&amp;</span>}
+                            <div style={{ padding:'0.4rem 0.75rem', background: p.name ? (p.type === 'writein' ? 'rgba(128,0,218,0.1)' : 'var(--surface-2)') : 'transparent', border:`1px solid ${p.name ? (p.type === 'writein' ? 'var(--purple)' : 'var(--border-hot)') : 'rgba(42,42,51,0.5)'}`, display:'flex', alignItems:'center', gap:'0.45rem', minWidth:110 }}>
+                              {p.type === 'writein' && p.name && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', color:'var(--purple-hot)', fontWeight:700, letterSpacing:'0.08em', background:'rgba(128,0,218,0.2)', padding:'1px 4px', flexShrink:0 }}>GUEST</span>}
+                              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: p.name ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing:'0.08em', flex:1 }}>{p.name || `Slot ${startIdx + i + 1}`}</span>
+                              {p.name && <button onClick={(e) => { e.stopPropagation(); removeParticipant(slot.id, startIdx + i) }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.7rem', cursor:'pointer', padding:0, lineHeight:1 }}>✕</button>}
+                            </div>
+                          </div>
+                        ))}
+                        <input type="text" placeholder="Faction name…" value={slot.sideNames[sideIdx] ?? ''} onChange={(e) => { e.stopPropagation(); updateSideName(slot.id, sideIdx, e.target.value) }} onClick={(e) => e.stopPropagation()} style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', padding:'0.15rem 0.5rem', background:'transparent', border:'1px dashed rgba(128,0,218,0.3)', color:'var(--purple-hot)', outline:'none', width:'100%', minWidth:110, letterSpacing:'0.05em' }} />
                       </div>
                     </div>
                   ))}
@@ -740,7 +771,7 @@ function OwnershipSection() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [profileQuery, setProfileQuery] = useState('')
   const [profileResults, setProfileResults] = useState<ProfileResult[]>([])
-  const [searching, setSearching]   = useState(false)
+  const [allUsers, setAllUsers]     = useState<{ id: string; name: string; email: string }[]>([])
   const [acting, setActing]         = useState(false)
   const [feedback, setFeedback]     = useState<{ id: string; msg: string } | null>(null)
 
@@ -753,22 +784,25 @@ function OwnershipSection() {
   }, [tab])
 
   useEffect(() => { loadItems() }, [loadItems])
+  useEffect(() => { fetch('/api/admin/users').then(r => r.json()).then(d => { if (d.users) setAllUsers(d.users) }).catch(() => {}) }, [])
 
-  async function searchProfiles(query: string) {
+  function searchProfiles(query: string) {
     setProfileQuery(query)
     if (!query.trim()) { setProfileResults([]); return }
-    setSearching(true)
-    const { data } = await supabase.from('profiles').select('id, display_name, twitch_handle').or(`display_name.ilike.%${query}%,twitch_handle.ilike.%${query}%`).limit(8)
-    setProfileResults(data ?? []); setSearching(false)
+    const q = query.toLowerCase()
+    setProfileResults(allUsers.filter(u => u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q)).slice(0, 8).map(u => ({ id: u.id, display_name: u.name, twitch_handle: null })))
   }
 
-  async function assign(itemId: string, profileId: string | null) {
+  async function assign(itemId: string, userId: string | null) {
     setActing(true)
-    const table = tab === 'wrestlers' ? 'wrestlers' : 'teams'
-    const { error } = await supabase.from(table).update({ submitted_by: profileId }).eq('id', itemId)
+    const res = await fetch('/api/admin/assign-owner', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetId: itemId, targetType: tab, userId }),
+    })
+    const data = await res.json()
     const item = items.find((i) => i.id === itemId)
-    if (error) { setFeedback({ id: itemId, msg: 'Failed to assign — check permissions.' }) }
-    else { setFeedback({ id: itemId, msg: profileId === null ? `Owner removed from ${item?.name}.` : `Owner assigned to ${item?.name}.` }); await loadItems() }
+    if (data.error) { setFeedback({ id: itemId, msg: `Error: ${data.error}` }) }
+    else { setFeedback({ id: itemId, msg: userId === null ? `Owner removed from ${item?.name}.` : `Owner assigned to ${item?.name}.` }); await loadItems() }
     setActing(false); setExpandedId(null)
     setTimeout(() => setFeedback(null), 3500)
   }
@@ -809,7 +843,6 @@ function OwnershipSection() {
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.75rem' }}>ASSIGN OWNER — {item.name.toUpperCase()}</p>
                   <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:'0.65rem' }}>
                     <input className="form-input" placeholder="Search by display name or Twitch handle…" value={profileQuery} onChange={(e) => searchProfiles(e.target.value)} style={{ fontSize:'0.72rem', maxWidth:360 }} autoFocus />
-                    {searching && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>Searching…</span>}
                   </div>
                   {profileResults.length > 0 && (
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', marginBottom:'0.75rem', maxWidth:400 }}>
@@ -1127,9 +1160,14 @@ function AccountManagement() {
   const [users, setUsers]       = useState<AccountRow[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
-  const [saving, setSaving]     = useState<string | null>(null)
-  const [search, setSearch]     = useState('')
+  const [saving, setSaving]         = useState<string | null>(null)
+  const [search, setSearch]         = useState('')
   const [filterRole, setFilterRole] = useState('all')
+  const [retiring, setRetiring]     = useState<string | null>(null)
+  const [combineExpandedId, setCombineExpandedId] = useState<string | null>(null)
+  const [combineSearch, setCombineSearch] = useState('')
+  const [combining, setCombining]   = useState(false)
+  const [acctFeedback, setAcctFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -1158,6 +1196,28 @@ function AccountManagement() {
     setSaving(null)
   }
 
+  async function retireUser(userId: string, userName: string) {
+    if (!confirm(`Retire "${userName}"? Their wrestlers and factions will become unassigned. The account login will be permanently deleted.`)) return
+    setRetiring(userId)
+    const res = await fetch('/api/admin/retire-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) })
+    const data = await res.json()
+    if (data.error) { alert(data.error) }
+    else { setUsers(prev => prev.filter(u => u.id !== userId)); setAcctFeedback(`Account "${userName}" retired.`) }
+    setRetiring(null)
+    setTimeout(() => setAcctFeedback(null), 3500)
+  }
+
+  async function combineAccounts(deleteUserId: string, keepUser: AccountRow) {
+    if (!confirm(`Merge into "${keepUser.name}" and delete the other account? This cannot be undone.`)) return
+    setCombining(true)
+    const res = await fetch('/api/admin/combine-accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteUserId, keepUserId: keepUser.id }) })
+    const data = await res.json()
+    if (data.error) { alert(data.error) }
+    else { setUsers(prev => prev.filter(u => u.id !== deleteUserId)); setAcctFeedback(`Account merged into "${keepUser.name}".`); setCombineExpandedId(null); setCombineSearch('') }
+    setCombining(false)
+    setTimeout(() => setAcctFeedback(null), 3500)
+  }
+
   const filtered = users.filter((u) => {
     const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || (u.email ?? '').toLowerCase().includes(search.toLowerCase())
     const matchRole = filterRole === 'all' || u.role === filterRole
@@ -1175,6 +1235,9 @@ function AccountManagement() {
         <div style={{ padding:'0.75rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>
           ✕ {error}{error.includes('SERVICE_ROLE_KEY') ? ' — add SUPABASE_SERVICE_ROLE_KEY to your Vercel environment variables.' : ''}
         </div>
+      )}
+      {acctFeedback && (
+        <div style={{ padding:'0.65rem 1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✓ {acctFeedback}</div>
       )}
 
       <div style={{ display:'flex', gap:'0.75rem', marginBottom:'1.25rem', flexWrap:'wrap' }}>
@@ -1203,35 +1266,69 @@ function AccountManagement() {
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
           {/* Header */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px', gap:'0.75rem', padding:'0.6rem 1.25rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['User', 'Email', 'Joined', 'Role'].map((h) => (
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px 170px', gap:'0.75rem', padding:'0.6rem 1.25rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['User', 'Email', 'Joined', 'Role', ''].map((h) => (
               <span key={h} style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>
             ))}
           </div>
           {filtered.map((u) => (
-            <div key={u.id} style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px', gap:'0.75rem', padding:'0.75rem 1.25rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', opacity: saving === u.id ? 0.5 : 1, transition:'opacity 0.15s' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
-                <div style={{ width:32, height:32, borderRadius:'50%', background: `${ROLE_COLORS[u.role] ?? 'var(--surface-2)'}22`, border:`1px solid ${ROLE_COLORS[u.role] ?? 'var(--border)'}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <span style={{ fontFamily:'var(--font-display)', fontSize:'0.8rem', color: ROLE_COLORS[u.role] ?? 'var(--text-dim)', textTransform:'uppercase' }}>{u.name.charAt(0)}</span>
+            <div key={u.id}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 180px 160px 160px 170px', gap:'0.75rem', padding:'0.75rem 1.25rem', borderBottom: combineExpandedId === u.id ? 'none' : '1px solid rgba(42,42,51,0.5)', alignItems:'center', opacity: (saving === u.id || retiring === u.id) ? 0.5 : 1, transition:'opacity 0.15s' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                  <div style={{ width:32, height:32, borderRadius:'50%', background: `${ROLE_COLORS[u.role] ?? 'var(--surface-2)'}22`, border:`1px solid ${ROLE_COLORS[u.role] ?? 'var(--border)'}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontFamily:'var(--font-display)', fontSize:'0.8rem', color: ROLE_COLORS[u.role] ?? 'var(--text-dim)', textTransform:'uppercase' }}>{u.name.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', fontWeight:700, letterSpacing:'0.05em' }}>{u.name}</p>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
+                  </div>
                 </div>
-                <div>
-                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', fontWeight:700, letterSpacing:'0.05em' }}>{u.name}</p>
-                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-muted)', letterSpacing:'0.04em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.06em' }}>
+                  {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                <select
+                  className="form-input form-select"
+                  value={u.role}
+                  onChange={(e) => changeRole(u.id, e.target.value)}
+                  disabled={saving === u.id}
+                  style={{ fontSize:'0.65rem', padding:'0.3rem 2rem 0.3rem 0.6rem', color: ROLE_COLORS[u.role] ?? 'var(--text-muted)', fontWeight:700 }}
+                >
+                  {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                <div style={{ display:'flex', gap:'0.35rem' }}>
+                  <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch('') }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
+                  <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
                 </div>
               </div>
-              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-muted)', letterSpacing:'0.04em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email ?? '—'}</span>
-              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.06em' }}>
-                {new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <select
-                className="form-input form-select"
-                value={u.role}
-                onChange={(e) => changeRole(u.id, e.target.value)}
-                disabled={saving === u.id}
-                style={{ fontSize:'0.65rem', padding:'0.3rem 2rem 0.3rem 0.6rem', color: ROLE_COLORS[u.role] ?? 'var(--text-muted)', fontWeight:700 }}
-              >
-                {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+              {combineExpandedId === u.id && (
+                <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,159,0,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>MERGE — {u.name.toUpperCase()}</p>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-muted)', letterSpacing:'0.05em', marginBottom:'0.75rem', lineHeight:1.6 }}>
+                    All wrestlers and factions owned by <strong style={{ color:'var(--text-strong)' }}>{u.name}</strong> will transfer to the selected account. {u.name}&apos;s login will then be permanently deleted.
+                  </p>
+                  <input className="form-input" placeholder="Search account to keep…" value={combineSearch} onChange={(e) => setCombineSearch(e.target.value)} style={{ fontSize:'0.72rem', maxWidth:360, marginBottom:'0.5rem' }} autoFocus />
+                  {combineSearch.trim() && (() => {
+                    const q = combineSearch.toLowerCase()
+                    const matches = users.filter(other => other.id !== u.id && (other.name.toLowerCase().includes(q) || (other.email ?? '').toLowerCase().includes(q))).slice(0, 6)
+                    return matches.length === 0 ? (
+                      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>No accounts found.</p>
+                    ) : (
+                      <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', maxWidth:400 }}>
+                        {matches.map(target => (
+                          <button key={target.id} onClick={() => combineAccounts(u.id, target)} disabled={combining} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.55rem 0.9rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)' }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                          >
+                            <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{target.name}</span>
+                            <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.06em' }}>{target.email ?? ''}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
           ))}
         </div>
