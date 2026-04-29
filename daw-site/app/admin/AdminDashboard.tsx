@@ -16,7 +16,7 @@ const NOTE_TYPES   = ['Feud Idea','Storyline Arc','PPV Idea','Character Note','F
 /* ── Types ──────────────────────────────────────────── */
 
 interface StoryNote { id: number; type: string; content: string; createdAt: string }
-interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string }
+interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null }
 interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
@@ -84,11 +84,24 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
   useEffect(() => {
     async function load() {
       const [wRes, tRes] = await Promise.all([
-        supabase.from('wrestlers').select('id, name, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
-        supabase.from('teams').select('id, name, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+        supabase.from('wrestlers').select('id, name, bio, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+        supabase.from('teams').select('id, name, bio, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
       ])
-      const wrestlers: PendingItem[] = (wRes.data ?? []).map((w) => ({ id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: w.name, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }))
-      const factions: PendingItem[] = (tRes.data ?? []).map((t) => ({ id: t.id, table: 'teams' as const, type: 'Faction' as const, name: t.name, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }))
+      function parseEditMeta(row: { name: string; bio: string | null }): { isEdit: boolean; editOf: string | null; displayName: string } {
+        try {
+          const b = JSON.parse(row.bio ?? '{}')
+          if (b.editOf) return { isEdit: true, editOf: b.editOf, displayName: b.snapshot?.name ?? row.name }
+        } catch { /* */ }
+        return { isEdit: false, editOf: null, displayName: row.name }
+      }
+      const wrestlers: PendingItem[] = (wRes.data ?? []).map((w) => {
+        const { isEdit, editOf, displayName } = parseEditMeta(w)
+        return { id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: displayName, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: w.bio, isEdit, editOf }
+      })
+      const factions: PendingItem[] = (tRes.data ?? []).map((t) => {
+        const { isEdit, editOf, displayName } = parseEditMeta(t)
+        return { id: t.id, table: 'teams' as const, type: 'Faction' as const, name: displayName, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: t.bio, isEdit, editOf }
+      })
       const all = [...wrestlers, ...factions].sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
       setItems(all)
       onCountChange(all.length)
@@ -99,6 +112,28 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
 
   async function approve(item: PendingItem) {
     setActing(item.id)
+
+    if (item.isEdit && item.editOf) {
+      try {
+        const bio = JSON.parse(item.bio ?? '{}')
+        const snap = bio.snapshot ?? {}
+        const updates: Record<string, unknown> = {}
+        if (snap.name != null) updates.name = snap.name
+        if ('gender' in snap) updates.gender = snap.gender
+        if ('role' in snap) updates.role = snap.role
+        if ('country' in snap) updates.country = snap.country
+        if ('gimmick' in snap) updates.gimmick = snap.gimmick
+        if (snap.bio != null) updates.bio = JSON.stringify(snap.bio)
+        const { error: updateErr } = await supabase.from(item.table).update(updates).eq('id', item.editOf)
+        if (!updateErr) {
+          await supabase.from(item.table).delete().eq('id', item.id)
+          setItems((prev) => { const next = prev.filter((i) => i.id !== item.id); onCountChange(next.length); return next })
+        }
+      } catch { /* */ }
+      setActing(null)
+      return
+    }
+
     const { error } = await supabase.from(item.table).update({ status: 'hired' }).eq('id', item.id)
     if (!error) setItems((prev) => { const next = prev.filter((i) => i.id !== item.id); onCountChange(next.length); return next })
     setActing(null)
@@ -106,6 +141,15 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
 
   async function reject(item: PendingItem) {
     setActing(item.id)
+
+    if (item.isEdit) {
+      // Delete the edit row; original stays unchanged
+      const { error } = await supabase.from(item.table).delete().eq('id', item.id)
+      if (!error) setItems((prev) => { const next = prev.filter((i) => i.id !== item.id); onCountChange(next.length); return next })
+      setActing(null)
+      return
+    }
+
     const { error } = await supabase.from(item.table).update({ status: 'rejected' }).eq('id', item.id)
     if (!error) setItems((prev) => { const next = prev.filter((i) => i.id !== item.id); onCountChange(next.length); return next })
     setActing(null)
@@ -121,11 +165,14 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
           {items.map((a) => (
-            <div key={a.id} style={{ display:'grid', gridTemplateColumns:'140px 1fr auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', opacity: acting === a.id ? 0.5 : 1, transition:'opacity 0.15s' }}>
-              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', letterSpacing:'0.15em', color:'var(--purple-hot)', fontWeight:700 }}>{a.type.toUpperCase()}</span>
+            <div key={a.id} style={{ display:'grid', gridTemplateColumns:'160px 1fr auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', background:'var(--surface)', border:`1px solid ${a.isEdit ? 'rgba(255,159,0,0.4)' : 'var(--border)'}`, opacity: acting === a.id ? 0.5 : 1, transition:'opacity 0.15s' }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', letterSpacing:'0.15em', color:'var(--purple-hot)', fontWeight:700 }}>{a.type.toUpperCase()}</span>
+                {a.isEdit && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', letterSpacing:'0.12em', color:'var(--gold)', fontWeight:700 }}>✎ EDIT</span>}
+              </div>
               <div>
                 <p style={{ fontFamily:'var(--font-display)', fontSize:'1.2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{a.name}</p>
-                <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.15rem' }}>Submitted {a.submittedAt}</p>
+                <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.15rem' }}>{a.isEdit ? 'Edit request · ' : ''}Submitted {a.submittedAt}</p>
               </div>
               <div style={{ display:'flex', gap:'0.5rem' }}>
                 <button onClick={() => approve(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✓ Accept</button>

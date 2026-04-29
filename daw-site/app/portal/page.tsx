@@ -146,29 +146,44 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
 
 /* ── Wrestler Builder Modal ───────────────────────── */
 
+interface WrestlerEditData {
+  id: string
+  name: string
+  gender: string | null
+  role: string | null
+  country: string | null
+  gimmick: string | null
+  bio: string | null
+}
+
 interface WrestlerBuilderProps {
   onClose: () => void
   onSubmitted?: () => void
   userId: string
-  editName?: string
+  editData?: WrestlerEditData
 }
 
-export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }: WrestlerBuilderProps) {
-  const [style, setStyle]       = useState<StylePill[]>([])
-  const [weight, setWeight]     = useState<WeightClass | null>(null)
-  const [height, setHeight]     = useState('')
-  const [ringName, setRingName] = useState(editName ?? '')
-  const [gender, setGender]     = useState<Gender | null>(null)
-  const [primary, setPrimary]   = useState('#8000da')
-  const [secondary, setSecondary] = useState('#ff3355')
-  const [homeState, setHomeState] = useState('')
-  const [hair, setHair]         = useState('')
-  const [eyes, setEyes]         = useState('')
-  const [alignment, setAlignment] = useState<Alignment | null>(null)
-  const [finisher, setFinisher] = useState('')
-  const [songUrl, setSongUrl]   = useState('')
+export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }: WrestlerBuilderProps) {
+  const parsedBio = editData?.bio ? (() => { try { return JSON.parse(editData.bio!) } catch { return {} } })() : {}
+  const isEditing = !!editData
+
+  const [creationType, setCreationType] = useState<'original' | 'community'>(parsedBio?.creationType ?? 'original')
+  const [communityKeyword, setCommunityKeyword] = useState<string>(parsedBio?.communityKeyword ?? '')
+  const [style, setStyle]       = useState<StylePill[]>(parsedBio?.style ?? [])
+  const [weight, setWeight]     = useState<WeightClass | null>(parsedBio?.weightClass ?? null)
+  const [height, setHeight]     = useState<string>(parsedBio?.height ?? '')
+  const [ringName, setRingName] = useState<string>(editData?.name ?? '')
+  const [gender, setGender]     = useState<Gender | null>((editData?.gender as Gender) ?? null)
+  const [primary, setPrimary]   = useState<string>(parsedBio?.primaryColor ?? '#8000da')
+  const [secondary, setSecondary] = useState<string>(parsedBio?.secondaryColor ?? '#ff3355')
+  const [homeState, setHomeState] = useState<string>(editData?.country ?? '')
+  const [hair, setHair]         = useState<string>(parsedBio?.hair ?? '')
+  const [eyes, setEyes]         = useState<string>(parsedBio?.eyes ?? '')
+  const [alignment, setAlignment] = useState<Alignment | null>((editData?.role as Alignment) ?? null)
+  const [finisher, setFinisher] = useState<string>(parsedBio?.finisher ?? '')
+  const [songUrl, setSongUrl]   = useState<string>(parsedBio?.songUrl ?? '')
   const [imgPreview, setImgPreview] = useState<string | null>(null)
-  const [sliders, setSliders]   = useState<number[]>(PERSONALITY_TRAITS.map(() => 50))
+  const [sliders, setSliders]   = useState<number[]>(parsedBio?.personalitySliders ?? PERSONALITY_TRAITS.map(() => 50))
   const [toast, setToast]       = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -180,46 +195,56 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }:
   }
 
   async function handleSubmit() {
-    if (!ringName.trim()) {
-      setSubmitError('Ring name is required.')
-      return
-    }
+    if (!ringName.trim()) { setSubmitError('Ring name is required.'); return }
+    if (creationType === 'community' && !communityKeyword.trim()) { setSubmitError('Creation keyword is required.'); return }
     setSubmitting(true)
     setSubmitError(null)
+
+    const bioFields = creationType === 'community'
+      ? { creationType: 'community', communityKeyword: communityKeyword.trim(), personalitySliders: sliders }
+      : { creationType: 'original', style, weightClass: weight, height, primaryColor: primary, secondaryColor: secondary, hair, eyes, finisher, songUrl, personalitySliders: sliders }
+
+    if (isEditing && editData) {
+      // Use a generated unique name to avoid the unique constraint on edits
+      const editRowName = `__edit_${editData.id.slice(0, 8)}_${Date.now()}`
+      const { error } = await supabase.from('wrestlers').insert({
+        name: editRowName,
+        status: 'pending',
+        submitted_by: userId,
+        bio: JSON.stringify({
+          editOf: editData.id,
+          snapshot: {
+            name: ringName.trim(),
+            gender: gender ?? null,
+            role: alignment ?? null,
+            country: homeState || null,
+            gimmick: creationType === 'original' && style.length ? style.join(', ') : null,
+            bio: bioFields,
+          },
+        }),
+      })
+      setSubmitting(false)
+      if (error) { setSubmitError('Edit submission failed — please try again.'); return }
+      setToast(true)
+      onSubmitted?.()
+      return
+    }
 
     const { error } = await supabase.from('wrestlers').insert({
       name:         ringName.trim(),
       gender:       gender ?? null,
       role:         alignment ?? null,
       country:      homeState || null,
-      gimmick:      style.length ? style.join(', ') : null,
+      gimmick:      creationType === 'original' && style.length ? style.join(', ') : null,
       status:       'pending',
       submitted_by: userId,
-      bio: JSON.stringify({
-        style,
-        weightClass:         weight,
-        height,
-        primaryColor:        primary,
-        secondaryColor:      secondary,
-        hair,
-        eyes,
-        finisher,
-        songUrl,
-        personalitySliders:  sliders,
-      }),
+      bio:          JSON.stringify(bioFields),
     })
-
     setSubmitting(false)
-
     if (error) {
-      setSubmitError(
-        error.code === '23505'
-          ? 'That ring name is already taken. Try a different name.'
-          : 'Submission failed — please try again.'
-      )
+      setSubmitError(error.code === '23505' ? 'That ring name is already taken. Try a different name.' : 'Submission failed — please try again.')
       return
     }
-
     setToast(true)
     onSubmitted?.()
   }
@@ -228,153 +253,148 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }:
     <>
       <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
         <div className="modal" style={{ maxWidth: 760 }}>
-          {/* Header */}
           <div className="modal-header">
-            <span className="modal-title">{editName ? `Edit: ${editName}` : 'New Wrestler'}</span>
+            <span className="modal-title">{isEditing ? `Edit: ${editData!.name}` : 'New Wrestler'}</span>
             <button className="modal-close" onClick={onClose}>✕</button>
           </div>
 
-          {/* Body */}
           <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-            {/* 1. Style */}
-            <div className="form-section">
-              <div className="form-section-label">Fighting Style</div>
-              <PillSelector<StylePill>
-                options={['Striker','Technician','Powerhouse','High Flyer']}
-                value={style} onChange={(v) => setStyle(v as StylePill[])} multi
-              />
-            </div>
-
-            {/* 2. Weight Class */}
-            <div className="form-section">
-              <div className="form-section-label">Weight Class</div>
-              <PillSelector<WeightClass>
-                options={['Lightweight','Cruiserweight','Middleweight','Heavyweight','Super Heavyweight']}
-                value={weight} onChange={(v) => setWeight(v as WeightClass)}
-              />
-            </div>
-
-            {/* 3–6: Basic info grid */}
-            <div className="form-section">
-              <div className="form-section-label">Identity</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-field">
-                  <label className="form-label">Height</label>
-                  <input className="form-input" placeholder="e.g. 6ft 2in" value={height} onChange={(e) => setHeight(e.target.value)} />
-                </div>
-                <div className="form-field">
-                  <label className="form-label">Announced As</label>
-                  <input className="form-input" placeholder="Ring name" value={ringName} onChange={(e) => setRingName(e.target.value)} />
+            {/* Creation type toggle — new creations only */}
+            {!isEditing && (
+              <div className="form-section">
+                <div className="form-section-label">Creation Type</div>
+                <div className="style-pills">
+                  {(['original', 'community'] as const).map((t) => (
+                    <button key={t} type="button" className={`style-pill${creationType === t ? ' selected' : ''}`} onClick={() => setCreationType(t)}>
+                      {t === 'original' ? 'New Creation' : 'WWE Community Creation'}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="form-field" style={{ marginBottom: '0.75rem' }}>
-                <label className="form-label">Gender</label>
-                <PillSelector<Gender>
-                  options={['Male','Female','Other']}
-                  value={gender} onChange={(v) => setGender(v as Gender)}
-                />
-              </div>
-            </div>
+            )}
 
-            {/* 7–8: Colors */}
-            <div className="form-section">
-              <div className="form-section-label">Brand Colors</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'start' }}>
-                <ColorPicker label="Primary Color" value={primary} onChange={setPrimary} />
-                <ColorPicker label="Secondary Color" value={secondary} onChange={setSecondary} />
-                <div className="form-field">
-                  <label className="form-label">Preview</label>
-                  <div
-                    style={{
-                      height: 44,
-                      background: `linear-gradient(90deg, ${primary} 0%, ${secondary} 100%)`,
-                      border: '1px solid var(--border)',
-                    }}
-                  />
-                </div>
+            {/* Community disclaimer */}
+            {creationType === 'community' && (
+              <div style={{ margin: '0 0 1.25rem', padding: '0.85rem 1rem', background: 'rgba(255,159,0,0.08)', border: '1px solid rgba(255,159,0,0.4)', borderLeft: '3px solid var(--gold)' }}>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--gold)', letterSpacing: '0.05em', lineHeight: 1.7, margin: 0 }}>
+                  <strong>WWE 2K Community Creation:</strong> Make sure your creation has the keyword <strong>DAWARE</strong> added in the WWE 2K creation tool so it can be found and downloaded for the show.
+                </p>
               </div>
-            </div>
+            )}
 
-            {/* 9–14: Details */}
-            <div className="form-section">
-              <div className="form-section-label">Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-field">
-                  <label className="form-label">Home State / Country</label>
-                  <input className="form-input" placeholder="e.g. Texas, USA" value={homeState} onChange={(e) => setHomeState(e.target.value)} />
+            {creationType === 'community' ? (
+              <>
+                <div className="form-section">
+                  <div className="form-section-label">Identity</div>
+                  <div className="form-field">
+                    <label className="form-label">Wrestler Name (as announced)</label>
+                    <input className="form-input" placeholder="Ring name" value={ringName} onChange={(e) => setRingName(e.target.value)} />
+                  </div>
+                  <div className="form-field" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Creation Keyword <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(used to find your creation in WWE 2K)</span></label>
+                    <input className="form-input" placeholder="e.g. DAWARE_JOHN_DOE" value={communityKeyword} onChange={(e) => setCommunityKeyword(e.target.value)} />
+                  </div>
                 </div>
-                <div className="form-field">
-                  <label className="form-label">Hair (Color + Style)</label>
-                  <input className="form-input" placeholder="e.g. Black, Braids" value={hair} onChange={(e) => setHair(e.target.value)} />
+                <div className="form-section" style={{ marginBottom: 0 }}>
+                  <div className="form-section-label">Character Image <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}>(optional screenshot)</span></div>
+                  <DropZone preview={imgPreview} onFile={handleFile} />
                 </div>
-                <div className="form-field">
-                  <label className="form-label">Eye Color</label>
-                  <input className="form-input" placeholder="e.g. Brown" value={eyes} onChange={(e) => setEyes(e.target.value)} />
+              </>
+            ) : (
+              <>
+                <div className="form-section">
+                  <div className="form-section-label">Fighting Style</div>
+                  <PillSelector<StylePill> options={['Striker','Technician','Powerhouse','High Flyer']} value={style} onChange={(v) => setStyle(v as StylePill[])} multi />
                 </div>
-                <div className="form-field">
-                  <label className="form-label">Finishing Move</label>
-                  <input className="form-input" placeholder="e.g. The Killswitch" value={finisher} onChange={(e) => setFinisher(e.target.value)} />
+                <div className="form-section">
+                  <div className="form-section-label">Weight Class</div>
+                  <PillSelector<WeightClass> options={['Lightweight','Cruiserweight','Middleweight','Heavyweight','Super Heavyweight']} value={weight} onChange={(v) => setWeight(v as WeightClass)} />
                 </div>
-              </div>
-              <div className="form-field">
-                <label className="form-label">Alignment</label>
-                <PillSelector<Alignment>
-                  options={['Face','Heel','Tweener']}
-                  value={alignment} onChange={(v) => setAlignment(v as Alignment)}
-                />
-              </div>
-              <div className="form-field" style={{ marginBottom: 0 }}>
-                <label className="form-label">Entrance Song URL (YouTube / Spotify)</label>
-                <input className="form-input" placeholder="https://youtube.com/..." value={songUrl} onChange={(e) => setSongUrl(e.target.value)} />
-              </div>
-            </div>
-
-            {/* 15–19: Personality sliders */}
-            <div className="form-section">
-              <div className="form-section-label">Personality Traits</div>
-              {PERSONALITY_TRAITS.map((trait, i) => (
-                <div key={i} className="personality-row">
-                  <span className="personality-label" style={{ textAlign: 'right' }}>{trait.faceA}</span>
-                  <input
-                    type="range"
-                    className="personality-slider"
-                    min={0} max={100}
-                    value={sliders[i]}
-                    onChange={(e) => {
-                      const next = [...sliders]
-                      next[i] = Number(e.target.value)
-                      setSliders(next)
-                    }}
-                  />
-                  <span className="personality-label">{trait.faceB}</span>
+                <div className="form-section">
+                  <div className="form-section-label">Identity</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-field">
+                      <label className="form-label">Height</label>
+                      <input className="form-input" placeholder="e.g. 6ft 2in" value={height} onChange={(e) => setHeight(e.target.value)} />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Announced As</label>
+                      <input className="form-input" placeholder="Ring name" value={ringName} onChange={(e) => setRingName(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="form-field" style={{ marginBottom: '0.75rem' }}>
+                    <label className="form-label">Gender</label>
+                    <PillSelector<Gender> options={['Male','Female','Other']} value={gender} onChange={(v) => setGender(v as Gender)} />
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Image upload */}
-            <div className="form-section" style={{ marginBottom: 0 }}>
-              <div className="form-section-label">Character Image</div>
-              <DropZone preview={imgPreview} onFile={handleFile} />
-            </div>
+                <div className="form-section">
+                  <div className="form-section-label">Brand Colors</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+                    <ColorPicker label="Primary Color" value={primary} onChange={setPrimary} />
+                    <ColorPicker label="Secondary Color" value={secondary} onChange={setSecondary} />
+                    <div className="form-field">
+                      <label className="form-label">Preview</label>
+                      <div style={{ height: 44, background: `linear-gradient(90deg, ${primary} 0%, ${secondary} 100%)`, border: '1px solid var(--border)' }} />
+                    </div>
+                  </div>
+                </div>
+                <div className="form-section">
+                  <div className="form-section-label">Details</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-field">
+                      <label className="form-label">Home State / Country</label>
+                      <input className="form-input" placeholder="e.g. Texas, USA" value={homeState} onChange={(e) => setHomeState(e.target.value)} />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Hair (Color + Style)</label>
+                      <input className="form-input" placeholder="e.g. Black, Braids" value={hair} onChange={(e) => setHair(e.target.value)} />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Eye Color</label>
+                      <input className="form-input" placeholder="e.g. Brown" value={eyes} onChange={(e) => setEyes(e.target.value)} />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Finishing Move</label>
+                      <input className="form-input" placeholder="e.g. The Killswitch" value={finisher} onChange={(e) => setFinisher(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Alignment</label>
+                    <PillSelector<Alignment> options={['Face','Heel','Tweener']} value={alignment} onChange={(v) => setAlignment(v as Alignment)} />
+                  </div>
+                  <div className="form-field" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Entrance Song URL (YouTube / Spotify)</label>
+                    <input className="form-input" placeholder="https://youtube.com/..." value={songUrl} onChange={(e) => setSongUrl(e.target.value)} />
+                  </div>
+                </div>
+                <div className="form-section">
+                  <div className="form-section-label">Personality Traits</div>
+                  {PERSONALITY_TRAITS.map((trait, i) => (
+                    <div key={i} className="personality-row">
+                      <span className="personality-label" style={{ textAlign: 'right' }}>{trait.faceA}</span>
+                      <input type="range" className="personality-slider" min={0} max={100} value={sliders[i]} onChange={(e) => { const next = [...sliders]; next[i] = Number(e.target.value); setSliders(next) }} />
+                      <span className="personality-label">{trait.faceB}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="form-section" style={{ marginBottom: 0 }}>
+                  <div className="form-section-label">Character Image</div>
+                  <DropZone preview={imgPreview} onFile={handleFile} />
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Error message */}
           {submitError && (
             <div style={{ padding: '0.75rem 1.5rem', background: 'rgba(255,51,85,0.1)', borderTop: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>
               ✕ {submitError}
             </div>
           )}
 
-          {/* Footer */}
           <div className="modal-footer">
-            {editName && (
-              <button className="btn btn-red" style={{ marginRight: 'auto' }}>
-                Retire Character
-              </button>
-            )}
             <button className="btn btn-ghost" onClick={onClose} disabled={submitting}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Submitting…' : editName ? 'Save Changes' : 'Submit for Approval'}
+              {submitting ? 'Submitting…' : isEditing ? 'Submit Edit for Approval' : 'Submit for Approval'}
             </button>
           </div>
         </div>
@@ -382,7 +402,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }:
 
       {toast && (
         <Toast
-          message="Submitted! Daware will review your character shortly."
+          message={isEditing ? 'Edit submitted! Daware will review your changes shortly.' : 'Submitted! Daware will review your character shortly.'}
           onDone={() => { setToast(false); onClose() }}
         />
       )}
@@ -392,19 +412,32 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editName }:
 
 /* ── Faction Builder Modal ────────────────────────── */
 
+interface FactionEditData {
+  id: string
+  name: string
+  bio: string | null
+}
+
 interface FactionBuilderProps {
   onClose: () => void
   onSubmitted?: () => void
   userId: string
+  editData?: FactionEditData
 }
 
-export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBuilderProps) {
-  const [name, setName]       = useState('')
-  const [color, setColor]     = useState('#8000da')
-  const [motion, setMotion]   = useState<'Single' | 'Double' | null>(null)
-  const [songUrl, setSongUrl] = useState('')
-  const [memberCount, setMemberCount] = useState(2)
-  const [members, setMembers] = useState<string[]>(['', ''])
+export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: FactionBuilderProps) {
+  const parsedBio = editData?.bio ? (() => { try { return JSON.parse(editData.bio!) } catch { return {} } })() : {}
+  const isEditing = !!editData
+
+  const existingMembers: string[] = parsedBio?.members ?? []
+  const initMembers = existingMembers.length >= 2 ? existingMembers : [...existingMembers, ...Array(2 - existingMembers.length).fill('')]
+
+  const [name, setName]       = useState(editData?.name ?? '')
+  const [color, setColor]     = useState(parsedBio?.color ?? '#8000da')
+  const [motion, setMotion]   = useState<'Single' | 'Double' | null>(parsedBio?.motion ?? null)
+  const [songUrl, setSongUrl] = useState(parsedBio?.songUrl ?? '')
+  const [memberCount, setMemberCount] = useState(Math.max(2, initMembers.length))
+  const [members, setMembers] = useState<string[]>(initMembers)
   const [imgPreview, setImgPreview] = useState<string | null>(null)
   const [toast, setToast]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -433,16 +466,28 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBui
     setSubmitting(true)
     setSubmitError(null)
 
+    const bioFields = { color, motion, songUrl, members: members.filter(Boolean) }
+
+    if (isEditing && editData) {
+      const editRowName = `__edit_${editData.id.slice(0, 8)}_${Date.now()}`
+      const { error } = await supabase.from('teams').insert({
+        name: editRowName,
+        status: 'pending',
+        submitted_by: userId,
+        bio: JSON.stringify({ editOf: editData.id, snapshot: { name: name.trim(), bio: bioFields } }),
+      })
+      setSubmitting(false)
+      if (error) { setSubmitError('Edit submission failed — please try again.'); return }
+      setToast(true)
+      onSubmitted?.()
+      return
+    }
+
     const { error } = await supabase.from('teams').insert({
       name:         name.trim(),
       status:       'pending',
       submitted_by: userId,
-      bio: JSON.stringify({
-        color,
-        motion,
-        songUrl,
-        members: members.filter(Boolean),
-      }),
+      bio:          JSON.stringify(bioFields),
     })
 
     setSubmitting(false)
@@ -465,7 +510,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBui
       <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
         <div className="modal" style={{ maxWidth: 560 }}>
           <div className="modal-header">
-            <span className="modal-title">New Faction</span>
+            <span className="modal-title">{isEditing ? `Edit: ${editData!.name}` : 'New Faction'}</span>
             <button className="modal-close" onClick={onClose}>✕</button>
           </div>
 
@@ -549,7 +594,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBui
           <div className="modal-footer">
             <button className="btn btn-ghost" onClick={onClose} disabled={submitting}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Submitting…' : 'Submit for Approval'}
+              {submitting ? 'Submitting…' : isEditing ? 'Submit Edit for Approval' : 'Submit for Approval'}
             </button>
           </div>
         </div>
@@ -557,7 +602,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId }: FactionBui
 
       {toast && (
         <Toast
-          message="Faction submitted! Daware will review it shortly."
+          message={isEditing ? 'Edit submitted! Daware will review your changes shortly.' : 'Faction submitted! Daware will review it shortly.'}
           onDone={() => { setToast(false); onClose() }}
         />
       )}
@@ -574,6 +619,12 @@ interface Creation {
   name: string
   type: 'wrestler' | 'faction'
   status: CreationStatus
+  bio: string | null
+  gender?: string | null
+  role?: string | null
+  country?: string | null
+  gimmick?: string | null
+  editPending?: boolean
 }
 
 const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: string; icon: string }> = {
@@ -587,9 +638,11 @@ const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: 
 export default function PortalPage() {
   const { isFan, user, loading } = useAuth()
   const router = useRouter()
-  const [openWrestler, setOpenWrestler] = useState<string | null>(null)
-  const [openFaction,  setOpenFaction]  = useState(false)
-  const [creations, setCreations]       = useState<Creation[]>([])
+  const [openNewWrestler, setOpenNewWrestler] = useState(false)
+  const [editingWrestler, setEditingWrestler] = useState<Creation | null>(null)
+  const [openNewFaction,  setOpenNewFaction]  = useState(false)
+  const [editingFaction,  setEditingFaction]  = useState<Creation | null>(null)
+  const [creations, setCreations]             = useState<Creation[]>([])
   const [loadingCreations, setLoadingCreations] = useState(true)
 
   useEffect(() => {
@@ -603,27 +656,39 @@ export default function PortalPage() {
     const [wRes, tRes] = await Promise.all([
       supabase
         .from('wrestlers')
-        .select('id, name, status')
+        .select('id, name, status, bio, gender, role, country, gimmick')
         .eq('submitted_by', user.id)
         .in('status', ['pending', 'hired', 'rejected']),
       supabase
         .from('teams')
-        .select('id, name, status')
+        .select('id, name, status, bio')
         .eq('submitted_by', user.id)
         .in('status', ['pending', 'hired', 'rejected']),
     ])
 
-    const wrestlers: Creation[] = (wRes.data ?? []).map((w) => ({
-      id: w.id,
-      name: w.name,
-      type: 'wrestler' as const,
-      status: w.status as CreationStatus,
+    const allWrestlers = wRes.data ?? []
+    const allTeams = tRes.data ?? []
+
+    // Separate edit-pending rows (temp names) from real creations
+    const wrestlerEdits = allWrestlers.filter((w) => w.name.startsWith('__edit_'))
+    const realWrestlers = allWrestlers.filter((w) => !w.name.startsWith('__edit_'))
+    const teamEdits = allTeams.filter((t) => t.name.startsWith('__edit_'))
+    const realTeams = allTeams.filter((t) => !t.name.startsWith('__edit_'))
+
+    // Build set of original IDs that already have a pending edit
+    const editPendingIds = new Set<string>()
+    for (const e of [...wrestlerEdits, ...teamEdits]) {
+      try { const b = JSON.parse(e.bio ?? '{}'); if (b.editOf) editPendingIds.add(b.editOf) } catch { /* */ }
+    }
+
+    const wrestlers: Creation[] = realWrestlers.map((w) => ({
+      id: w.id, name: w.name, type: 'wrestler' as const, status: w.status as CreationStatus,
+      bio: w.bio, gender: w.gender, role: w.role, country: w.country, gimmick: w.gimmick,
+      editPending: editPendingIds.has(w.id),
     }))
-    const factions: Creation[] = (tRes.data ?? []).map((t) => ({
-      id: t.id,
-      name: t.name,
-      type: 'faction' as const,
-      status: t.status as CreationStatus,
+    const factions: Creation[] = realTeams.map((t) => ({
+      id: t.id, name: t.name, type: 'faction' as const, status: t.status as CreationStatus,
+      bio: t.bio, editPending: editPendingIds.has(t.id),
     }))
 
     setCreations([...wrestlers, ...factions])
@@ -714,6 +779,18 @@ export default function PortalPage() {
                         {cfg.icon} {cfg.label}
                       </span>
                     </div>
+                    {c.editPending ? (
+                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                        ✎ EDIT PENDING
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { if (c.type === 'wrestler') setEditingWrestler(c); else setEditingFaction(c) }}
+                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'none', textTransform: 'uppercase' }}
+                      >
+                        ✎ Edit
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -725,7 +802,7 @@ export default function PortalPage() {
             icon="⚡"
             label="New Wrestler"
             sub="Submit a character"
-            onClick={() => setOpenWrestler('')}
+            onClick={() => setOpenNewWrestler(true)}
           />
 
           {/* New Faction card */}
@@ -733,7 +810,7 @@ export default function PortalPage() {
             icon="🤝"
             label="New Faction"
             sub="Build a stable"
-            onClick={() => setOpenFaction(true)}
+            onClick={() => setOpenNewFaction(true)}
           />
         </div>
 
@@ -767,19 +844,32 @@ export default function PortalPage() {
       </div>
 
       {/* Modals */}
-      {openWrestler !== null && (
+      {(openNewWrestler || editingWrestler) && (
         <WrestlerBuilderModal
           userId={user.id}
-          onClose={() => setOpenWrestler(null)}
+          onClose={() => { setOpenNewWrestler(false); setEditingWrestler(null) }}
           onSubmitted={fetchCreations}
-          editName={openWrestler || undefined}
+          editData={editingWrestler ? {
+            id: editingWrestler.id,
+            name: editingWrestler.name,
+            gender: editingWrestler.gender ?? null,
+            role: editingWrestler.role ?? null,
+            country: editingWrestler.country ?? null,
+            gimmick: editingWrestler.gimmick ?? null,
+            bio: editingWrestler.bio ?? null,
+          } : undefined}
         />
       )}
-      {openFaction && (
+      {(openNewFaction || editingFaction) && (
         <FactionBuilderModal
           userId={user.id}
-          onClose={() => setOpenFaction(false)}
+          onClose={() => { setOpenNewFaction(false); setEditingFaction(null) }}
           onSubmitted={fetchCreations}
+          editData={editingFaction ? {
+            id: editingFaction.id,
+            name: editingFaction.name,
+            bio: editingFaction.bio ?? null,
+          } : undefined}
         />
       )}
     </>
