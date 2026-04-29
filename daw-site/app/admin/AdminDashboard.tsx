@@ -13,10 +13,19 @@ const DEFEAT_TYPES = ['', 'Pin', 'Submission', 'DQ', 'Count Out', 'No Contest', 
 const RATINGS      = ['', '0.5','1.0','1.5','2.0','2.5','3.0','3.5','4.0','4.5','5.0']
 const NOTE_TYPES   = ['Feud Idea','Storyline Arc','PPV Idea','Character Note','Faction Note','Other']
 
+const PERSONALITY_TRAITS = [
+  { faceA: 'Brave',      faceB: 'Cowardly' },
+  { faceA: 'Humble',     faceB: 'Cocky'    },
+  { faceA: 'Serious',    faceB: 'Fun'      },
+  { faceA: 'Calculated', faceB: 'Wild'     },
+  { faceA: 'Friendly',   faceB: 'Vicious'  },
+  { faceA: 'Respectful', faceB: 'Dirty'    },
+]
+
 /* ── Types ──────────────────────────────────────────── */
 
 interface StoryNote { id: number; type: string; content: string; createdAt: string }
-interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null }
+interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null; render_url: string | null; gender: string | null; role: string | null; country: string | null }
 interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
@@ -76,16 +85,167 @@ function makeBookerSlots(count: number): BookerSlot[] {
 
 /* ── Pending Approvals ───────────────────────────────── */
 
+/* ── Submission detail helpers ───────────────────────── */
+
+function DetailField({ label, value, isUrl }: { label: string; value: string | undefined | null; isUrl?: boolean }) {
+  if (!value) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{label}</span>
+      {isUrl ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--purple-hot)', wordBreak: 'break-all', letterSpacing: '0.02em' }}>{value}</a>
+      ) : (
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--text-strong)' }}>{value}</span>
+      )}
+    </div>
+  )
+}
+
+function SubmissionDetails({ item }: { item: PendingItem }) {
+  const bio = (() => { try { return JSON.parse(item.bio ?? '{}') } catch { return {} } })()
+  const snap = item.isEdit ? (bio.snapshot ?? {}) : null
+  const bioData: Record<string, unknown> = item.isEdit ? (snap?.bio ?? {}) : bio
+  const displayName = item.isEdit ? (snap?.name ?? item.name) : item.name
+  const gender: string | null = item.isEdit ? (snap?.gender ?? null) : item.gender
+  const role: string | null   = item.isEdit ? (snap?.role   ?? null) : item.role
+  const country: string | null = item.isEdit ? (snap?.country ?? null) : item.country
+  const isComm = (bioData.creationType as string) === 'community'
+  const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.85rem' }
+
+  const editBanner = item.isEdit ? (
+    <div style={{ padding: '0.4rem 0.85rem', background: 'rgba(255,159,0,0.08)', border: '1px solid rgba(255,159,0,0.3)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.15em', fontWeight: 700 }}>
+      ✎ PROPOSED CHANGES — these fields will overwrite the original on Accept
+    </div>
+  ) : null
+
+  if (item.type === 'Wrestler') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: item.render_url ? '160px 1fr' : '1fr', gap: '1.5rem', padding: '1.5rem 1.25rem', borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.25)' }}>
+        {item.render_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.render_url} alt={displayName} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', objectPosition: 'top', display: 'block', border: '1px solid var(--border)' }} />
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {editBanner}
+          {isComm ? (
+            <div style={grid}>
+              <DetailField label="Creation Type" value="WWE Community Creation" />
+              <DetailField label="Keyword" value={bioData.communityKeyword as string} />
+            </div>
+          ) : (
+            <>
+              <div style={grid}>
+                <DetailField label="Ring Name"     value={displayName} />
+                <DetailField label="Gender"        value={gender} />
+                <DetailField label="Alignment"     value={role} />
+                <DetailField label="From"          value={country} />
+                <DetailField label="Weight Class"  value={bioData.weightClass as string} />
+                <DetailField label="Height"        value={bioData.height as string} />
+                <DetailField label="Fighting Style" value={(bioData.style as string[])?.join(', ')} />
+                <DetailField label="Finisher"      value={bioData.finisher as string} />
+                <DetailField label="Hair"          value={bioData.hair as string} />
+                <DetailField label="Eyes"          value={bioData.eyes as string} />
+                <DetailField label="Entrance Song" value={bioData.songUrl as string} isUrl />
+              </div>
+              {(bioData.primaryColor || bioData.secondaryColor) && (
+                <div>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Brand Colors</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.4rem' }}>
+                    {!!(bioData.primaryColor as string) && <>
+                      <div style={{ width: 22, height: 22, background: bioData.primaryColor as string, border: '1px solid var(--border)', flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{bioData.primaryColor as string}</span>
+                    </>}
+                    {!!(bioData.primaryColor as string) && !!(bioData.secondaryColor as string) && <span style={{ color: 'var(--text-dim)' }}>→</span>}
+                    {!!(bioData.secondaryColor as string) && <>
+                      <div style={{ width: 22, height: 22, background: bioData.secondaryColor as string, border: '1px solid var(--border)', flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{bioData.secondaryColor as string}</span>
+                    </>}
+                    {!!(bioData.primaryColor as string) && !!(bioData.secondaryColor as string) && (
+                      <div style={{ height: 22, flex: 1, maxWidth: 120, background: `linear-gradient(90deg,${bioData.primaryColor as string} 0%,${bioData.secondaryColor as string} 100%)`, border: '1px solid var(--border)' }} />
+                    )}
+                  </div>
+                </div>
+              )}
+              {(bioData.personalitySliders as number[])?.length > 0 && (
+                <div>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', display: 'block', marginBottom: '0.6rem' }}>Personality</span>
+                  <div style={{ display: 'grid', gap: '0.4rem', maxWidth: 480 }}>
+                    {PERSONALITY_TRAITS.map((trait, i) => {
+                      const val = (bioData.personalitySliders as number[])[i] ?? 50
+                      return (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 90px', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.08em', color: val < 50 ? 'var(--text-strong)' : 'var(--text-dim)', textAlign: 'right' }}>{trait.faceA}</span>
+                          <div style={{ height: 4, background: 'var(--border)', position: 'relative', borderRadius: 2 }}>
+                            <div style={{ position: 'absolute', left: `${val}%`, top: '50%', transform: 'translate(-50%,-50%)', width: 10, height: 10, background: 'var(--purple-hot)', borderRadius: '50%' }} />
+                          </div>
+                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.08em', color: val > 50 ? 'var(--text-strong)' : 'var(--text-dim)' }}>{trait.faceB}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Faction
+  const factionName = item.isEdit ? (snap?.name ?? item.name) : item.name
+  const fBio: Record<string, unknown> = item.isEdit ? (snap?.bio ?? {}) : bio
+  const members: string[] = (fBio.members as string[]) ?? []
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: item.render_url ? '160px 1fr' : '1fr', gap: '1.5rem', padding: '1.5rem 1.25rem', borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.25)' }}>
+      {item.render_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.render_url} alt={factionName} style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', objectPosition: 'top', display: 'block', border: '1px solid var(--border)' }} />
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {editBanner}
+        <div style={grid}>
+          <DetailField label="Faction Name"  value={factionName} />
+          <DetailField label="Title Motion"  value={fBio.motion as string} />
+          <DetailField label="Entrance Song" value={fBio.songUrl as string} isUrl />
+        </div>
+        {!!(fBio.color as string) && (
+          <div>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Faction Color</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+              <div style={{ width: 22, height: 22, background: fBio.color as string, border: '1px solid var(--border)' }} />
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{fBio.color as string}</span>
+            </div>
+          </div>
+        )}
+        {members.length > 0 && (
+          <div>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', display: 'block', marginBottom: '0.4rem' }}>Members</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {members.map((m, i) => (
+                <span key={i} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-strong)', letterSpacing: '0.08em', padding: '0.25rem 0.6rem', background: 'var(--surface)', border: '1px solid var(--border)' }}>{m}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ── Pending Approvals ───────────────────────────────── */
+
 function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => void }) {
-  const [items, setItems]   = useState<PendingItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [acting, setActing] = useState<string | null>(null)
+  const [items, setItems]       = useState<PendingItem[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [acting, setActing]     = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       const [wRes, tRes] = await Promise.all([
-        supabase.from('wrestlers').select('id, name, bio, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
-        supabase.from('teams').select('id, name, bio, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+        supabase.from('wrestlers').select('id, name, bio, render_url, gender, role, country, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+        supabase.from('teams').select('id, name, bio, render_url, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
       ])
       function parseEditMeta(row: { name: string; bio: string | null }): { isEdit: boolean; editOf: string | null; displayName: string } {
         try {
@@ -96,11 +256,11 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
       }
       const wrestlers: PendingItem[] = (wRes.data ?? []).map((w) => {
         const { isEdit, editOf, displayName } = parseEditMeta(w)
-        return { id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: displayName, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: w.bio, isEdit, editOf }
+        return { id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: displayName, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: w.bio, isEdit, editOf, render_url: w.render_url ?? null, gender: w.gender ?? null, role: w.role ?? null, country: w.country ?? null }
       })
       const factions: PendingItem[] = (tRes.data ?? []).map((t) => {
         const { isEdit, editOf, displayName } = parseEditMeta(t)
-        return { id: t.id, table: 'teams' as const, type: 'Faction' as const, name: displayName, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: t.bio, isEdit, editOf }
+        return { id: t.id, table: 'teams' as const, type: 'Faction' as const, name: displayName, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: t.bio, isEdit, editOf, render_url: t.render_url ?? null, gender: null, role: null, country: null }
       })
       const all = [...wrestlers, ...factions].sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
       setItems(all)
@@ -164,22 +324,36 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No pending approvals.</p>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-          {items.map((a) => (
-            <div key={a.id} style={{ display:'grid', gridTemplateColumns:'160px 1fr auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', background:'var(--surface)', border:`1px solid ${a.isEdit ? 'rgba(255,159,0,0.4)' : 'var(--border)'}`, opacity: acting === a.id ? 0.5 : 1, transition:'opacity 0.15s' }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', letterSpacing:'0.15em', color:'var(--purple-hot)', fontWeight:700 }}>{a.type.toUpperCase()}</span>
-                {a.isEdit && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', letterSpacing:'0.12em', color:'var(--gold)', fontWeight:700 }}>✎ EDIT</span>}
+          {items.map((a) => {
+            const expanded = expandedId === a.id
+            return (
+              <div key={a.id} style={{ background:'var(--surface)', border:`1px solid ${a.isEdit ? 'rgba(255,159,0,0.4)' : 'var(--border)'}`, opacity: acting === a.id ? 0.5 : 1, transition:'opacity 0.15s', overflow: 'hidden' }}>
+                {/* Clickable header row */}
+                <div
+                  onClick={() => setExpandedId(expanded ? null : a.id)}
+                  style={{ display:'grid', gridTemplateColumns:'160px 1fr auto auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', cursor:'pointer' }}
+                >
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', letterSpacing:'0.15em', color:'var(--purple-hot)', fontWeight:700 }}>{a.type.toUpperCase()}</span>
+                    {a.isEdit && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', letterSpacing:'0.12em', color:'var(--gold)', fontWeight:700 }}>✎ EDIT</span>}
+                  </div>
+                  <div>
+                    <p style={{ fontFamily:'var(--font-display)', fontSize:'1.2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{a.name}</p>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.15rem' }}>{a.isEdit ? 'Edit request · ' : ''}Submitted {a.submittedAt}</p>
+                  </div>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: expanded ? 'var(--purple-hot)' : 'var(--text-dim)', letterSpacing:'0.1em', flexShrink:0, userSelect:'none' }}>
+                    {expanded ? '▲ Hide' : '▼ Review'}
+                  </span>
+                  <div style={{ display:'flex', gap:'0.5rem' }} onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => approve(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✓ Accept</button>
+                    <button onClick={() => reject(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✕ Reject</button>
+                  </div>
+                </div>
+                {/* Expanded detail panel */}
+                {expanded && <SubmissionDetails item={a} />}
               </div>
-              <div>
-                <p style={{ fontFamily:'var(--font-display)', fontSize:'1.2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{a.name}</p>
-                <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.15rem' }}>{a.isEdit ? 'Edit request · ' : ''}Submitted {a.submittedAt}</p>
-              </div>
-              <div style={{ display:'flex', gap:'0.5rem' }}>
-                <button onClick={() => approve(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✓ Accept</button>
-                <button onClick={() => reject(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✕ Reject</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
