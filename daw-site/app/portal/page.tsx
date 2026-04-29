@@ -182,6 +182,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
   const [alignment, setAlignment] = useState<Alignment | null>((editData?.role as Alignment) ?? null)
   const [finisher, setFinisher] = useState<string>(parsedBio?.finisher ?? '')
   const [songUrl, setSongUrl]   = useState<string>(parsedBio?.songUrl ?? '')
+  const [imgFile, setImgFile]   = useState<File | null>(null)
   const [imgPreview, setImgPreview] = useState<string | null>(null)
   const [sliders, setSliders]   = useState<number[]>(parsedBio?.personalitySliders ?? PERSONALITY_TRAITS.map(() => 50))
   const [toast, setToast]       = useState(false)
@@ -189,6 +190,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   function handleFile(file: File) {
+    setImgFile(file)
     const reader = new FileReader()
     reader.onload = () => setImgPreview(reader.result as string)
     reader.readAsDataURL(file)
@@ -205,7 +207,11 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
       : { creationType: 'original', style, weightClass: weight, height, primaryColor: primary, secondaryColor: secondary, hair, eyes, finisher, songUrl, personalitySliders: sliders }
 
     if (isEditing && editData) {
-      // Use a generated unique name to avoid the unique constraint on edits
+      // Upload image directly to original's path (image updates bypass text-field approval)
+      if (imgFile) {
+        const fd = new FormData(); fd.append('file', imgFile); fd.append('targetType', 'wrestlers'); fd.append('targetId', editData.id)
+        await fetch('/api/portal/upload-image', { method: 'POST', body: fd })
+      }
       const editRowName = `__edit_${editData.id.slice(0, 8)}_${Date.now()}`
       const { error } = await supabase.from('wrestlers').insert({
         name: editRowName,
@@ -230,7 +236,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
       return
     }
 
-    const { error } = await supabase.from('wrestlers').insert({
+    const { data: newRow, error } = await supabase.from('wrestlers').insert({
       name:         ringName.trim(),
       gender:       gender ?? null,
       role:         alignment ?? null,
@@ -239,12 +245,20 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
       status:       'pending',
       submitted_by: userId,
       bio:          JSON.stringify(bioFields),
-    })
-    setSubmitting(false)
-    if (error) {
-      setSubmitError(error.code === '23505' ? 'That ring name is already taken. Try a different name.' : 'Submission failed — please try again.')
+    }).select('id').single()
+
+    if (error || !newRow) {
+      setSubmitting(false)
+      setSubmitError(error?.code === '23505' ? 'That ring name is already taken. Try a different name.' : 'Submission failed — please try again.')
       return
     }
+
+    if (imgFile) {
+      const fd = new FormData(); fd.append('file', imgFile); fd.append('targetType', 'wrestlers'); fd.append('targetId', newRow.id)
+      await fetch('/api/portal/upload-image', { method: 'POST', body: fd })
+    }
+
+    setSubmitting(false)
     setToast(true)
     onSubmitted?.()
   }
@@ -438,6 +452,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
   const [songUrl, setSongUrl] = useState(parsedBio?.songUrl ?? '')
   const [memberCount, setMemberCount] = useState(Math.max(2, initMembers.length))
   const [members, setMembers] = useState<string[]>(initMembers)
+  const [imgFile, setImgFile]   = useState<File | null>(null)
   const [imgPreview, setImgPreview] = useState<string | null>(null)
   const [toast, setToast]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -453,6 +468,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
   }
 
   function handleFile(file: File) {
+    setImgFile(file)
     const reader = new FileReader()
     reader.onload = () => setImgPreview(reader.result as string)
     reader.readAsDataURL(file)
@@ -469,6 +485,10 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
     const bioFields = { color, motion, songUrl, members: members.filter(Boolean) }
 
     if (isEditing && editData) {
+      if (imgFile) {
+        const fd = new FormData(); fd.append('file', imgFile); fd.append('targetType', 'teams'); fd.append('targetId', editData.id)
+        await fetch('/api/portal/upload-image', { method: 'POST', body: fd })
+      }
       const editRowName = `__edit_${editData.id.slice(0, 8)}_${Date.now()}`
       const { error } = await supabase.from('teams').insert({
         name: editRowName,
@@ -483,22 +503,23 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
       return
     }
 
-    const { error } = await supabase.from('teams').insert({
+    const { data: newRow, error } = await supabase.from('teams').insert({
       name:         name.trim(),
       status:       'pending',
       submitted_by: userId,
       bio:          JSON.stringify(bioFields),
-    })
+    }).select('id').single()
 
     setSubmitting(false)
 
-    if (error) {
-      setSubmitError(
-        error.code === '23505'
-          ? 'That faction name is already taken.'
-          : 'Submission failed — please try again.'
-      )
+    if (error || !newRow) {
+      setSubmitError(error?.code === '23505' ? 'That faction name is already taken.' : 'Submission failed — please try again.')
       return
+    }
+
+    if (imgFile) {
+      const fd = new FormData(); fd.append('file', imgFile); fd.append('targetType', 'teams'); fd.append('targetId', newRow.id)
+      await fetch('/api/portal/upload-image', { method: 'POST', body: fd })
     }
 
     setToast(true)
@@ -620,6 +641,7 @@ interface Creation {
   type: 'wrestler' | 'faction'
   status: CreationStatus
   bio: string | null
+  render_url?: string | null
   gender?: string | null
   role?: string | null
   country?: string | null
@@ -656,12 +678,12 @@ export default function PortalPage() {
     const [wRes, tRes] = await Promise.all([
       supabase
         .from('wrestlers')
-        .select('id, name, status, bio, gender, role, country, gimmick')
+        .select('id, name, status, bio, render_url, gender, role, country, gimmick')
         .eq('submitted_by', user.id)
         .in('status', ['pending', 'hired', 'rejected']),
       supabase
         .from('teams')
-        .select('id, name, status, bio')
+        .select('id, name, status, bio, render_url')
         .eq('submitted_by', user.id)
         .in('status', ['pending', 'hired', 'rejected']),
     ])
@@ -683,12 +705,12 @@ export default function PortalPage() {
 
     const wrestlers: Creation[] = realWrestlers.map((w) => ({
       id: w.id, name: w.name, type: 'wrestler' as const, status: w.status as CreationStatus,
-      bio: w.bio, gender: w.gender, role: w.role, country: w.country, gimmick: w.gimmick,
+      bio: w.bio, render_url: w.render_url, gender: w.gender, role: w.role, country: w.country, gimmick: w.gimmick,
       editPending: editPendingIds.has(w.id),
     }))
     const factions: Creation[] = realTeams.map((t) => ({
       id: t.id, name: t.name, type: 'faction' as const, status: t.status as CreationStatus,
-      bio: t.bio, editPending: editPendingIds.has(t.id),
+      bio: t.bio, render_url: t.render_url, editPending: editPendingIds.has(t.id),
     }))
 
     setCreations([...wrestlers, ...factions])
@@ -751,10 +773,18 @@ export default function PortalPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: c.type === 'faction' ? '3rem' : '2rem',
+                      overflow: 'hidden',
+                      position: 'relative',
                     }}
                   >
-                    {c.type === 'faction' ? '🤝' : '🧍'}
+                    {c.render_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.render_url} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                    ) : (
+                      <span style={{ fontSize: c.type === 'faction' ? '3rem' : '2rem', opacity: 0.35 }}>
+                        {c.type === 'faction' ? '🤝' : '🧍'}
+                      </span>
+                    )}
                   </div>
                   <div style={{ padding: '0.75rem 0.85rem', borderTop: '1px solid var(--border)' }}>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: '0.35rem' }}>
