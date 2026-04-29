@@ -1,20 +1,14 @@
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase-server'
+'use client'
 
-async function getNextShow() {
-  try {
-    const supabase = await createClient()
-    const { data } = await supabase
-      .from('shows')
-      .select('name, show_date, show_type, ppv_name')
-      .gte('show_date', new Date().toISOString().split('T')[0])
-      .order('show_date', { ascending: true })
-      .limit(1)
-      .single()
-    return data
-  } catch {
-    return null
-  }
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+interface NextShow {
+  name: string
+  show_date: string
+  show_type: string
+  ppv_name: string | null
 }
 
 function formatTopBarDate(dateStr: string) {
@@ -22,13 +16,37 @@ function formatTopBarDate(dateStr: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()
 }
 
-export default async function TopBar() {
-  const nextShow = await getNextShow()
+export default function TopBar() {
+  const [nextShow, setNextShow]   = useState<NextShow | null>(null)
+  const [live, setLive]           = useState(false)
+  const [channel, setChannel]     = useState('daware')
+
+  useEffect(() => {
+    async function init() {
+      const { data } = await supabase
+        .from('shows')
+        .select('name, show_date, show_type, ppv_name')
+        .gte('show_date', new Date().toISOString().split('T')[0])
+        .order('show_date', { ascending: true })
+        .limit(1)
+        .single()
+      setNextShow(data ?? null)
+
+      try {
+        const res  = await fetch('/api/stream-status')
+        const json = await res.json()
+        setLive(!!json.live)
+        if (json.channel) setChannel(json.channel)
+      } catch { /* offline fallback */ }
+    }
+    init()
+  }, [])
 
   return (
     <div
       style={{
-        background: 'var(--purple)',
+        background: live ? 'var(--purple)' : '#000',
+        borderBottom: live ? '1px solid transparent' : '2px solid var(--purple)',
         padding: '0.5rem 3rem',
         fontFamily: 'var(--font-meta)',
         fontSize: '0.7rem',
@@ -41,27 +59,33 @@ export default async function TopBar() {
         fontWeight: 700,
         position: 'relative',
         zIndex: 10,
+        transition: 'background 0.4s, border-color 0.4s',
       }}
     >
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
         <span
           style={{
             width: 7,
             height: 7,
-            background: 'var(--text-strong)',
+            background: live ? 'var(--text-strong)' : 'var(--purple-hot)',
             borderRadius: '50%',
             display: 'inline-block',
-            animation: 'pulse-dot 1.5s infinite',
+            animation: live ? 'pulse-dot 1.5s infinite' : undefined,
+            flexShrink: 0,
           }}
         />
-        {nextShow
-          ? `Next show · ${nextShow.ppv_name ?? nextShow.name} · ${formatTopBarDate(nextShow.show_date)}`
-          : 'DAW Warehouse LIVE'}
+        {live
+          ? (nextShow
+              ? `Live now · ${nextShow.ppv_name ?? nextShow.name} · ${formatTopBarDate(nextShow.show_date)}`
+              : `${channel} is live now`)
+          : (nextShow
+              ? `Next show · ${nextShow.ppv_name ?? nextShow.name} · ${formatTopBarDate(nextShow.show_date)}`
+              : 'DAW Warehouse LIVE')}
       </div>
 
       <div style={{ display: 'flex', gap: '1.25rem' }}>
         <Link
-          href="https://twitch.tv/daware"
+          href={`https://twitch.tv/${channel}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: 'var(--text-strong)', textDecoration: 'none', opacity: 0.9 }}

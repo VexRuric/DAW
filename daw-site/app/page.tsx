@@ -85,16 +85,19 @@ export default async function HomePage() {
     const supabase = await createClient()
     const today = new Date().toISOString().slice(0, 10)
 
-    // Parallel: last completed show + upcoming committed shows
-    const [lastShowRes, upcomingRes] = await Promise.all([
+    // Parallel: last completed show + upcoming committed shows + site settings
+    const [lastShowRes, upcomingRes, settingsRes] = await Promise.all([
       supabase.from('shows').select('*').eq('status', 'completed')
         .order('show_date', { ascending: false }).limit(1),
       supabase.from('shows').select('*').eq('status', 'committed')
         .gte('show_date', today).order('show_date', { ascending: true }).limit(6),
+      supabase.from('site_settings').select('key, value'),
     ])
 
     const lastShow = lastShowRes.data?.[0] ?? null
     const upcomingShows = upcomingRes.data ?? []
+    const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+    const twitchChannel: string = settingsMap.twitch_channel || 'daware'
 
     // Display show for stream section: next committed OR last completed
     const streamShowRaw = upcomingShows[0] ?? lastShow
@@ -204,7 +207,7 @@ export default async function HomePage() {
 
     return (
       <>
-        <HomeStreamSection show={streamShowInfo} matches={compactMatches} />
+        <HomeStreamSection show={streamShowInfo} matches={compactMatches} channel={twitchChannel} />
         <HomeNewsGrid cards={newsCards} />
         <HomeUpcomingEvents events={eventItems} />
         <HomeCommunityStrip />

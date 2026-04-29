@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts' | 'settings'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -1561,6 +1561,127 @@ function AccountManagement() {
   )
 }
 
+/* ── Site Settings ───────────────────────────────────── */
+
+function SiteSettings() {
+  const [twitchChannel, setTwitchChannel] = useState('')
+  const [titleImageUrl, setTitleImageUrl]   = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [imgFile, setImgFile]   = useState<File | null>(null)
+  const [imgPreview, setImgPreview] = useState<string | null>(null)
+  const [uploading, setUploading]   = useState(false)
+  const [uploadErr, setUploadErr]   = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('site_settings').select('key, value').then(({ data }) => {
+      const map = Object.fromEntries((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
+      setTwitchChannel(map.twitch_channel ?? 'daware')
+      setTitleImageUrl(map.title_image_url ?? '')
+      setImgPreview(map.title_image_url || null)
+      setLoading(false)
+    })
+  }, [])
+
+  async function save() {
+    setSaving(true); setSaved(false)
+    await Promise.all([
+      supabase.from('site_settings').upsert({ key: 'twitch_channel',  value: twitchChannel }),
+      supabase.from('site_settings').upsert({ key: 'title_image_url', value: titleImageUrl }),
+    ])
+    setSaving(false); setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  async function uploadImage() {
+    if (!imgFile) return
+    setUploading(true); setUploadErr(null)
+    const fd = new FormData()
+    fd.append('file', imgFile)
+    const res  = await fetch('/api/admin/upload-site-image', { method: 'POST', body: fd })
+    const json = await res.json()
+    if (json.publicUrl) {
+      setTitleImageUrl(json.publicUrl)
+      setImgPreview(json.publicUrl)
+      setImgFile(null)
+    } else {
+      setUploadErr(json.error ?? 'Upload failed')
+    }
+    setUploading(false)
+  }
+
+  const label: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dim)', display: 'block', marginBottom: '0.35rem' }
+  const hint: React.CSSProperties  = { fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.06em', marginTop: '0.35rem' }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.5rem' }}>Site Settings</h2>
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:'1.75rem', maxWidth:520 }}>
+
+          {/* Twitch Channel */}
+          <div>
+            <span style={label}>Twitch Channel</span>
+            <input
+              className="form-input"
+              value={twitchChannel}
+              onChange={(e) => setTwitchChannel(e.target.value.trim())}
+              placeholder="daware"
+            />
+            <p style={hint}>Controls the stream embed, Twitch link, and live-status detection in the top bar.</p>
+          </div>
+
+          {/* Title Image */}
+          <div>
+            <span style={label}>Title / Hero Image URL</span>
+            <input
+              className="form-input"
+              value={titleImageUrl}
+              onChange={(e) => setTitleImageUrl(e.target.value.trim())}
+              placeholder="https://…"
+              style={{ marginBottom: '0.75rem' }}
+            />
+            {imgPreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imgPreview} alt="Title image preview" style={{ display:'block', maxWidth:320, border:'1px solid var(--border)', marginBottom:'0.75rem' }} />
+            )}
+            <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+              <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', color:'var(--purple-hot)', border:'1px solid var(--purple)', padding:'0.45rem 0.9rem', cursor:'pointer' }}>
+                Choose File
+                <input type="file" accept="image/*" style={{ display:'none' }} onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) { setImgFile(f); setImgPreview(URL.createObjectURL(f)) }
+                }} />
+              </label>
+              {imgFile && (
+                <button onClick={uploadImage} disabled={uploading} style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', padding:'0.45rem 0.9rem', background:'rgba(168,77,255,0.15)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', cursor:'pointer' }}>
+                  {uploading ? 'Uploading…' : '↑ Upload'}
+                </button>
+              )}
+            </div>
+            {uploadErr && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--accent-red)', marginTop:'0.4rem' }}>{uploadErr}</p>}
+            <p style={hint}>Displayed on the home page hero area. Upload or paste a direct URL.</p>
+          </div>
+
+          {/* Save */}
+          <div>
+            <button
+              onClick={save}
+              disabled={saving}
+              style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border:`1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor:'pointer', transition:'all 0.2s' }}
+            >
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Admin Page ──────────────────────────────────────── */
 
 export default function AdminDashboard() {
@@ -1599,6 +1720,7 @@ export default function AdminDashboard() {
     { id: 'edits',     label: 'Roster Edits' },
     { id: 'story',     label: 'Story Development' },
     ...(isAdmin ? [{ id: 'accounts' as Section, label: 'Account Management' }] : []),
+    ...(isAdmin ? [{ id: 'settings' as Section, label: 'Site Settings' }] : []),
   ]
 
   return (
@@ -1630,6 +1752,7 @@ export default function AdminDashboard() {
           {section === 'edits'      && <RosterEdits />}
           {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
           {section === 'accounts'   && isAdmin && <AccountManagement />}
+          {section === 'settings'   && isAdmin && <SiteSettings />}
         </main>
       </div>
       {showNotes && <StoryNotesWindow notes={notes} onClose={() => setShowNotes(false)} />}

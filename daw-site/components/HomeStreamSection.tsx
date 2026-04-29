@@ -38,18 +38,20 @@ const HASHTAG_COLOR: Record<string, string> = {
 export default function HomeStreamSection({
   show,
   matches,
+  channel = 'daware',
 }: {
   show: StreamShowInfo | null
   matches: CompactMatch[]
+  channel?: string
 }) {
   const [playerSrc, setPlayerSrc] = useState('')
   const [chatSrc, setChatSrc] = useState('')
 
   useEffect(() => {
     const host = window.location.hostname
-    setPlayerSrc(`https://player.twitch.tv/?channel=daware&parent=${host}&autoplay=false`)
-    setChatSrc(`https://www.twitch.tv/embed/daware/chat?parent=${host}&darkpopout`)
-  }, [])
+    setPlayerSrc(`https://player.twitch.tv/?channel=${channel}&parent=${host}&autoplay=false`)
+    setChatSrc(`https://www.twitch.tv/embed/${channel}/chat?parent=${host}&darkpopout`)
+  }, [channel])
 
   return (
     <section style={{ padding: '3rem 3rem 4rem', borderBottom: '1px solid var(--border)' }}>

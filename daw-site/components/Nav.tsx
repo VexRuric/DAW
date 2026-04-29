@@ -47,36 +47,45 @@ export default function Nav() {
       {/* Logo */}
       <Link
         href="/"
-        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}
+        style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, lineHeight: 1, gap: '0.1rem' }}
       >
         <span
           style={{
             fontFamily: 'var(--font-display)',
-            fontSize: '1.6rem',
-            color: 'var(--text-strong)',
+            fontSize: '1.75rem',
+            color: 'var(--purple-hot)',
             textTransform: 'uppercase',
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.02em',
             lineHeight: 1,
           }}
         >
-          <span style={{ color: 'var(--purple-hot)' }}>DAW</span>{' '}
-          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
-            WAREHOUSE
-          </span>
+          DAW
         </span>
         <span
           style={{
-            fontSize: '0.55rem',
             fontFamily: 'var(--font-meta)',
+            fontSize: '0.5rem',
             fontWeight: 700,
-            background: 'var(--accent-red)',
-            color: '#fff',
-            padding: '2px 6px',
-            letterSpacing: '0.2em',
-            flexShrink: 0,
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: 'var(--text-strong)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
           }}
         >
-          LIVE
+          WAREHOUSE
+          <span
+            style={{
+              background: 'var(--accent-red)',
+              color: '#fff',
+              padding: '1px 4px',
+              fontSize: '0.45rem',
+              letterSpacing: '0.15em',
+            }}
+          >
+            LIVE
+          </span>
         </span>
       </Link>
 
