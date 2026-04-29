@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function SchedulePage() {
-  return <ScheduleClient initialYear={2025} />
+  return <ScheduleClient initialYear={new Date().getFullYear()} />
 }

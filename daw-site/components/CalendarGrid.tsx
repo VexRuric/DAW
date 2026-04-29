@@ -75,8 +75,8 @@ interface MatchCard {
 /* ── Modal ─────────────────────────────────────────── */
 
 function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
-  const [matches, setMatches]   = useState<MatchCard[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [matches, setMatches] = useState<MatchCard[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchMatches() {
@@ -110,7 +110,6 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
     fetchMatches()
   }, [show.id])
 
-  // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -154,7 +153,7 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
                 {show.show_type === 'ppv' ? '★ PPV EVENT' : 'WEEKLY SHOW'}
               </p>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 0.95, marginBottom: '0.4rem' }}>
-                {show.name}
+                {show.ppv_name ?? show.name}
               </h2>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.12em' }}>
                 {showDateFormatted}
@@ -193,7 +192,7 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
             <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', background: '#000' }}>
               <iframe
                 src={embedUrl}
-                title={show.name}
+                title={show.ppv_name ?? show.name}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
@@ -216,7 +215,6 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {matches.map((match, idx) => {
                 const isMain = idx === matches.length - 1
-                const winner = match.participants.find((p) => p.result === 'winner')
                 return (
                   <div
                     key={match.id}
@@ -304,21 +302,22 @@ function CalendarCell({
 }) {
   if (!date) return <div style={{ aspectRatio: '1', minHeight: 36 }} />
 
-  const dateStr  = toDateStr(date)
-  const isPast   = date < today && dateStr !== toDateStr(today)
-  const isToday  = dateStr === toDateStr(today)
-  const isFri    = isFriday(date)
-  const ppv      = ppvMap[dateStr]
-  const lastFri  = isFri ? toDateStr(getLastFriday(year, date.getMonth())) === dateStr : false
-  const hasPPV   = !!ppv && lastFri
-  const dbShow   = showMap[dateStr]
-  const isClickable = isFri || hasPPV
+  const dateStr     = toDateStr(date)
+  const isPast      = date < today && dateStr !== toDateStr(today)
+  const isToday     = dateStr === toDateStr(today)
+  const isFri       = isFriday(date)
+  const ppv         = ppvMap[dateStr]
+  const lastFri     = isFri ? toDateStr(getLastFriday(year, date.getMonth())) === dateStr : false
+  const hasPPV      = !!ppv && lastFri
+  const dbShow      = showMap[dateStr]
+  const isCompleted = dbShow?.status === 'completed'
+  const isClickable = (isFri || hasPPV) && !!dbShow
 
-  const bgColor = hasPPV ? ppv.color : undefined
+  const bgColor = hasPPV ? ppv.color : (isPast && isCompleted ? 'rgba(0,200,100,0.05)' : undefined)
 
   return (
     <div
-      onClick={() => { if (isClickable && dbShow) onShowClick(dbShow) }}
+      onClick={() => { if (isClickable) onShowClick(dbShow!) }}
       style={{
         aspectRatio: '1',
         minHeight: 36,
@@ -327,23 +326,24 @@ function CalendarCell({
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        backgroundColor: hasPPV ? bgColor : undefined,
-        borderBottom: isFri && !hasPPV ? '2px solid var(--purple)' : undefined,
+        backgroundColor: bgColor,
+        borderBottom: isFri && !hasPPV ? `2px solid ${isCompleted ? 'rgba(0,200,100,0.4)' : 'var(--purple)'}` : undefined,
         outline: isToday ? '2px solid var(--purple-hot)' : undefined,
         outlineOffset: -2,
-        opacity: isPast && !hasPPV ? 0.38 : 1,
-        cursor: isClickable && dbShow ? 'none' : 'default',
+        // only fade past dates that have no show data at all
+        opacity: isPast && !hasPPV && !dbShow ? 0.35 : 1,
+        cursor: isClickable ? 'none' : 'default',
         transition: 'filter 0.15s',
       }}
-      onMouseEnter={(e) => { if (isClickable && dbShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.3)' }}
+      onMouseEnter={(e) => { if (isClickable) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.35)' }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}
-      title={dbShow ? dbShow.name : undefined}
+      title={dbShow ? (dbShow.ppv_name ?? dbShow.name) : undefined}
     >
       <span style={{
         fontFamily: 'var(--font-meta)',
         fontSize: '0.62rem',
         fontWeight: isToday ? 700 : 400,
-        color: hasPPV ? '#fff' : isFri ? 'var(--purple-hot)' : 'var(--text-dim)',
+        color: hasPPV ? '#fff' : isFri ? (isCompleted ? '#00c864' : 'var(--purple-hot)') : 'var(--text-dim)',
         letterSpacing: '0.05em',
         lineHeight: 1,
       }}>
@@ -351,8 +351,15 @@ function CalendarCell({
       </span>
 
       {isFri && !hasPPV && (
-        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.42rem', fontWeight: 700, letterSpacing: '0.15em', color: dbShow ? (dbShow.status === 'completed' ? '#00c864' : 'var(--purple-hot)') : 'var(--purple-hot)', marginTop: '1px' }}>
-          {dbShow ? (dbShow.status === 'completed' ? '✓' : 'DAW') : 'DAW'}
+        <span style={{
+          fontFamily: 'var(--font-meta)',
+          fontSize: '0.42rem',
+          fontWeight: 700,
+          letterSpacing: '0.15em',
+          color: isCompleted ? '#00c864' : dbShow ? 'var(--purple-hot)' : 'var(--text-dim)',
+          marginTop: '1px',
+        }}>
+          {isCompleted ? '✓' : dbShow ? 'DAW' : ''}
         </span>
       )}
       {hasPPV && (
@@ -411,21 +418,73 @@ function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
   )
 }
 
+/* ── Sidebar show row ──────────────────────────────── */
+
+function SidebarShowRow({
+  show,
+  ppv,
+  dateLabel,
+  onShowClick,
+  dimmed,
+}: {
+  show: ShowStub | null
+  ppv: PPVEvent | null
+  dateLabel: string
+  onShowClick: (s: ShowStub) => void
+  dimmed?: boolean
+}) {
+  const isCompleted = show?.status === 'completed'
+  return (
+    <div
+      onClick={() => { if (show) onShowClick(show) }}
+      className={`show-row${ppv ? ' ppv' : ''}`}
+      style={{
+        cursor: show ? 'none' : 'default',
+        opacity: dimmed ? 0.55 : 1,
+        ...(ppv ? { borderLeftColor: ppv.color } : {}),
+      }}
+      onMouseEnter={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = isCompleted ? '#00c864' : 'var(--purple-hot)' }}
+      onMouseLeave={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : 'var(--border)' }}
+    >
+      {ppv && (
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.2rem 0.5rem', background: ppv.color, color: '#fff', flexShrink: 0 }}>
+          PPV
+        </span>
+      )}
+      <div style={{ flex: 1 }}>
+        <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
+          {show?.ppv_name ?? show?.name ?? (ppv ? ppv.name : 'DAW Weekly')}
+        </p>
+        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.15rem' }}>
+          {dateLabel}
+        </p>
+      </div>
+      {show && (
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: isCompleted ? '#00c864' : 'var(--purple-hot)', letterSpacing: '0.1em', flexShrink: 0 }}>
+          {isCompleted ? '✓ RESULTS' : 'VIEW ›'}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /* ── Main calendar component ───────────────────────── */
 
 export default function ScheduleClient({ initialYear }: { initialYear: number }) {
-  const [year, setYear]         = useState(initialYear)
-  const [showMap, setShowMap]   = useState<Record<string, ShowStub>>({})
-  const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  const [year, setYear]       = useState(initialYear)
+  const [showMap, setShowMap] = useState<Record<string, ShowStub>>({})
+  const [recentShows, setRecentShows] = useState<ShowStub[]>([])
+  const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
+  const [sidebarTab, setSidebarTab]   = useState<'upcoming' | 'recent'>('upcoming')
 
   const ppvList = getPPVsForYear(year)
   const ppvMap: Record<string, PPVEvent> = {}
   ppvList.forEach((p) => { ppvMap[p.date] = p })
 
-  // Load shows for the selected year
+  // Shows for selected year (calendar)
   useEffect(() => {
     async function load() {
       const start = `${year}-01-01`
@@ -443,6 +502,22 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     load()
   }, [year])
 
+  // Recent completed shows (sidebar — independent of year)
+  useEffect(() => {
+    async function loadRecent() {
+      const todayStr = toDateStr(today)
+      const { data } = await supabase
+        .from('shows')
+        .select('id, name, show_date, show_type, ppv_name, stream_url, status')
+        .eq('status', 'completed')
+        .lt('show_date', todayStr)
+        .order('show_date', { ascending: false })
+        .limit(12)
+      setRecentShows(data ?? [])
+    }
+    loadRecent()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const closeModal = useCallback(() => setActiveModal(null), [])
 
   // Upcoming shows (next 8 Fridays)
@@ -456,6 +531,21 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
   }
 
   const ppvCount = ppvList.length
+
+  const tabBtn = (id: 'upcoming' | 'recent', label: string) => (
+    <button
+      onClick={() => setSidebarTab(id)}
+      style={{
+        fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em',
+        textTransform: 'uppercase', background: 'transparent', border: 'none',
+        borderBottom: sidebarTab === id ? '2px solid var(--purple-hot)' : '2px solid transparent',
+        color: sidebarTab === id ? 'var(--purple-hot)' : 'var(--text-dim)',
+        paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  )
 
   return (
     <div>
@@ -529,60 +619,80 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           </div>
         </div>
 
-        {/* Upcoming sidebar */}
+        {/* Sidebar */}
         <div style={{ padding: '2rem' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '1.25rem' }}>
-            Upcoming
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {upcomingShows.map(({ date, show, ppv }, i) => (
-              <div
-                key={i}
-                onClick={() => { if (show) setActiveModal(show) }}
-                className={`show-row${ppv ? ' ppv' : ''}`}
-                style={{ cursor: show ? 'none' : 'default', ...(ppv ? { borderLeftColor: ppv.color } : {}) }}
-                onMouseEnter={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = 'var(--purple-hot)' }}
-                onMouseLeave={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : 'var(--border)' }}
-              >
-                {ppv && (
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.2rem 0.5rem', background: ppv.color, color: '#fff', flexShrink: 0 }}>
-                    PPV
-                  </span>
-                )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-                    {show?.name ?? (ppv ? ppv.name : 'DAW Weekly')}
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.15rem' }}>
-                    {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                {show && (
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', flexShrink: 0 }}>
-                    VIEW ›
-                  </span>
-                )}
-              </div>
-            ))}
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+            {tabBtn('upcoming', 'Upcoming')}
+            {tabBtn('recent', 'Recent Results')}
           </div>
 
-          {/* Year PPV list */}
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>
-            {year} PPVs
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {ppvList.map((ppv) => (
-              <div key={ppv.name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}` }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
-                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>
-                    {new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                  </p>
-                </div>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />
+          {sidebarTab === 'upcoming' ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {upcomingShows.map(({ date, show, ppv }, i) => (
+                  <SidebarShowRow
+                    key={i}
+                    show={show}
+                    ppv={ppv}
+                    dateLabel={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    onShowClick={setActiveModal}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+
+              {/* Year PPV list */}
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>
+                {year} PPVs
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                {ppvList.map((ppv) => {
+                  const ppvShow = showMap[ppv.date]
+                  return (
+                    <div
+                      key={ppv.name}
+                      onClick={() => { if (ppvShow) setActiveModal(ppvShow) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }}
+                      onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
+                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>
+                          {new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                        </p>
+                      </div>
+                      {ppvShow?.status === 'completed'
+                        ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: '#00c864', letterSpacing: '0.1em', flexShrink: 0 }}>✓ RESULTS</span>
+                        : <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />
+                      }
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            /* Recent Results tab */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {recentShows.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No completed shows yet.</p>
+              ) : (
+                recentShows.map((show) => {
+                  const d = new Date(show.show_date + 'T00:00:00')
+                  const ppv = getPPVForDate(show.show_date, d.getFullYear())
+                  return (
+                    <SidebarShowRow
+                      key={show.id}
+                      show={show}
+                      ppv={ppv ?? null}
+                      dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      onShowClick={setActiveModal}
+                    />
+                  )
+                })
+              )}
+            </div>
+          )}
         </div>
       </div>
 
