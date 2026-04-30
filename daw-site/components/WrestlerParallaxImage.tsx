@@ -16,7 +16,12 @@ export default function WrestlerParallaxImage({ src, alt }: Props) {
 
     function onScroll() {
       if (!img) return
-      img.style.transform = `translateY(${window.scrollY * 0.22}px)`
+      const scrolled = window.scrollY
+      // Scale up as user scrolls — wrestler "steps toward the camera"
+      const scale = 1 + Math.min(scrolled * 0.00028, 0.18)
+      // Slight upward drift so the face stays centered while body expands
+      const nudge = scrolled * 0.06
+      img.style.transform = `scale(${scale}) translateY(-${nudge}px)`
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -31,13 +36,14 @@ export default function WrestlerParallaxImage({ src, alt }: Props) {
       alt={alt}
       style={{
         position: 'absolute',
-        top: '-8%',
+        top: 0,
         left: 0,
         width: '100%',
-        height: '116%',
+        height: '110%',
         objectFit: 'cover',
         objectPosition: 'top center',
         display: 'block',
+        transformOrigin: 'top center',
         willChange: 'transform',
       }}
     />
