@@ -35,77 +35,148 @@ const HASHTAG_COLOR: Record<string, string> = {
   WINNER:   'var(--purple-hot)',
 }
 
+const YT_PLAYLIST = 'PLJmTlWB_rLnAUfvozUqtODPuxAE3nC004'
+
 export default function HomeStreamSection({
   show,
   matches,
   channel = 'daware',
+  youtubePlaylist = YT_PLAYLIST,
 }: {
   show: StreamShowInfo | null
   matches: CompactMatch[]
   channel?: string
+  youtubePlaylist?: string
 }) {
-  const [playerSrc, setPlayerSrc] = useState('')
-  const [chatSrc, setChatSrc] = useState('')
+  const [twitchSrc, setTwitchSrc]   = useState('')
+  const [chatSrc, setChatSrc]       = useState('')
+  const [isLive, setIsLive]         = useState<boolean | null>(null)
 
   useEffect(() => {
     const host = window.location.hostname
-    setPlayerSrc(`https://player.twitch.tv/?channel=${channel}&parent=${host}&autoplay=false`)
+    setTwitchSrc(`https://player.twitch.tv/?channel=${channel}&parent=${host}&autoplay=false`)
     setChatSrc(`https://www.twitch.tv/embed/${channel}/chat?parent=${host}&darkpopout`)
+
+    fetch('/api/stream-status')
+      .then(r => r.json())
+      .then(d => setIsLive(!!d.live))
+      .catch(() => setIsLive(false))
   }, [channel])
+
+  const ytSrc = `https://www.youtube.com/embed/videoseries?list=${youtubePlaylist}&rel=0&modestbranding=1`
+  const ytLink = `https://www.youtube.com/playlist?list=${youtubePlaylist}`
+
+  const labelColor  = isLive ? 'var(--purple-hot)' : isLive === false ? 'var(--accent-red)' : 'var(--text-dim)'
+  const labelText   = isLive ? '● LIVE NOW · THE STREAM' : isLive === false ? 'ON DEMAND · YOUTUBE PLAYLIST' : 'THE STREAM'
 
   return (
     <section style={{ padding: '3rem 3rem 4rem', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: '2rem', alignItems: 'start' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1.35fr 1fr',
+        gap: '2rem',
+        alignItems: 'stretch',
+      }}>
 
-        {/* LEFT: Twitch stream + chat */}
-        <div>
+        {/* LEFT: Twitch when live, YouTube playlist when offline */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+          {/* Section label */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
-            <span style={{ display: 'inline-block', width: 24, height: 1, background: 'var(--purple-hot)' }} />
-            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase' }}>
-              The Stream
+            <span style={{ display: 'inline-block', width: 24, height: 1, background: labelColor }} />
+            <span style={{
+              fontFamily: 'var(--font-meta)', fontSize: '0.65rem',
+              color: labelColor, fontWeight: 700,
+              letterSpacing: '0.25em', textTransform: 'uppercase',
+            }}>
+              {labelText}
             </span>
           </div>
 
-          {/* Player */}
-          <div style={{ width: '100%', aspectRatio: '16 / 9', background: '#0e0e10', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            {playerSrc ? (
+          {/* Player — 16:9 */}
+          <div style={{
+            width: '100%', aspectRatio: '16 / 9',
+            background: '#0e0e10', border: '1px solid var(--border)', overflow: 'hidden',
+          }}>
+            {isLive === true && twitchSrc ? (
               <iframe
                 title="DAW Warehouse Live stream"
-                src={playerSrc}
+                src={twitchSrc}
                 frameBorder="0"
                 allowFullScreen
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />
-            ) : (
-              <div style={{ width: '100%', height: '100%', background: 'radial-gradient(ellipse at 50% 50%, rgba(128,0,218,0.3) 0%, #0e0e10 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-                  Loading Stream…
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Chat */}
-          <div style={{ width: '100%', height: 380, background: '#0e0e10', border: '1px solid var(--border)', borderTop: 'none', overflow: 'hidden' }}>
-            {chatSrc ? (
+            ) : isLive === false ? (
               <iframe
-                title="DAW Twitch chat"
-                src={chatSrc}
+                title="DAW Warehouse YouTube Playlist"
+                src={ytSrc}
                 frameBorder="0"
-                style={{ width: '100%', height: '100%', display: 'block', border: 'none' }}
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                style={{ width: '100%', height: '100%', display: 'block' }}
               />
             ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                width: '100%', height: '100%',
+                background: 'radial-gradient(ellipse at 50% 50%, rgba(128,0,218,0.3) 0%, #0e0e10 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-                  Loading Chat…
+                  Loading…
                 </span>
               </div>
             )}
           </div>
+
+          {/* Twitch chat — only when live */}
+          {isLive === true && (
+            <div style={{
+              width: '100%', height: 380,
+              background: '#0e0e10',
+              border: '1px solid var(--border)', borderTop: 'none',
+              overflow: 'hidden',
+            }}>
+              {chatSrc ? (
+                <iframe
+                  title="DAW Twitch chat"
+                  src={chatSrc}
+                  frameBorder="0"
+                  style={{ width: '100%', height: '100%', display: 'block', border: 'none' }}
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                    Loading Chat…
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* YouTube footer note — only when offline */}
+          {isLive === false && (
+            <div style={{
+              padding: '0.65rem 0',
+              borderTop: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: '1rem',
+            }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Watch previous shows
+              </span>
+              <a
+                href={ytLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--accent-red)', letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none', fontWeight: 700 }}
+              >
+                Open Playlist →
+              </a>
+            </div>
+          )}
         </div>
 
-        {/* RIGHT: Match card */}
-        <div>
+        {/* RIGHT: Match card — stretches to fill the left column height */}
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {show ? (
             <>
               {/* Show header */}
@@ -117,7 +188,8 @@ export default function HomeStreamSection({
                     </span>
                   )}
                   <span style={{
-                    fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
+                    fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700,
+                    letterSpacing: '0.2em', textTransform: 'uppercase',
                     color: show.status === 'completed' ? 'var(--accent-red)' : 'var(--purple-hot)',
                   }}>
                     {show.status === 'completed' ? '✓ RESULTS' : 'UPCOMING'}
@@ -135,8 +207,8 @@ export default function HomeStreamSection({
                 </div>
               </div>
 
-              {/* Compact match list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: 540, overflowY: 'auto' }}>
+              {/* Compact match list — fills remaining height, scrolls if needed */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {matches.length === 0 ? (
                   <div style={{ padding: '2rem', background: 'var(--surface)', border: '1px solid var(--border)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', textAlign: 'center' }}>
                     Match card TBA
@@ -164,11 +236,11 @@ export default function HomeStreamSection({
 }
 
 function MatchRow({ match }: { match: CompactMatch }) {
-  const left = match.sides[0]
+  const left  = match.sides[0]
   const right = match.sides[1]
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.6rem 0.8rem' }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.6rem 0.8rem', flexShrink: 0 }}>
       {/* Participants row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
