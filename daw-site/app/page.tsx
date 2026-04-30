@@ -99,12 +99,10 @@ export default async function HomePage() {
     const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
     const twitchChannel: string = settingsMap.twitch_channel || 'daware'
 
-    // Show the next upcoming show if one is scheduled.
-    // Fall back to last completed show only if it was within 2 days (results are still "fresh").
-    // Beyond 2 days with no upcoming show → nothing to show (prompts admin to schedule next card).
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const lastShowIsRecent = lastShow && lastShow.show_date >= twoDaysAgo
-    const streamShowRaw = upcomingShows[0] ?? (lastShowIsRecent ? lastShow : null)
+    // Prefer the next upcoming show so the matchcard is always forward-looking.
+    // If there is no upcoming show, fall back to the last completed show (results stay
+    // visible until a new show is scheduled, regardless of how long ago it was).
+    const streamShowRaw = upcomingShows[0] ?? lastShow
 
     // Fetch matches for both stream show and last completed show
     let streamMatches: any[] = []
