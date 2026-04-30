@@ -97,6 +97,12 @@ export default async function FactionsPage() {
           >
             Factions
           </Link>
+          <Link
+            href="/roster/alumni"
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'none', padding: '0.65rem 1.25rem', color: 'var(--text-dim)', borderBottom: '2px solid transparent', transition: 'color 0.15s' }}
+          >
+            Alumni
+          </Link>
         </div>
 
         {/* Active factions grid */}

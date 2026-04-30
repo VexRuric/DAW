@@ -15,24 +15,24 @@ async function getData() {
     const supabase = await createClient()
     const [wrestlerRes, alumniRes, recordRes, champRes] = await Promise.all([
       supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', true).order('name', { ascending: true }),
-      supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', false).order('name', { ascending: true }),
+      supabase.from('wrestlers').select('id').eq('brand', 'DAW').eq('active', false),
       supabase.from('wrestler_records').select('*'),
       supabase.from('current_champions').select('*'),
     ])
 
     return {
-      wrestlers: (wrestlerRes.data ?? []) as Wrestler[],
-      alumni:    (alumniRes.data   ?? []) as Wrestler[],
-      records:   (recordRes.data   ?? []) as WrestlerRecord[],
-      champions: (champRes.data    ?? []) as CurrentChampion[],
+      wrestlers:  (wrestlerRes.data ?? []) as Wrestler[],
+      alumniCount: (alumniRes.data ?? []).length,
+      records:    (recordRes.data  ?? []) as WrestlerRecord[],
+      champions:  (champRes.data   ?? []) as CurrentChampion[],
     }
   } catch {
-    return { wrestlers: [], alumni: [], records: [], champions: [] }
+    return { wrestlers: [], alumniCount: 0, records: [], champions: [] }
   }
 }
 
 export default async function RosterPage() {
-  const { wrestlers, alumni, records, champions } = await getData()
+  const { wrestlers, alumniCount, records, champions } = await getData()
 
   const totalMens   = wrestlers.filter(w => w.gender === 'Male').length
   const totalWomens = wrestlers.filter(w => w.gender === 'Female').length
@@ -56,26 +56,26 @@ export default async function RosterPage() {
           </div>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'white', lineHeight: 1 }}>{totalMens}</div>
-            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>MEN'S</div>
+            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>MEN&apos;S</div>
           </div>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'white', lineHeight: 1 }}>{totalWomens}</div>
-            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>WOMEN'S</div>
+            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>WOMEN&apos;S</div>
           </div>
           <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-dim)', lineHeight: 1 }}>{alumni.length}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-dim)', lineHeight: 1 }}>{alumniCount}</div>
             <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>ALUMNI</div>
           </div>
         </div>
       </section>
 
       <div style={{ padding: '0 3rem' }}>
-        {/* Current Champions — links to title history pages */}
+        {/* Current Champions */}
         {champions.length > 0 && (
           <div style={{ marginBottom: '2.5rem' }}>
             <ChampionStrip
               champions={champions}
-              renderMap={new Map([...wrestlers, ...alumni].map(w => [w.id, w.render_url ?? null]))}
+              renderMap={new Map(wrestlers.map(w => [w.id, w.render_url ?? null]))}
             />
           </div>
         )}
@@ -94,9 +94,15 @@ export default async function RosterPage() {
           >
             Factions
           </Link>
+          <Link
+            href="/roster/alumni"
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', textDecoration: 'none', padding: '0.65rem 1.25rem', color: 'var(--text-dim)', borderBottom: '2px solid transparent' }}
+          >
+            Alumni
+          </Link>
         </div>
 
-        <RosterClient wrestlers={wrestlers} alumni={alumni} records={records} champions={champions} />
+        <RosterClient wrestlers={wrestlers} records={records} champions={champions} />
       </div>
     </>
   )
