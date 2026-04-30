@@ -209,9 +209,18 @@ export default function HomeStreamSection({
 
               {/* Compact match list — fills remaining height, scrolls if needed */}
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                {matches.length === 0 ? (
+                {matches.length === 0 && show.status !== 'completed' ? (
+                  // Upcoming show with no matchcard yet — show mystery slots
+                  Array.from({ length: show.show_type === 'ppv' ? 12 : 9 }, (_, i) => (
+                    <MysteryRow
+                      key={i}
+                      matchNumber={i + 1}
+                      isMainEvent={i === (show.show_type === 'ppv' ? 11 : 8)}
+                    />
+                  ))
+                ) : matches.length === 0 ? (
                   <div style={{ padding: '2rem', background: 'var(--surface)', border: '1px solid var(--border)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', textAlign: 'center' }}>
-                    Match card TBA
+                    No matches on record.
                   </div>
                 ) : (
                   matches.map(m => <MatchRow key={m.id} match={m} />)
@@ -232,6 +241,30 @@ export default function HomeStreamSection({
 
       </div>
     </section>
+  )
+}
+
+function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainEvent: boolean }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: `1px solid ${isMainEvent ? 'rgba(255,201,51,0.2)' : 'var(--border)'}`, padding: '0.6rem 0.8rem', flexShrink: 0, opacity: 0.45 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: isMainEvent ? 'var(--gold)' : 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
+          {String(matchNumber).padStart(2, '0')}
+        </span>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1 }}>
+          Mystery
+        </span>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--purple-hot)', flexShrink: 0 }}>VS</span>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, textAlign: 'right' }}>
+          Mystery
+        </span>
+      </div>
+      {isMainEvent && (
+        <div style={{ paddingLeft: 36, marginTop: '0.3rem' }}>
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--gold)', letterSpacing: '0.1em', fontWeight: 700 }}>★ MAIN EVENT</span>
+        </div>
+      )}
+    </div>
   )
 }
 

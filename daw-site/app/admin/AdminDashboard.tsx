@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
+import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
 type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'story' | 'accounts' | 'settings' | 'legends'
 
@@ -363,6 +364,10 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
 /* ── Show Booker ─────────────────────────────────────── */
 
 function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
+  return <AdminScheduleBuilder />
+}
+
+function _ShowBookerOld({ notes: _notes }: { notes: StoryNote[] }) {
   const [mode, setMode]         = useState<'weekly' | 'ppv'>('weekly')
   const [showName, setShowName] = useState('')
   const [showDate, setShowDate] = useState('')
