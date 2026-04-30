@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts' | 'settings' | 'legends'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'story' | 'accounts' | 'settings' | 'legends'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -1188,6 +1188,89 @@ function RosterImages() {
   )
 }
 
+/* ── Title Images ────────────────────────────────────── */
+
+interface TitleImageRow { id: string; name: string; image_url: string | null }
+
+function TitleImages() {
+  const [items, setItems]           = useState<TitleImageRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [uploading, setUploading]   = useState(false)
+  const [feedback, setFeedback]     = useState<{ id: string; ok: boolean; msg: string } | null>(null)
+
+  const loadItems = useCallback(async () => {
+    setLoading(true); setExpandedId(null)
+    const { data } = await supabase.from('titles').select('id, name, image_url').eq('active', true).order('display_order')
+    setItems(data ?? []); setLoading(false)
+  }, [])
+
+  useEffect(() => { loadItems() }, [loadItems])
+
+  async function handleUpload(titleId: string, file: File) {
+    setUploading(true); setFeedback(null)
+    const ext = file.name.split('.').pop()
+    const path = `titles/${titleId}.${ext}`
+    const { error: uploadErr } = await supabase.storage.from('renders').upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadErr) { setFeedback({ id: titleId, ok: false, msg: uploadErr.message }); setUploading(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('renders').getPublicUrl(path)
+    const { error: updateErr } = await supabase.from('titles').update({ image_url: publicUrl }).eq('id', titleId)
+    if (updateErr) { setFeedback({ id: titleId, ok: false, msg: updateErr.message }) }
+    else { setFeedback({ id: titleId, ok: true, msg: 'Belt image uploaded.' }); await loadItems(); setExpandedId(null) }
+    setUploading(false)
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  async function removeImage(titleId: string) {
+    const { error } = await supabase.from('titles').update({ image_url: null }).eq('id', titleId)
+    if (!error) { setFeedback({ id: titleId, ok: true, msg: 'Image removed.' }); await loadItems() }
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'0.35rem' }}>Title Images</h2>
+      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'1.5rem', lineHeight:1.8 }}>Upload or replace championship belt images for active titles.</p>
+      {feedback && <div style={{ padding:'0.65rem 1rem', background: feedback.ok ? 'rgba(0,200,100,0.12)' : 'rgba(255,51,85,0.1)', border:`1px solid ${feedback.ok ? '#00c864' : 'var(--accent-red)'}`, color: feedback.ok ? '#00c864' : 'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>{feedback.ok ? '✓' : '✕'} {feedback.msg}</div>}
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 120px', gap:'0.75rem', padding:'0.6rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Belt Image', 'Title Name', ''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          </div>
+          {items.map((item) => (
+            <div key={item.id}>
+              <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 120px', gap:'0.75rem', padding:'0.65rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                <div style={{ width:80, height:48, background:'var(--surface-2)', border:'1px solid var(--border)', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.image_url} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'contain' }} />
+                  ) : (
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.5rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>NO IMG</span>
+                  )}
+                </div>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{item.name}</span>
+                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(255,201,51,0.2)' : 'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{expandedId === item.id ? '✕ Cancel' : item.image_url ? 'Replace' : 'Upload'}</button>
+              </div>
+              {expandedId === item.id && (
+                <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,201,51,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.75rem' }}>UPLOAD BELT IMAGE — {item.name.toUpperCase()}</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUpload(item.id, file) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-muted)' }} />
+                    {uploading && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--gold)', letterSpacing:'0.1em' }}>Uploading…</span>}
+                  </div>
+                  {item.image_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Image</button>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Roster Edits ────────────────────────────────────── */
 
 function RosterEdits() {
@@ -1248,7 +1331,7 @@ function RosterEdits() {
                 </select>
                 <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 2rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
-                  {['Face','Heel','Tweener'].map((o) => <option key={o}>{o}</option>)}
+                  {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
                 </select>
                 <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
                   <input type="checkbox" checked={row.injured} onChange={(e) => update(row.id, 'injured', e.target.checked)} style={{ accentColor:'var(--accent-red)' }} />
@@ -1833,8 +1916,9 @@ export default function AdminDashboard() {
     { id: 'results',   label: 'Results Entry' },
     { id: 'champions', label: 'Champions' },
     { id: 'ownership', label: 'Assign Ownership' },
-    { id: 'images',    label: 'Roster Images' },
-    { id: 'edits',     label: 'Roster Edits' },
+    { id: 'images',      label: 'Roster Images' },
+    { id: 'titleimages', label: 'Title Images' },
+    { id: 'edits',       label: 'Roster Edits' },
     { id: 'legends',   label: 'Legends' },
     { id: 'story',     label: 'Story Development' },
     ...(isAdmin ? [{ id: 'accounts' as Section, label: 'Account Management' }] : []),
@@ -1866,8 +1950,9 @@ export default function AdminDashboard() {
           {section === 'results'    && <ResultsEntry />}
           {section === 'champions'  && <ChampionsSection />}
           {section === 'ownership'  && <OwnershipSection />}
-          {section === 'images'     && <RosterImages />}
-          {section === 'edits'      && <RosterEdits />}
+          {section === 'images'      && <RosterImages />}
+          {section === 'titleimages' && <TitleImages />}
+          {section === 'edits'       && <RosterEdits />}
           {section === 'legends'    && <LegendsSection />}
           {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
           {section === 'accounts'   && isAdmin && <AccountManagement />}

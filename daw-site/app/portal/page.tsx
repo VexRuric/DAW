@@ -23,7 +23,7 @@ function formatHeight(inches: number): string {
 }
 type WeightClass = 'Lightweight' | 'Cruiserweight' | 'Middleweight' | 'Heavyweight' | 'Super Heavyweight'
 type Gender = 'Male' | 'Female' | 'Other'
-type Alignment = 'Face' | 'Heel' | 'Tweener'
+type Alignment = 'Face' | 'Heel'
 
 interface PersonalityTrait {
   faceA: string
@@ -410,7 +410,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                   </div>
                   <div className="form-field">
                     <label className="form-label">Alignment</label>
-                    <PillSelector<Alignment> options={['Face','Heel','Tweener']} value={alignment} onChange={(v) => setAlignment(v as Alignment)} />
+                    <PillSelector<Alignment> options={['Face','Heel']} value={alignment} onChange={(v) => setAlignment(v as Alignment)} />
                   </div>
                   <div className="form-field" style={{ marginBottom: 0 }}>
                     <label className="form-label">Entrance Song URL (YouTube / Spotify)</label>

@@ -13,7 +13,7 @@ interface RosterClientProps {
 }
 
 const DIVISIONS = ['All', 'Mens', 'Womens', 'Internet', 'Intercontinental', 'Tag Team']
-const ROLES     = ['All', 'Face', 'Heel', 'Tweener', 'Legends']
+const ROLES     = ['All', 'Face', 'Heel', 'Legends']
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')

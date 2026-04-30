@@ -32,10 +32,30 @@ export default function WrestlerCard({
   const isChampion = !!current_title
   const isLegend   = !!legend
   const isHeel = role === 'Heel'
-  const accentColor = isChampion
+  const isFace = role === 'Face'
+
+  // Card background color — champions keep neutral so gold badge reads clearly
+  const cardBg = isChampion
+    ? 'var(--surface-2)'
+    : isFace
+    ? 'rgba(10, 22, 100, 0.55)'
+    : isHeel
+    ? 'rgba(110, 5, 14, 0.55)'
+    : 'var(--surface-2)'
+
+  // Bottom gradient tinted by alignment (champions stay dark neutral)
+  const gradientOverlay = !isChampion && isFace
+    ? 'linear-gradient(to top, rgba(4,10,75,0.97) 0%, rgba(10,25,120,0.52) 45%, rgba(15,35,140,0.06) 75%, transparent 100%)'
+    : !isChampion && isHeel
+    ? 'linear-gradient(to top, rgba(75,4,10,0.97) 0%, rgba(140,12,22,0.52) 45%, rgba(190,18,30,0.06) 75%, transparent 100%)'
+    : 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.35) 45%, transparent 70%)'
+
+  const textAccent = isChampion
     ? 'var(--gold)'
     : isLegend
     ? '#a0a0b0'
+    : isFace
+    ? 'rgba(80,130,255,0.9)'
     : isHeel
     ? 'var(--accent-red)'
     : 'var(--purple-hot)'
@@ -50,7 +70,7 @@ export default function WrestlerCard({
         aspectRatio: '2/3',
         overflow: 'hidden',
         border: `1px solid ${isChampion ? 'rgba(255,201,51,0.4)' : isLegend ? 'rgba(160,160,176,0.4)' : 'var(--border)'}`,
-        background: 'var(--surface-2)',
+        background: cardBg,
       }}
     >
       {/* Portrait */}
@@ -72,7 +92,7 @@ export default function WrestlerCard({
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.35) 45%, transparent 70%)',
+          background: gradientOverlay,
         }}
       />
 
@@ -177,7 +197,7 @@ export default function WrestlerCard({
           zIndex: 2,
         }}
       >
-        <div style={{ borderLeft: `2px solid ${accentColor}`, paddingLeft: '0.6rem' }}>
+        <div style={{ borderLeft: `2px solid ${textAccent}`, paddingLeft: '0.6rem' }}>
           <p
             style={{
               fontFamily: 'var(--font-display)',
