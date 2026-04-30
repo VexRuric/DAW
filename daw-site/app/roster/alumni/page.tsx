@@ -5,7 +5,7 @@ import { Wrestler, WrestlerRecord } from '@/lib/types'
 
 export const metadata: Metadata = {
   title: 'Alumni',
-  description: 'Former DAW Warehouse LIVE wrestlers — alumni and retired superstars.',
+  description: 'Former DAW Warehouse LIVE wrestlers — retired superstars.',
 }
 
 function toSlug(name: string) {
@@ -20,8 +20,8 @@ async function getData() {
       supabase.from('wrestler_records').select('*'),
     ])
     return {
-      alumni:  (alumniRes.data  ?? []) as Wrestler[],
-      records: (recordRes.data  ?? []) as WrestlerRecord[],
+      alumni:  (alumniRes.data ?? []) as Wrestler[],
+      records: (recordRes.data ?? []) as WrestlerRecord[],
     }
   } catch {
     return { alumni: [], records: [] }
@@ -34,16 +34,13 @@ export default async function AlumniPage() {
   const recordMap = new Map<string, WrestlerRecord>()
   records.forEach((r) => recordMap.set(r.id, r))
 
-  const retired  = alumni.filter(w => w.status === 'retired')
-  const released = alumni.filter(w => w.status !== 'retired')
-
   return (
     <>
       {/* Hero */}
       <section style={{ padding: '4rem 3rem 1.5rem' }}>
         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ width: 30, height: 1, background: 'var(--purple-hot)' }} />
-          FORMER SUPERSTARS
+          RETIRED SUPERSTARS
         </p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(3rem, 7vw, 6rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 0.9, marginBottom: '2rem' }}>
           DAW WAREHOUSE<br/>ALUMNI
@@ -51,18 +48,8 @@ export default async function AlumniPage() {
         <div style={{ display: 'flex', gap: '3rem' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-dim)', lineHeight: 1 }}>{alumni.length}</div>
-            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>TOTAL</div>
+            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>ALUMNI</div>
           </div>
-          <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-dim)', lineHeight: 1 }}>{retired.length}</div>
-            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>RETIRED</div>
-          </div>
-          {released.length > 0 && (
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-dim)', lineHeight: 1 }}>{released.length}</div>
-              <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>RELEASED</div>
-            </div>
-          )}
         </div>
       </section>
 
@@ -81,39 +68,18 @@ export default async function AlumniPage() {
         </div>
 
         {alumni.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.15em', padding: '4rem 0' }}>No alumni on record.</p>
+          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.15em', padding: '4rem 0' }}>
+            No alumni on record.
+          </p>
         ) : (
-          <>
-            {/* Retired section */}
-            {retired.length > 0 && (
-              <div style={{ marginBottom: '4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.25em', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Retired — {retired.length}
-                  </span>
-                  <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-                  {retired.map((w) => <AlumniCard key={w.id} wrestler={w} record={recordMap.get(w.id)} />)}
-                </div>
-              </div>
-            )}
-
-            {/* Released section */}
-            {released.length > 0 && (
-              <div style={{ marginBottom: '4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.25em', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Released — {released.length}
-                  </span>
-                  <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
-                  {released.map((w) => <AlumniCard key={w.id} wrestler={w} record={recordMap.get(w.id)} />)}
-                </div>
-              </div>
-            )}
-          </>
+          <div style={{ marginBottom: '4rem' }}>
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '1rem' }}>
+              {alumni.length} FORMER SUPERSTAR{alumni.length !== 1 ? 'S' : ''}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+              {alumni.map((w) => <AlumniCard key={w.id} wrestler={w} record={recordMap.get(w.id)} />)}
+            </div>
+          </div>
         )}
       </div>
     </>
@@ -128,10 +94,10 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
         textDecoration: 'none',
         display: 'block',
         position: 'relative',
-        aspectRatio: '2/3',
+        aspectRatio: '3/4',
         overflow: 'hidden',
         border: '1px solid var(--border)',
-        background: 'var(--surface-2)',
+        background: 'rgb(10,10,14)',
         filter: 'grayscale(0.65) brightness(0.75)',
       }}
     >
@@ -143,8 +109,7 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
             alt={wrestler.name}
             style={{
               position: 'absolute',
-              top: 0,
-              left: 0,
+              top: 0, left: 0,
               width: '100%',
               height: '140%',
               objectFit: 'cover',
@@ -157,9 +122,8 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
         )}
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.35) 45%, transparent 70%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.30) 45%, transparent 70%)' }} />
 
-      {/* Status badge */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
         background: 'rgba(60,60,60,0.92)',
@@ -168,7 +132,7 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
         letterSpacing: '0.15em', padding: '0.3rem 0.5rem',
         textAlign: 'center', textTransform: 'uppercase',
       }}>
-        {wrestler.status === 'retired' ? 'RETIRED' : 'ALUMNI'}
+        ALUMNI
       </div>
 
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '2.5rem 0.85rem 0.9rem', zIndex: 2 }}>

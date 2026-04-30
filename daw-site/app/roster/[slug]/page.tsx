@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
+import WrestlerParallaxImage from '@/components/WrestlerParallaxImage'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -12,10 +13,6 @@ interface BioParsed {
   weightClass?: string
   style?: string
   finisher?: string
-  hair?: string
-  eyes?: string
-  primaryColor?: string
-  secondaryColor?: string
 }
 
 async function getWrestler(slug: string) {
@@ -94,20 +91,19 @@ export default async function WrestlerStatPage({ params }: PageProps) {
 
   const currentReign = reigns.find((r: { lost_date: string | null }) => !r.lost_date)
 
-  const isHeel    = wrestler.role === 'Heel'
-  const isFace    = wrestler.role === 'Face'
-  const isLegend  = !!wrestler.legend
+  const isHeel   = wrestler.role === 'Heel'
+  const isFace   = wrestler.role === 'Face'
+  const isLegend = !!wrestler.legend
 
-  // Parse fan-submission bio JSON for stats
   let bio: BioParsed = {}
   if (wrestler.bio) {
-    try { bio = JSON.parse(wrestler.bio) } catch { /* plain text — ignore */ }
+    try { bio = JSON.parse(wrestler.bio) } catch { /* plain text */ }
   }
 
   const accentColor = currentReign
     ? 'var(--gold)'
     : isLegend
-    ? 'rgba(255,201,51,0.7)'
+    ? 'rgba(255,201,51,0.75)'
     : isFace
     ? 'rgba(80,130,255,0.9)'
     : isHeel
@@ -115,196 +111,164 @@ export default async function WrestlerStatPage({ params }: PageProps) {
     : 'var(--purple-hot)'
 
   const heroBg = currentReign
-    ? 'radial-gradient(ellipse at 70% 50%, rgba(255,201,51,0.10) 0%, transparent 65%)'
+    ? 'linear-gradient(135deg, rgba(40,28,0,0.95) 0%, rgba(20,14,0,0.98) 100%)'
     : isFace
-    ? 'radial-gradient(ellipse at 70% 50%, rgba(20,50,180,0.12) 0%, transparent 65%)'
+    ? 'linear-gradient(135deg, rgba(4,8,55,0.95) 0%, rgba(6,10,30,0.98) 100%)'
     : isHeel
-    ? 'radial-gradient(ellipse at 70% 50%, rgba(160,10,20,0.12) 0%, transparent 65%)'
-    : 'radial-gradient(ellipse at 70% 50%, rgba(128,0,218,0.10) 0%, transparent 65%)'
+    ? 'linear-gradient(135deg, rgba(50,3,8,0.95) 0%, rgba(20,2,4,0.98) 100%)'
+    : 'linear-gradient(135deg, rgba(18,8,28,0.95) 0%, rgba(10,10,14,0.98) 100%)'
 
   return (
     <div>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <section style={{ position: 'relative', borderBottom: '1px solid var(--border)', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: heroBg }} />
+      {/* ── Hero: sticky image + info panel ─────────────── */}
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '45% 1fr',
+          minHeight: '100vh',
+          background: heroBg,
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        {/* Sticky portrait column */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 64,
+            height: 'calc(100vh - 64px)',
+            overflow: 'hidden',
+            borderRight: `2px solid ${currentReign ? 'var(--gold)' : accentColor === 'var(--purple-hot)' ? 'var(--border)' : accentColor}`,
+          }}
+        >
+          {wrestler.render_url ? (
+            <WrestlerParallaxImage src={wrestler.render_url} alt={wrestler.name} />
+          ) : (
+            <SilhouettePlaceholder />
+          )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '42% 1fr', minHeight: 480, position: 'relative', zIndex: 2 }}>
-          {/* Portrait — full height, upper body focus */}
-          <div
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
-              borderRight: `2px solid ${currentReign ? 'var(--gold)' : 'var(--border)'}`,
-            }}
-          >
-            {wrestler.render_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={wrestler.render_url}
-                alt={wrestler.name}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '130%',
-                  objectFit: 'cover',
-                  objectPosition: 'top center',
-                  display: 'block',
-                }}
-              />
-            ) : (
-              <SilhouettePlaceholder />
-            )}
-            {/* Subtle side fade */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 60%, rgba(10,10,12,0.6) 100%)' }} />
-            {wrestler.injured && (
-              <span
-                className="pill pill-red"
-                style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', fontSize: '0.6rem', zIndex: 3 }}
-              >
-                Injured
+          {/* Bottom fade on image */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 55%, rgba(10,10,14,0.7) 100%)', pointerEvents: 'none' }} />
+
+          {/* Legend overlay at bottom of image */}
+          {isLegend && (
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'linear-gradient(to top, rgba(20,14,0,0.95) 0%, transparent 100%)',
+              padding: '1.5rem 1rem 0.6rem',
+              fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700,
+              letterSpacing: '0.3em', color: 'rgba(255,201,51,0.85)', textTransform: 'uppercase',
+              textAlign: 'center',
+            }}>
+              ★ LEGEND
+            </div>
+          )}
+
+          {wrestler.injured && (
+            <span className="pill pill-red" style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', fontSize: '0.6rem', zIndex: 3 }}>
+              Injured
+            </span>
+          )}
+        </div>
+
+        {/* Info panel — scrolls past the sticky image */}
+        <div style={{ padding: '3rem 2.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Breadcrumb */}
+          <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
+            <Link href="/roster" style={{ color: 'var(--purple-hot)', textDecoration: 'none' }}>Roster</Link>
+            {' / '}
+            {wrestler.name}
+          </div>
+
+          {/* Role badges */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {wrestler.brand && <span className="pill pill-ghost">{wrestler.brand}</span>}
+            {wrestler.division && (
+              <span className="pill" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                {wrestler.division}
               </span>
             )}
-            {isLegend && (
-              <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 3,
-                background: 'linear-gradient(to top, rgba(20,14,0,0.95) 0%, transparent 100%)',
-                padding: '1.5rem 1rem 0.6rem',
-                fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700,
-                letterSpacing: '0.3em', color: 'rgba(255,201,51,0.8)', textTransform: 'uppercase',
-                textAlign: 'center',
+            {wrestler.role && (
+              <span className="pill" style={{
+                background: isHeel ? 'rgba(255,51,85,0.15)' : isFace ? 'rgba(40,90,220,0.15)' : 'rgba(0,200,100,0.12)',
+                border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(80,130,255,0.7)' : '#00c864'}`,
+                color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(100,150,255,1)' : '#00c864',
               }}>
-                ★ LEGEND
-              </div>
+                {wrestler.role}
+              </span>
             )}
+            {!wrestler.active && <span className="pill pill-red">Inactive</span>}
           </div>
 
-          {/* Info panel */}
-          <div style={{ padding: '2.5rem 2.5rem 2rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              {/* Breadcrumb */}
-              <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.15em', marginBottom: '1rem' }}>
-                <Link href="/roster" style={{ color: 'var(--purple-hot)', textDecoration: 'none' }}>Roster</Link>
-                {' / '}
-                {wrestler.name}
+          {/* Name */}
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(2.5rem, 4.5vw, 4rem)',
+            lineHeight: 0.9,
+            color: 'var(--text-strong)',
+            textTransform: 'uppercase',
+            borderLeft: `4px solid ${accentColor}`,
+            paddingLeft: '0.75rem',
+            margin: 0,
+          }}>
+            {wrestler.name}
+          </h1>
+
+          {wrestler.gimmick && (
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.12em', paddingLeft: '1rem' }}>
+              &ldquo;{wrestler.gimmick}&rdquo;
+            </p>
+          )}
+
+          {/* Current title */}
+          {currentReign && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 1.1rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)' }}>
+              <span style={{ color: 'var(--gold)', fontSize: '1.1rem' }}>★</span>
+              <div>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.15em', fontWeight: 700 }}>CURRENT CHAMPION</p>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>{currentReign.titles?.name}</p>
               </div>
-
-              {/* Role/division badges */}
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                {wrestler.brand && <span className="pill pill-ghost">{wrestler.brand}</span>}
-                {wrestler.division && (
-                  <span className="pill" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                    {wrestler.division}
-                  </span>
-                )}
-                {wrestler.role && (
-                  <span
-                    className="pill"
-                    style={{
-                      background: isHeel ? 'rgba(255,51,85,0.15)' : isFace ? 'rgba(40,90,220,0.15)' : 'rgba(0,200,100,0.12)',
-                      border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(80,130,255,0.7)' : '#00c864'}`,
-                      color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(100,150,255,1)' : '#00c864',
-                    }}
-                  >
-                    {wrestler.role}
-                  </span>
-                )}
-                {!wrestler.active && <span className="pill pill-red">Inactive</span>}
-              </div>
-
-              {/* Name */}
-              <h1
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-                  lineHeight: 0.9,
-                  color: 'var(--text-strong)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '-0.01em',
-                  marginBottom: '0.75rem',
-                  borderLeft: `4px solid ${accentColor}`,
-                  paddingLeft: '0.75rem',
-                }}
-              >
-                {wrestler.name}
-              </h1>
-
-              {/* Gimmick */}
-              {wrestler.gimmick && (
-                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.12em', marginBottom: '1.25rem', paddingLeft: '1rem' }}>
-                  &ldquo;{wrestler.gimmick}&rdquo;
-                </p>
-              )}
-
-              {/* Current title */}
-              {currentReign && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', padding: '0.65rem 1.1rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)', marginBottom: '1.25rem' }}>
-                  <span style={{ color: 'var(--gold)', fontSize: '1.1rem' }}>★</span>
-                  <div>
-                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.15em', fontWeight: 700 }}>CURRENT CHAMPION</p>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>{currentReign.titles?.name}</p>
-                  </div>
-                </div>
-              )}
             </div>
+          )}
 
-            {/* Stats strip */}
-            <div>
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-                <StatBlock label="Wins"    value={wins}             color="#00c864" />
-                <StatBlock label="Losses"  value={losses}           color="var(--accent-red)" />
-                <StatBlock label="Draws"   value={draws}            color="var(--text-dim)" />
-                <StatBlock label="Win %"   value={`${winPct}%`}     color="var(--purple-hot)" />
-                <StatBlock label="Matches" value={total}            color="var(--text-muted)" />
-                {avgRating && <StatBlock label="Avg Rating" value={`${avgRating}/5`} color="var(--gold)" />}
-              </div>
-
-              {/* Bio details grid */}
-              {(bio.height || bio.weightClass || bio.style || bio.finisher || wrestler.country) && (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderLeft: `3px solid ${accentColor}`,
-                }}>
-                  {bio.height && (
-                    <BioStat label="Height" value={bio.height} />
-                  )}
-                  {bio.weightClass && (
-                    <BioStat label="Weight Class" value={bio.weightClass} />
-                  )}
-                  {wrestler.country && (
-                    <BioStat label="Hometown" value={wrestler.country} />
-                  )}
-                  {bio.style && (
-                    <BioStat label="Fighting Style" value={bio.style} />
-                  )}
-                  {bio.finisher && (
-                    <BioStat label="Finisher" value={bio.finisher} />
-                  )}
-                </div>
-              )}
-            </div>
+          {/* W/L/D stats */}
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <StatBlock label="Wins"    value={wins}         color="#00c864" />
+            <StatBlock label="Losses"  value={losses}       color="var(--accent-red)" />
+            <StatBlock label="Draws"   value={draws}        color="var(--text-dim)" />
+            <StatBlock label="Win %"   value={`${winPct}%`} color="var(--purple-hot)" />
+            <StatBlock label="Matches" value={total}        color="var(--text-muted)" />
+            {avgRating && <StatBlock label="Avg Rating" value={`${avgRating}/5`} color="var(--gold)" />}
           </div>
+
+          {/* Bio details */}
+          {(bio.height || bio.weightClass || bio.style || bio.finisher || wrestler.country) && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+              gap: '0.75rem',
+              padding: '1rem',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid var(--border)',
+              borderLeft: `3px solid ${accentColor}`,
+            }}>
+              {bio.height      && <BioStat label="Height"        value={bio.height} />}
+              {bio.weightClass && <BioStat label="Weight Class"  value={bio.weightClass} />}
+              {wrestler.country && <BioStat label="Hometown"     value={wrestler.country} />}
+              {bio.style       && <BioStat label="Fighting Style" value={bio.style} />}
+              {bio.finisher    && <BioStat label="Finisher"      value={bio.finisher} />}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* ── Body ─────────────────────────────────────── */}
+      {/* ── Body: match history + title history accordion ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 0 }}>
-        {/* Left: match history */}
+        {/* Match history */}
         <section className="section" style={{ borderRight: '1px solid var(--border)' }}>
-          <h2 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>
-            Match History
-          </h2>
+          <h2 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Match History</h2>
 
           {matchHistory.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.75rem', letterSpacing: '0.15em' }}>
-              No match history found.
-            </p>
+            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.75rem', letterSpacing: '0.15em' }}>No match history found.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {matchHistory.map((mp: {
@@ -332,23 +296,19 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                   .join(', ')
 
                 return (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '52px 1fr auto',
-                      gap: '1rem',
-                      alignItems: 'center',
-                      padding: '0.85rem 1rem',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderLeft: `3px solid ${isWin ? '#00c864' : isDraw ? 'var(--text-dim)' : 'var(--accent-red)'}`,
-                    }}
-                  >
+                  <div key={i} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '52px 1fr auto',
+                    gap: '1rem',
+                    alignItems: 'center',
+                    padding: '0.85rem 1rem',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderLeft: `3px solid ${isWin ? '#00c864' : isDraw ? 'var(--text-dim)' : 'var(--accent-red)'}`,
+                  }}>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: isWin ? '#00c864' : isDraw ? 'var(--text-dim)' : 'var(--accent-red)', textTransform: 'uppercase', lineHeight: 1 }}>
                       {isWin ? 'W' : isDraw ? 'D' : 'L'}
                     </span>
-
                     <div>
                       <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', lineHeight: 1.1, textTransform: 'uppercase' }}>
                         {opponents ? `vs. ${opponents}` : m.match_type}
@@ -360,7 +320,6 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                         {m.stipulation ? ` · ${m.stipulation}` : ''}
                       </p>
                     </div>
-
                     {m.rating && (
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.1em', fontWeight: 700 }}>
                         ★ {m.rating}
@@ -373,77 +332,92 @@ export default async function WrestlerStatPage({ params }: PageProps) {
           )}
         </section>
 
-        {/* Right: title history + bio */}
+        {/* Title history — expandable accordion */}
         <aside className="section">
-          <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>
-            Title History
-          </h2>
+          <details open={reigns.length > 0 && reigns.length <= 5} style={{ marginBottom: '1.5rem' }}>
+            <summary style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.5rem',
+              color: 'var(--text-strong)',
+              textTransform: 'uppercase',
+              letterSpacing: '-0.01em',
+              cursor: 'pointer',
+              listStyle: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.5rem 0',
+              borderBottom: '1px solid var(--border)',
+              userSelect: 'none',
+            }}>
+              <span>Title History</span>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: reigns.length > 0 ? 'var(--gold)' : 'var(--text-dim)', letterSpacing: '0.15em', fontWeight: 700 }}>
+                {reigns.length > 0 ? `${reigns.length} REIGN${reigns.length !== 1 ? 'S' : ''}` : 'NONE'} ▾
+              </span>
+            </summary>
 
-          {reigns.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.72rem', letterSpacing: '0.15em' }}>
-              No title reigns on record.
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {reigns.map((reign: {
-                id: string
-                won_date: string
-                lost_date: string | null
-                reign_number: number | null
-                titles: { name: string; category: string; image_url?: string | null } | null
-              }) => (
-                <div
-                  key={reign.id}
-                  style={{
+            <div style={{ paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {reigns.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.72rem', letterSpacing: '0.15em' }}>
+                  No title reigns on record.
+                </p>
+              ) : (
+                reigns.map((reign: {
+                  id: string
+                  won_date: string
+                  lost_date: string | null
+                  reign_number: number | null
+                  titles: { name: string; category: string; image_url?: string | null } | null
+                }) => (
+                  <div key={reign.id} style={{
                     padding: '0.85rem 1rem',
                     background: !reign.lost_date ? 'rgba(255,201,51,0.08)' : 'var(--surface)',
                     border: !reign.lost_date ? '1px solid var(--gold)' : '1px solid var(--border)',
-                  }}
-                >
-                  {/* Belt image if available */}
-                  {reign.titles?.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={reign.titles.image_url}
-                      alt={reign.titles.name}
-                      style={{ width: '100%', maxHeight: 60, objectFit: 'contain', marginBottom: '0.5rem', opacity: 0.9 }}
-                    />
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-                      {reign.titles?.name}
+                  }}>
+                    {reign.titles?.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={reign.titles.image_url} alt={reign.titles.name} style={{ width: '100%', maxHeight: 52, objectFit: 'contain', marginBottom: '0.5rem', opacity: 0.9 }} />
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
+                      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
+                        {reign.titles?.name}
+                      </p>
+                      {!reign.lost_date && <span style={{ color: 'var(--gold)', fontSize: '0.85rem' }}>★</span>}
+                    </div>
+                    {reign.reign_number && (
+                      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--purple-hot)', letterSpacing: '0.12em', marginBottom: '0.3rem', fontWeight: 700 }}>
+                        Reign #{reign.reign_number}
+                      </p>
+                    )}
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
+                      {new Date(reign.won_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {' → '}
+                      {reign.lost_date
+                        ? new Date(reign.lost_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'Present'}
                     </p>
-                    {!reign.lost_date && <span style={{ color: 'var(--gold)', fontSize: '0.85rem' }}>★</span>}
                   </div>
-
-                  {reign.reign_number && (
-                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--purple-hot)', letterSpacing: '0.12em', marginBottom: '0.3rem', fontWeight: 700 }}>
-                      Reign #{reign.reign_number}
-                    </p>
-                  )}
-
-                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
-                    {new Date(reign.won_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {' → '}
-                    {reign.lost_date
-                      ? new Date(reign.lost_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'Present'}
-                  </p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          )}
+          </details>
 
           {/* Plain-text bio */}
           {wrestler.bio && (() => {
             try { JSON.parse(wrestler.bio); return null } catch { /* plain text */ }
             return (
-              <div style={{ marginTop: '2rem' }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                  Bio
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>{wrestler.bio}</p>
-              </div>
+              <details style={{ marginTop: '1rem' }}>
+                <summary style={{
+                  fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)',
+                  textTransform: 'uppercase', cursor: 'pointer', listStyle: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.5rem 0', borderBottom: '1px solid var(--border)', userSelect: 'none',
+                }}>
+                  <span>Bio</span>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>▾</span>
+                </summary>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.7, paddingTop: '0.75rem' }}>{wrestler.bio}</p>
+              </details>
             )
           })()}
         </aside>
