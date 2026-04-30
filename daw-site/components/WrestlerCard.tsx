@@ -13,6 +13,7 @@ interface WrestlerCardProps {
   win_pct?: number | null
   current_title?: string | null
   injured?: boolean
+  legend?: boolean
   slug: string
 }
 
@@ -25,12 +26,16 @@ export default function WrestlerCard({
   draws = 0,
   current_title,
   injured,
+  legend,
   slug,
 }: WrestlerCardProps) {
   const isChampion = !!current_title
+  const isLegend   = !!legend
   const isHeel = role === 'Heel'
   const accentColor = isChampion
     ? 'var(--gold)'
+    : isLegend
+    ? '#a0a0b0'
     : isHeel
     ? 'var(--accent-red)'
     : 'var(--purple-hot)'
@@ -44,7 +49,7 @@ export default function WrestlerCard({
         position: 'relative',
         aspectRatio: '2/3',
         overflow: 'hidden',
-        border: `1px solid ${isChampion ? 'rgba(255,201,51,0.4)' : 'var(--border)'}`,
+        border: `1px solid ${isChampion ? 'rgba(255,201,51,0.4)' : isLegend ? 'rgba(160,160,176,0.4)' : 'var(--border)'}`,
         background: 'var(--surface-2)',
       }}
     >
@@ -71,6 +76,29 @@ export default function WrestlerCard({
         }}
       />
 
+      {/* Legend banner */}
+      {isLegend && !isChampion && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            zIndex: 2,
+            background: 'linear-gradient(90deg, #1a1a2e 0%, #2a2a3e 100%)',
+            borderBottom: '1px solid rgba(160,160,176,0.4)',
+            color: '#c0c0d0',
+            fontFamily: 'var(--font-meta)',
+            fontSize: '0.5rem',
+            fontWeight: 700,
+            letterSpacing: '0.22em',
+            padding: '0.28rem 0.5rem',
+            textAlign: 'center',
+            textTransform: 'uppercase',
+          }}
+        >
+          ★ LEGEND
+        </div>
+      )}
+
       {/* Champion top badge */}
       {isChampion && (
         <div
@@ -93,6 +121,27 @@ export default function WrestlerCard({
           }}
         >
           {current_title}
+        </div>
+      )}
+
+      {/* Champion + Legend combined */}
+      {isChampion && isLegend && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '1.6rem', right: '0.5rem',
+            zIndex: 3,
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid rgba(160,160,176,0.5)',
+            color: '#c0c0d0',
+            fontFamily: 'var(--font-meta)',
+            fontSize: '0.42rem',
+            fontWeight: 700,
+            letterSpacing: '0.15em',
+            padding: '2px 5px',
+          }}
+        >
+          ★ LEGEND
         </div>
       )}
 

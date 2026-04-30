@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 
@@ -45,48 +46,15 @@ export default function Nav() {
       }}
     >
       {/* Logo */}
-      <Link
-        href="/"
-        style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, lineHeight: 1, gap: '0.1rem' }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.75rem',
-            color: 'var(--purple-hot)',
-            textTransform: 'uppercase',
-            letterSpacing: '-0.02em',
-            lineHeight: 1,
-          }}
-        >
-          DAW
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-meta)',
-            fontSize: '0.5rem',
-            fontWeight: 700,
-            letterSpacing: '0.3em',
-            textTransform: 'uppercase',
-            color: 'var(--text-strong)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-          }}
-        >
-          WAREHOUSE
-          <span
-            style={{
-              background: 'var(--accent-red)',
-              color: '#fff',
-              padding: '1px 4px',
-              fontSize: '0.45rem',
-              letterSpacing: '0.15em',
-            }}
-          >
-            LIVE
-          </span>
-        </span>
+      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <Image
+          src="/dawlogo.png"
+          alt="DAW Warehouse Live"
+          height={42}
+          width={160}
+          style={{ objectFit: 'contain', display: 'block' }}
+          priority
+        />
       </Link>
 
       {/* Nav links */}

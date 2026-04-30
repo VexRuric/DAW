@@ -13,7 +13,7 @@ interface RosterClientProps {
 }
 
 const DIVISIONS = ['All', 'Mens', 'Womens', 'Internet', 'Intercontinental', 'Tag Team']
-const ROLES     = ['All', 'Face', 'Heel', 'Tweener']
+const ROLES     = ['All', 'Face', 'Heel', 'Tweener', 'Legends']
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -48,7 +48,8 @@ export default function RosterClient({ wrestlers, alumni, records, champions }: 
   const filtered = useMemo(() => {
     return wrestlers.filter((w) => {
       if (division !== 'All' && w.division !== division) return false
-      if (role !== 'All' && w.role !== role) return false
+      if (role === 'Legends') { if (!w.legend) return false }
+      else if (role !== 'All' && w.role !== role) return false
       if (search && !w.name.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
@@ -140,6 +141,7 @@ export default function RosterClient({ wrestlers, alumni, records, champions }: 
                   win_pct={record?.win_pct ?? null}
                   current_title={title}
                   injured={wrestler.injured}
+                  legend={wrestler.legend}
                   slug={toSlug(wrestler.name)}
                 />
               )

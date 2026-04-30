@@ -9,6 +9,18 @@ import { supabase } from '@/lib/supabase'
 /* ── Types ────────────────────────────────────────── */
 
 type StylePill = 'Striker' | 'Technician' | 'Powerhouse' | 'High Flyer'
+
+function parseHeightToInches(h: string): number {
+  const m = h.match(/(\d+)ft\s*(\d+)/)
+  if (m) return parseInt(m[1]) * 12 + parseInt(m[2])
+  const ft = h.match(/(\d+)ft/)
+  if (ft) return parseInt(ft[1]) * 12
+  return 72
+}
+
+function formatHeight(inches: number): string {
+  return `${Math.floor(inches / 12)}ft ${inches % 12}in`
+}
 type WeightClass = 'Lightweight' | 'Cruiserweight' | 'Middleweight' | 'Heavyweight' | 'Super Heavyweight'
 type Gender = 'Male' | 'Female' | 'Other'
 type Alignment = 'Face' | 'Heel' | 'Tweener'
@@ -169,9 +181,16 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
 
   const [creationType, setCreationType] = useState<'original' | 'community'>(parsedBio?.creationType ?? 'original')
   const [communityKeyword, setCommunityKeyword] = useState<string>(parsedBio?.communityKeyword ?? '')
-  const [style, setStyle]       = useState<StylePill[]>(parsedBio?.style ?? [])
+  // Fighting style: single pick
+  const initStyle: StylePill | null = Array.isArray(parsedBio?.style)
+    ? (parsedBio.style[0] ?? null)
+    : (parsedBio?.style ?? null)
+  const [style, setStyle]       = useState<StylePill | null>(initStyle)
   const [weight, setWeight]     = useState<WeightClass | null>(parsedBio?.weightClass ?? null)
-  const [height, setHeight]     = useState<string>(parsedBio?.height ?? '')
+  // Height slider (inches: 48 = 4ft 0in … 95 = 7ft 11in)
+  const [heightInches, setHeightInches] = useState<number>(
+    parsedBio?.height ? parseHeightToInches(parsedBio.height) : 72
+  )
   const [ringName, setRingName] = useState<string>(editData?.name ?? '')
   const [gender, setGender]     = useState<Gender | null>((editData?.gender as Gender) ?? null)
   const [primary, setPrimary]   = useState<string>(parsedBio?.primaryColor ?? '#8000da')
@@ -202,9 +221,10 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
     setSubmitting(true)
     setSubmitError(null)
 
+    const heightLabel = formatHeight(heightInches)
     const bioFields = creationType === 'community'
       ? { creationType: 'community', communityKeyword: communityKeyword.trim(), personalitySliders: sliders }
-      : { creationType: 'original', style, weightClass: weight, height, primaryColor: primary, secondaryColor: secondary, hair, eyes, finisher, songUrl, personalitySliders: sliders }
+      : { creationType: 'original', style, weightClass: weight, height: heightLabel, primaryColor: primary, secondaryColor: secondary, hair, eyes, finisher, songUrl, personalitySliders: sliders }
 
     if (isEditing && editData) {
       // Upload image directly to original's path (image updates bypass text-field approval)
@@ -224,7 +244,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
             gender: gender ?? null,
             role: alignment ?? null,
             country: homeState || null,
-            gimmick: creationType === 'original' && style.length ? style.join(', ') : null,
+            gimmick: creationType === 'original' && style ? style : null,
             bio: bioFields,
           },
         }),
@@ -241,7 +261,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
       gender:       gender ?? null,
       role:         alignment ?? null,
       country:      homeState || null,
-      gimmick:      creationType === 'original' && style.length ? style.join(', ') : null,
+      gimmick:      creationType === 'original' && style ? style : null,
       status:       'pending',
       submitted_by: userId,
       bio:          JSON.stringify(bioFields),
@@ -316,9 +336,15 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
               </>
             ) : (
               <>
+                {/* Disclaimer */}
+                <div style={{ margin: '0 0 1.25rem', padding: '0.75rem 1rem', background: 'rgba(128,0,218,0.07)', border: '1px solid rgba(128,0,218,0.25)', borderLeft: '3px solid var(--purple-hot)' }}>
+                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.04em', lineHeight: 1.75, margin: 0 }}>
+                    <strong style={{ color: 'var(--purple-hot)' }}>Heads up:</strong> Every field below is optional — feel free to leave anything blank and the creative team will fill in the gaps. Or type <strong style={{ color: 'var(--text-strong)' }}>random</strong> in any text field if you want to be surprised!
+                  </p>
+                </div>
                 <div className="form-section">
-                  <div className="form-section-label">Fighting Style</div>
-                  <PillSelector<StylePill> options={['Striker','Technician','Powerhouse','High Flyer']} value={style} onChange={(v) => setStyle(v as StylePill[])} multi />
+                  <div className="form-section-label">Fighting Style <span style={{ fontWeight: 400, color: 'var(--text-dim)', fontSize: '0.7em' }}>(pick one)</span></div>
+                  <PillSelector<StylePill> options={['Striker','Technician','Powerhouse','High Flyer']} value={style} onChange={(v) => setStyle(v as StylePill)} />
                 </div>
                 <div className="form-section">
                   <div className="form-section-label">Weight Class</div>
@@ -327,9 +353,19 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                 <div className="form-section">
                   <div className="form-section-label">Identity</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div className="form-field">
-                      <label className="form-label">Height</label>
-                      <input className="form-input" placeholder="e.g. 6ft 2in" value={height} onChange={(e) => setHeight(e.target.value)} />
+                    <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                      <label className="form-label">
+                        Height — <span style={{ color: 'var(--purple-hot)', fontWeight: 700 }}>{formatHeight(heightInches)}</span>
+                      </label>
+                      <input
+                        type="range" min={48} max={95} value={heightInches}
+                        onChange={(e) => setHeightInches(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'none', margin: '0.35rem 0 0.15rem' }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-meta)', fontSize: '0.53rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
+                        <span>4ft 0in</span>
+                        <span>7ft 11in</span>
+                      </div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Announced As</label>
@@ -647,6 +683,7 @@ interface Creation {
   country?: string | null
   gimmick?: string | null
   editPending?: boolean
+  twitchLinked?: boolean  // wrestler found via twitch_handle match, not submitted_by
 }
 
 const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: string; icon: string }> = {
@@ -675,7 +712,7 @@ export default function PortalPage() {
     if (!user) return
     setLoadingCreations(true)
 
-    const [wRes, tRes] = await Promise.all([
+    const [wRes, tRes, profileRes] = await Promise.all([
       supabase
         .from('wrestlers')
         .select('id, name, status, bio, render_url, gender, role, country, gimmick')
@@ -686,10 +723,12 @@ export default function PortalPage() {
         .select('id, name, status, bio, render_url')
         .eq('submitted_by', user.id)
         .in('status', ['pending', 'hired', 'rejected']),
+      supabase.from('profiles').select('twitch_handle').eq('id', user.id).single(),
     ])
 
     const allWrestlers = wRes.data ?? []
     const allTeams = tRes.data ?? []
+    const twitchHandle: string | null = profileRes.data?.twitch_handle ?? null
 
     // Separate edit-pending rows (temp names) from real creations
     const wrestlerEdits = allWrestlers.filter((w) => w.name.startsWith('__edit_'))
@@ -703,11 +742,32 @@ export default function PortalPage() {
       try { const b = JSON.parse(e.bio ?? '{}'); if (b.editOf) editPendingIds.add(b.editOf) } catch { /* */ }
     }
 
+    const seenIds = new Set(realWrestlers.map((w) => w.id))
+
     const wrestlers: Creation[] = realWrestlers.map((w) => ({
       id: w.id, name: w.name, type: 'wrestler' as const, status: w.status as CreationStatus,
       bio: w.bio, render_url: w.render_url, gender: w.gender, role: w.role, country: w.country, gimmick: w.gimmick,
       editPending: editPendingIds.has(w.id),
     }))
+
+    // Twitch-linked wrestlers: roster wrestlers owned by this user's Twitch handle
+    if (twitchHandle) {
+      const { data: linked } = await supabase
+        .from('wrestlers')
+        .select('id, name, status, bio, render_url, gender, role, country, gimmick')
+        .eq('twitch_handle', twitchHandle)
+        .eq('status', 'hired')
+      for (const w of linked ?? []) {
+        if (!seenIds.has(w.id)) {
+          wrestlers.push({
+            id: w.id, name: w.name, type: 'wrestler' as const, status: 'hired' as CreationStatus,
+            bio: w.bio, render_url: w.render_url, gender: w.gender, role: w.role, country: w.country, gimmick: w.gimmick,
+            twitchLinked: true,
+          })
+        }
+      }
+    }
+
     const factions: Creation[] = realTeams.map((t) => ({
       id: t.id, name: t.name, type: 'faction' as const, status: t.status as CreationStatus,
       bio: t.bio, render_url: t.render_url, editPending: editPendingIds.has(t.id),
@@ -809,7 +869,11 @@ export default function PortalPage() {
                         {cfg.icon} {cfg.label}
                       </span>
                     </div>
-                    {c.editPending ? (
+                    {c.twitchLinked ? (
+                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        🔗 Twitch Linked
+                      </div>
+                    ) : c.editPending ? (
                       <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
                         ✎ EDIT PENDING
                       </div>

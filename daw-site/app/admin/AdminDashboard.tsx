@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts' | 'settings'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'edits' | 'story' | 'accounts' | 'settings' | 'legends'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -1561,6 +1561,123 @@ function AccountManagement() {
   )
 }
 
+/* ── Legends ─────────────────────────────────────────── */
+
+interface LegendRow { id: string; name: string; render_url: string | null; legend: boolean }
+
+function LegendsSection() {
+  const [rows, setRows]       = useState<LegendRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch]   = useState('')
+  const [toggling, setToggling] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('wrestlers')
+      .select('id, name, render_url, legend')
+      .eq('active', true)
+      .order('name')
+      .then(({ data }) => { setRows(data ?? []); setLoading(false) })
+  }, [])
+
+  async function toggle(row: LegendRow) {
+    setToggling(row.id)
+    const { error } = await supabase.from('wrestlers').update({ legend: !row.legend }).eq('id', row.id)
+    if (!error) setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, legend: !r.legend } : r))
+    setToggling(null)
+  }
+
+  const filtered = rows.filter((r) => !search || r.name.toLowerCase().includes(search.toLowerCase()))
+  const legends  = filtered.filter((r) => r.legend)
+  const rest     = filtered.filter((r) => !r.legend)
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '1rem',
+    padding: '0.65rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)',
+  }
+
+  function ToggleBtn({ row }: { row: LegendRow }) {
+    const on = row.legend
+    return (
+      <button
+        onClick={() => toggle(row)}
+        disabled={toggling === row.id}
+        style={{
+          flexShrink: 0, padding: '0.35rem 0.9rem',
+          fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+          background: on ? 'rgba(192,192,208,0.12)' : 'rgba(128,0,218,0.12)',
+          border: `1px solid ${on ? '#c0c0d0' : 'var(--purple)'}`,
+          color: on ? '#c0c0d0' : 'var(--purple-hot)',
+          cursor: 'pointer', transition: 'all 0.15s',
+        }}
+      >
+        {toggling === row.id ? '…' : on ? '★ Legend' : 'Mark Legend'}
+      </button>
+    )
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'0.5rem' }}>Legends</h2>
+      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'1.5rem' }}>
+        Marked wrestlers show a ★ LEGEND badge on the roster and can be filtered separately.
+      </p>
+
+      <input
+        className="form-input"
+        placeholder="Search active roster…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ maxWidth: 320, fontSize: '0.72rem', marginBottom: '1.5rem' }}
+      />
+
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : (
+        <>
+          {legends.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'#c0c0d0', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.65rem' }}>★ CURRENT LEGENDS</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem' }}>
+                {legends.map((row) => (
+                  <div key={row.id} style={{ ...rowStyle, borderColor: 'rgba(192,192,208,0.35)' }}>
+                    {row.render_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={row.render_url} alt={row.name} style={{ width:32, height:40, objectFit:'cover', objectPosition:'top', flexShrink:0, border:'1px solid var(--border)' }} />
+                      : <div style={{ width:32, height:40, background:'var(--surface-2)', flexShrink:0 }} />
+                    }
+                    <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{row.name}</span>
+                    <ToggleBtn row={row} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {rest.length > 0 && (
+            <div>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.65rem' }}>ACTIVE ROSTER</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem' }}>
+                {rest.map((row) => (
+                  <div key={row.id} style={rowStyle}>
+                    {row.render_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={row.render_url} alt={row.name} style={{ width:32, height:40, objectFit:'cover', objectPosition:'top', flexShrink:0, border:'1px solid var(--border)' }} />
+                      : <div style={{ width:32, height:40, background:'var(--surface-2)', flexShrink:0 }} />
+                    }
+                    <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{row.name}</span>
+                    <ToggleBtn row={row} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ── Site Settings ───────────────────────────────────── */
 
 function SiteSettings() {
@@ -1718,6 +1835,7 @@ export default function AdminDashboard() {
     { id: 'ownership', label: 'Assign Ownership' },
     { id: 'images',    label: 'Roster Images' },
     { id: 'edits',     label: 'Roster Edits' },
+    { id: 'legends',   label: 'Legends' },
     { id: 'story',     label: 'Story Development' },
     ...(isAdmin ? [{ id: 'accounts' as Section, label: 'Account Management' }] : []),
     ...(isAdmin ? [{ id: 'settings' as Section, label: 'Site Settings' }] : []),
@@ -1750,6 +1868,7 @@ export default function AdminDashboard() {
           {section === 'ownership'  && <OwnershipSection />}
           {section === 'images'     && <RosterImages />}
           {section === 'edits'      && <RosterEdits />}
+          {section === 'legends'    && <LegendsSection />}
           {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
           {section === 'accounts'   && isAdmin && <AccountManagement />}
           {section === 'settings'   && isAdmin && <SiteSettings />}

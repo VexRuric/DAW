@@ -23,6 +23,7 @@ export interface Wrestler {
   injured: boolean
   debut_date: string | null
   bio: string | null
+  legend: boolean
   status: WrestlerStatus
   submitted_by: string | null
   created_at: string
