@@ -12,6 +12,7 @@ interface WrestlerCardProps {
   draws?: number
   win_pct?: number | null
   current_title?: string | null
+  titleImageUrl?: string | null
   injured?: boolean
   legend?: boolean
   slug: string
@@ -25,6 +26,7 @@ export default function WrestlerCard({
   losses = 0,
   draws = 0,
   current_title,
+  titleImageUrl,
   injured,
   legend,
   slug,
@@ -104,16 +106,26 @@ export default function WrestlerCard({
       {/* Bottom gradient for text readability only — stays out of upper body zone */}
       <div style={{ position: 'absolute', inset: 0, background: gradientOverlay }} />
 
-      {/* Champion top badge */}
+      {/* Champion top badge — shows belt image + title name */}
       {isChampion && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
           background: 'var(--gold)', color: 'var(--bg-top)',
-          fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700,
-          letterSpacing: '0.15em', padding: '0.3rem 0.5rem',
-          textAlign: 'center', textTransform: 'uppercase', lineHeight: 1.3,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: '0.3rem',
+          fontFamily: 'var(--font-meta)', fontSize: '0.5rem', fontWeight: 700,
+          letterSpacing: '0.12em', padding: '0.28rem 0.5rem',
+          textTransform: 'uppercase', lineHeight: 1.3,
         }}>
-          {current_title}
+          {titleImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={titleImageUrl}
+              alt=""
+              style={{ height: 20, maxWidth: 46, objectFit: 'contain', display: 'block', flexShrink: 0 }}
+            />
+          )}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current_title}</span>
         </div>
       )}
 

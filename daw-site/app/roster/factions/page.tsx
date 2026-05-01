@@ -25,18 +25,29 @@ interface TeamRecord {
 async function getData() {
   try {
     const supabase = await createClient()
-    const [activeRes, inactiveRes, recordRes] = await Promise.all([
+    const [activeRes, inactiveRes, recordRes, membersRes] = await Promise.all([
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', true).order('name'),
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', false).order('name'),
       supabase.from('team_records').select('*'),
+      supabase.from('team_memberships').select('team_id, wrestlers(id, render_url)').is('end_date', null),
     ])
+
+    const memberRendersByTeamId = new Map<string, (string | null)[]>()
+    for (const row of (membersRes.data ?? []) as { team_id: string; wrestlers: { id: string; render_url: string | null } | null }[]) {
+      if (!row.wrestlers) continue
+      const list = memberRendersByTeamId.get(row.team_id) ?? []
+      list.push(row.wrestlers.render_url ?? null)
+      memberRendersByTeamId.set(row.team_id, list)
+    }
+
     return {
       teams:    (activeRes.data   ?? []) as Team[],
       disbanded:(inactiveRes.data ?? []) as Team[],
       records:  (recordRes.data   ?? []) as TeamRecord[],
+      memberRendersByTeamId,
     }
   } catch {
-    return { teams: [], disbanded: [], records: [] }
+    return { teams: [], disbanded: [], records: [], memberRendersByTeamId: new Map() }
   }
 }
 
@@ -54,7 +65,7 @@ function SilhouettePlaceholder() {
 }
 
 export default async function FactionsPage() {
-  const { teams, disbanded, records } = await getData()
+  const { teams, disbanded, records, memberRendersByTeamId } = await getData()
 
   const recordMap = new Map<string, TeamRecord>()
   records.forEach((r) => recordMap.set(r.id, r))
@@ -117,15 +128,43 @@ export default async function FactionsPage() {
               {teams.map((team) => {
                 const record = recordMap.get(team.id)
                 const accentColor = team.role === 'Heel' ? 'var(--accent-red)' : team.role === 'Face' ? 'var(--purple-hot)' : 'var(--border-hot)'
+                const memberRenders = (memberRendersByTeamId.get(team.id) ?? []).filter(Boolean).slice(0, 5) as string[]
+                const hasComposite  = memberRenders.length >= 2
                 return (
                   <Link
                     key={team.id}
                     href={`/roster/factions/${toSlug(team.name)}`}
                     style={{ textDecoration: 'none', display: 'block', position: 'relative', aspectRatio: '2/3', overflow: 'hidden', border: `1px solid var(--border)`, background: 'var(--surface-2)' }}
                   >
-                    {/* Portrait */}
+                    {/* Background: composite member renders OR solo logo */}
                     <div style={{ position: 'absolute', inset: 0 }}>
-                      {team.render_url ? (
+                      {hasComposite ? (
+                        memberRenders.map((url, i) => {
+                          const count = memberRenders.length
+                          // Spread members evenly; center member is last in z-order so it's on top
+                          const segW = 100 / count
+                          const leftPct = i * segW - (count > 2 ? segW * 0.25 : 0)
+                          const zIdx = Math.round(count / 2) === i ? count + 1 : count - Math.abs(i - Math.floor(count / 2))
+                          return (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={url}
+                              alt=""
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: `${leftPct}%`,
+                                width: count <= 2 ? '55%' : '48%',
+                                height: '120%',
+                                objectFit: 'cover',
+                                objectPosition: 'top center',
+                                zIndex: zIdx,
+                              }}
+                            />
+                          )
+                        })
+                      ) : team.render_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={team.render_url} alt={team.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
                       ) : (
@@ -134,13 +173,25 @@ export default async function FactionsPage() {
                     </div>
 
                     {/* Gradient overlay */}
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.3) 45%, transparent 70%)' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.1) 65%, transparent 80%)', zIndex: 10 }} />
 
                     {/* Role accent bar */}
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: accentColor }} />
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: accentColor, zIndex: 11 }} />
+
+                    {/* Faction logo badge (top-right) — only shown when composite is active */}
+                    {hasComposite && team.render_url && (
+                      <div style={{
+                        position: 'absolute', top: '0.6rem', right: '0.6rem', zIndex: 12,
+                        background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)',
+                        padding: '4px', borderRadius: 2,
+                      }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={team.render_url} alt="" style={{ display: 'block', height: 36, width: 36, objectFit: 'contain' }} />
+                      </div>
+                    )}
 
                     {/* Info */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '2.5rem 0.85rem 0.9rem', zIndex: 2 }}>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '2.5rem 0.85rem 0.9rem', zIndex: 11 }}>
                       <div style={{ borderLeft: `2px solid ${accentColor}`, paddingLeft: '0.6rem' }}>
                         <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', color: 'white', textTransform: 'uppercase', lineHeight: 1, marginBottom: '0.25rem' }}>
                           {team.name}

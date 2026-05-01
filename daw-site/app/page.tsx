@@ -173,6 +173,7 @@ export default async function HomePage() {
       stipulation: m.stipulation ?? null,
       isTitleMatch: m.is_title_match,
       titleName: m.titles?.name ?? null,
+      titleImageUrl: m.titles?.image_url ?? null,
       hashtag: streamIsCompleted ? deriveHashtag(m, andNewIds) : null,
       sides: buildSides(m.match_participants ?? []),
     }))

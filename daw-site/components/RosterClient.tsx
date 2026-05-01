@@ -5,9 +5,10 @@ import WrestlerCard from '@/components/WrestlerCard'
 import { Wrestler, WrestlerRecord, CurrentChampion } from '@/lib/types'
 
 interface RosterClientProps {
-  wrestlers: Wrestler[]
-  records:   WrestlerRecord[]
-  champions: CurrentChampion[]
+  wrestlers:      Wrestler[]
+  records:        WrestlerRecord[]
+  champions:      CurrentChampion[]
+  titleImageById?: Map<string, string | null>
 }
 
 const DIVISIONS = ['All', 'Mens', 'Womens', 'Internet', 'Intercontinental', 'Tag Team']
@@ -17,7 +18,7 @@ function toSlug(name: string) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
-export default function RosterClient({ wrestlers, records, champions }: RosterClientProps) {
+export default function RosterClient({ wrestlers, records, champions, titleImageById }: RosterClientProps) {
   const [division, setDivision] = useState('All')
   const [role, setRole]         = useState('All')
   const [search, setSearch]     = useState('')
@@ -35,6 +36,16 @@ export default function RosterClient({ wrestlers, records, champions }: RosterCl
     })
     return m
   }, [champions])
+
+  const titleImageByWrestlerId = useMemo(() => {
+    const m = new Map<string, string | null>()
+    champions.forEach((c) => {
+      if (c.holder_wrestler_id && titleImageById) {
+        m.set(c.holder_wrestler_id, titleImageById.get(c.title_id) ?? null)
+      }
+    })
+    return m
+  }, [champions, titleImageById])
 
   const filtered = useMemo(() => {
     return wrestlers.filter((w) => {
@@ -105,8 +116,9 @@ export default function RosterClient({ wrestlers, records, champions }: RosterCl
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
             {sorted.map((wrestler) => {
-              const record = recordMap.get(wrestler.id)
-              const title  = champMap.get(wrestler.id) ?? null
+              const record     = recordMap.get(wrestler.id)
+              const title      = champMap.get(wrestler.id) ?? null
+              const titleImage = titleImageByWrestlerId.get(wrestler.id) ?? null
               return (
                 <WrestlerCard
                   key={wrestler.id}
@@ -121,6 +133,7 @@ export default function RosterClient({ wrestlers, records, champions }: RosterCl
                   draws={record?.draws ?? 0}
                   win_pct={record?.win_pct ?? null}
                   current_title={title}
+                  titleImageUrl={titleImage}
                   injured={wrestler.injured}
                   legend={wrestler.legend}
                   slug={toSlug(wrestler.name)}

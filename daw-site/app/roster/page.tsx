@@ -13,26 +13,32 @@ export const metadata: Metadata = {
 async function getData() {
   try {
     const supabase = await createClient()
-    const [wrestlerRes, alumniRes, recordRes, champRes] = await Promise.all([
+    const [wrestlerRes, alumniRes, recordRes, champRes, titlesRes] = await Promise.all([
       supabase.from('wrestlers').select('*').eq('brand', 'DAW').eq('active', true).order('name', { ascending: true }),
       supabase.from('wrestlers').select('id').eq('brand', 'DAW').eq('active', false),
       supabase.from('wrestler_records').select('*'),
       supabase.from('current_champions').select('*'),
+      supabase.from('titles').select('id, image_url'),
     ])
 
+    const titleImageById = new Map<string, string | null>(
+      (titlesRes.data ?? []).map((t: { id: string; image_url: string | null }) => [t.id, t.image_url])
+    )
+
     return {
-      wrestlers:  (wrestlerRes.data ?? []) as Wrestler[],
+      wrestlers:   (wrestlerRes.data ?? []) as Wrestler[],
       alumniCount: (alumniRes.data ?? []).length,
-      records:    (recordRes.data  ?? []) as WrestlerRecord[],
-      champions:  (champRes.data   ?? []) as CurrentChampion[],
+      records:     (recordRes.data  ?? []) as WrestlerRecord[],
+      champions:   (champRes.data   ?? []) as CurrentChampion[],
+      titleImageById,
     }
   } catch {
-    return { wrestlers: [], alumniCount: 0, records: [], champions: [] }
+    return { wrestlers: [], alumniCount: 0, records: [], champions: [], titleImageById: new Map() }
   }
 }
 
 export default async function RosterPage() {
-  const { wrestlers, alumniCount, records, champions } = await getData()
+  const { wrestlers, alumniCount, records, champions, titleImageById } = await getData()
 
   const totalMens   = wrestlers.filter(w => w.gender === 'Male').length
   const totalWomens = wrestlers.filter(w => w.gender === 'Female').length
@@ -76,6 +82,7 @@ export default async function RosterPage() {
             <ChampionStrip
               champions={champions}
               renderMap={new Map(wrestlers.map(w => [w.id, w.render_url ?? null]))}
+              titleImageById={titleImageById}
             />
           </div>
         )}
@@ -102,7 +109,7 @@ export default async function RosterPage() {
           </Link>
         </div>
 
-        <RosterClient wrestlers={wrestlers} records={records} champions={champions} />
+        <RosterClient wrestlers={wrestlers} records={records} champions={champions} titleImageById={titleImageById} />
       </div>
     </>
   )

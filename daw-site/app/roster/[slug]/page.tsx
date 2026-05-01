@@ -252,9 +252,19 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             {wrestler.name}
           </h1>
           {currentReign && (
-            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--gold)', letterSpacing: '0.2em', fontWeight: 700, paddingLeft: '1.25rem', marginTop: '0.6rem' }}>
-              ★ {currentReign.titles?.name}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingLeft: '1.25rem', marginTop: '0.6rem' }}>
+              {currentReign.titles?.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentReign.titles.image_url}
+                  alt=""
+                  style={{ height: 38, maxWidth: 90, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(255,201,51,0.5))', flexShrink: 0 }}
+                />
+              )}
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--gold)', letterSpacing: '0.2em', fontWeight: 700, margin: 0 }}>
+                ★ {currentReign.titles?.name}
+              </p>
+            </div>
           )}
         </div>
       </section>

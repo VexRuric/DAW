@@ -9,6 +9,7 @@ export interface CompactMatch {
   stipulation: string | null
   isTitleMatch: boolean
   titleName: string | null
+  titleImageUrl: string | null
   hashtag: 'ANDNEW' | 'ANDSTILL' | 'WINNER' | null
   sides: { name: string; image_url: string | null }[]
 }
@@ -295,7 +296,11 @@ function MatchRow({ match }: { match: CompactMatch }) {
       {/* Badges row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', paddingLeft: 36, flexWrap: 'wrap' }}>
         {match.isTitleMatch && (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.1rem 0.35rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.1rem 0.35rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+            {match.titleImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={match.titleImageUrl} alt="" style={{ height: 18, maxWidth: 44, objectFit: 'contain', display: 'block' }} />
+            )}
             TITLE
           </span>
         )}
