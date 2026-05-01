@@ -33,7 +33,7 @@ async function getData() {
     ])
 
     const memberRendersByTeamId = new Map<string, (string | null)[]>()
-    for (const row of (membersRes.data ?? []) as { team_id: string; wrestlers: { id: string; render_url: string | null } | null }[]) {
+    for (const row of (membersRes.data ?? []) as unknown as { team_id: string; wrestlers: { id: string; render_url: string | null } | null }[]) {
       if (!row.wrestlers) continue
       const list = memberRendersByTeamId.get(row.team_id) ?? []
       list.push(row.wrestlers.render_url ?? null)
