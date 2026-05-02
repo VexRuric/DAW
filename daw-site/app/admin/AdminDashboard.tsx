@@ -40,7 +40,7 @@ interface ProfileResult { id: string; display_name: string | null; twitch_handle
 interface TitleRow { id: string; name: string; category: string; display_order: number }
 interface ChampRow { title_id: string; title_name: string; holder_name: string; holder_wrestler_id: string | null; holder_team_id: string | null; won_date: string; days_held: number }
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
-interface RosterRow { id: string; name: string; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
+interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -82,6 +82,39 @@ function makeBookerSlots(count: number): BookerSlot[] {
     isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()],
     isMainEvent: i === count - 1, sideNames: ['', ''],
   }))
+}
+
+/* ── Admin Drop Zone ─────────────────────────────────── */
+
+function AdminDropZone({ onFile, uploading, accent = 'var(--purple-hot)', border = 'var(--purple)' }: { onFile: (f: File) => void; uploading: boolean; accent?: string; border?: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const [drag, setDrag] = useState(false)
+  const [fileName, setFileName] = useState<string | null>(null)
+
+  function handleFile(file: File) { setFileName(file.name); onFile(file) }
+
+  return (
+    <div
+      onClick={() => !uploading && ref.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f) }}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '0.55rem',
+        padding: '0.45rem 0.85rem',
+        border: `1px dashed ${drag ? accent : border}`,
+        background: drag ? `rgba(128,0,218,0.12)` : 'rgba(128,0,218,0.06)',
+        color: uploading ? 'var(--text-dim)' : accent,
+        fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
+        cursor: uploading ? 'default' : 'pointer',
+        userSelect: 'none', transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
+      <span>{uploading ? '⏳ Uploading…' : drag ? '⬇ Drop here' : fileName ? `✓ ${fileName}` : '↑ Upload / Drop'}</span>
+      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+    </div>
+  )
 }
 
 /* ── Pending Approvals ───────────────────────────────── */
@@ -626,6 +659,8 @@ function ResultsEntry() {
   const [submitting, setSubmitting]     = useState(false)
   const [submitDone, setSubmitDone]     = useState(false)
   const [submitError, setSubmitError]   = useState<string | null>(null)
+  const [savingMatch, setSavingMatch]   = useState<string | null>(null)
+  const [savedMatch, setSavedMatch]     = useState<string | null>(null)
   const [streamUrl, setStreamUrl]       = useState('')
   const [savingStream, setSavingStream] = useState(false)
   const [streamSaved, setStreamSaved]   = useState(false)
@@ -662,6 +697,25 @@ function ResultsEntry() {
 
   function updateForm(matchId: string, patch: Partial<MatchResultForm>) {
     setForms((prev) => ({ ...prev, [matchId]: { ...prev[matchId], ...patch } }))
+    setSavedMatch(null)
+  }
+
+  async function saveMatch(matchId: string) {
+    const match = matches.find((m) => m.id === matchId)
+    const form  = forms[matchId]
+    if (!match || !form) return
+    setSavingMatch(matchId); setSavedMatch(null)
+    try {
+      for (const p of match.participants) {
+        const newResult = form.winner_mp_id === '' ? 'draw' : p.mp_id === form.winner_mp_id ? 'winner' : 'loser'
+        await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+      }
+      await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', matchId)
+      setSavedMatch(matchId)
+      setTimeout(() => setSavedMatch(null), 3000)
+    } finally {
+      setSavingMatch(null)
+    }
   }
 
   async function submitResults() {
@@ -790,6 +844,15 @@ function ResultsEntry() {
                     </div>
                     <textarea className="form-input form-textarea" placeholder="Key moments, angles, post-match happenings…" value={form.notes} onChange={(e) => updateForm(match.id, { notes: e.target.value })} style={{ fontSize:'0.72rem', minHeight:64, resize:'vertical' }} />
                   </div>
+                </div>
+                <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'0.75rem' }}>
+                  <button
+                    onClick={() => saveMatch(match.id)}
+                    disabled={savingMatch === match.id}
+                    style={{ padding:'0.4rem 1rem', background: savedMatch === match.id ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.12)', border:`1px solid ${savedMatch === match.id ? '#00c864' : 'var(--purple)'}`, color: savedMatch === match.id ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}
+                  >
+                    {savingMatch === match.id ? '…' : savedMatch === match.id ? '✓ Saved' : 'Save Match'}
+                  </button>
                 </div>
               </div>
             )
@@ -1179,8 +1242,7 @@ function RosterImages() {
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(128,0,218,0.05)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--purple)' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.75rem' }}>UPLOAD IMAGE — {item.name.toUpperCase()}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUpload(item.id, file) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-muted)' }} />
-                    {uploading && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--purple-hot)', letterSpacing:'0.1em' }}>Uploading…</span>}
+                    <AdminDropZone onFile={(file) => handleUpload(item.id, file)} uploading={uploading} />
                   </div>
                   {item.render_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Image</button>}
                 </div>
@@ -1262,8 +1324,7 @@ function TitleImages() {
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,201,51,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.75rem' }}>UPLOAD BELT IMAGE — {item.name.toUpperCase()}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleUpload(item.id, file) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-muted)' }} />
-                    {uploading && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--gold)', letterSpacing:'0.1em' }}>Uploading…</span>}
+                    <AdminDropZone onFile={(file) => handleUpload(item.id, file)} uploading={uploading} accent="var(--gold)" border="rgba(255,201,51,0.5)" />
                   </div>
                   {item.image_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Image</button>}
                 </div>
@@ -1279,14 +1340,18 @@ function TitleImages() {
 /* ── Roster Edits ────────────────────────────────────── */
 
 function RosterEdits() {
-  const [search, setSearch]   = useState('')
-  const [rows, setRows]       = useState<RosterRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving]   = useState<string | null>(null)
+  const [search, setSearch]         = useState('')
+  const [filterBrand, setFilterBrand]   = useState('')
+  const [filterRole, setFilterRole]     = useState('')
+  const [filterGender, setFilterGender] = useState('')
+  const [filterInjured, setFilterInjured] = useState<'all' | 'yes' | 'no'>('all')
+  const [rows, setRows]             = useState<RosterRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('wrestlers').select('id, name, division, role, injured, status').eq('active', true).order('name')
+      const { data } = await supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status').eq('active', true).order('name')
       setRows((data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false })))
       setLoading(false)
     }
@@ -1311,14 +1376,52 @@ function RosterEdits() {
     setRows((prev) => prev.filter((r) => r.id !== id))
   }
 
-  const filtered = rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = rows.filter((r) => {
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (filterBrand  && r.brand  !== filterBrand)  return false
+    if (filterRole   && r.role   !== filterRole)   return false
+    if (filterGender && r.gender !== filterGender) return false
+    if (filterInjured === 'yes' && !r.injured) return false
+    if (filterInjured === 'no'  &&  r.injured) return false
+    return true
+  })
+
+  const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
+    padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
+    letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
+    background: active ? `rgba(128,0,218,0.15)` : 'transparent',
+    color: active ? color : 'var(--text-dim)',
+  })
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
         <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Roster Edits</h2>
         <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
       </div>
+
+      {/* Filter bar */}
+      <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
+          {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>ROLE</span>
+          {['Face','Heel'].map(r => <button key={r} style={chipStyle(filterRole === r)} onClick={() => setFilterRole(filterRole === r ? '' : r)}>{r}</button>)}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>GENDER</span>
+          {['Male','Female'].map(g => <button key={g} style={chipStyle(filterGender === g)} onClick={() => setFilterGender(filterGender === g ? '' : g)}>{g}</button>)}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>INJURED</span>
+          <button style={chipStyle(filterInjured === 'yes', 'var(--accent-red)', 'var(--accent-red)')} onClick={() => setFilterInjured(filterInjured === 'yes' ? 'all' : 'yes')}>Yes</button>
+          <button style={chipStyle(filterInjured === 'no')} onClick={() => setFilterInjured(filterInjured === 'no' ? 'all' : 'no')}>No</button>
+        </div>
+        <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+      </div>
+
       {loading ? (
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
       ) : (
@@ -1329,7 +1432,10 @@ function RosterEdits() {
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
             {filtered.map((row) => (
               <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 100px 90px 80px', gap:'0.75rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{row.name}</span>
+                <div>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{row.name}</span>
+                  {row.brand && <span style={{ display:'block', fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.1rem' }}>{row.brand} · {row.gender ?? '—'}</span>}
+                </div>
                 <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 2rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
                   {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}

@@ -70,10 +70,22 @@ export default async function TitleHistoryPage({ params }: PageProps) {
   if (!data) notFound()
 
   const { title, reigns } = data
-  const currentReign = reigns.find((r: any) => !r.lost_date)
+
+  // Partition: vacant entries (no holder) vs real reigns
+  const vacantReigns   = reigns.filter((r: any) => !r.wrestlers && !r.teams)
+  const visibleReigns  = reigns.filter((r: any) =>  r.wrestlers ||  r.teams)
+
+  // Tag reigns that ended with the title going Vacant (cash-in / surrendered)
+  const cashedInIds = new Set<string>()
+  for (const vr of vacantReigns) {
+    const source = visibleReigns.find((r: any) => r.lost_date === vr.won_date)
+    if (source) cashedInIds.add(source.id)
+  }
+
+  const currentReign  = visibleReigns.find((r: any) => !r.lost_date)
   const currentHolder = currentReign?.wrestlers ?? currentReign?.teams ?? null
-  const totalReigns = reigns.length
-  const longestReign = reigns.reduce((best: any, r: any) => {
+  const totalReigns   = visibleReigns.length
+  const longestReign  = visibleReigns.reduce((best: any, r: any) => {
     const days = daysBetween(r.won_date, r.lost_date)
     return days > (best?.days ?? 0) ? { ...r, days } : best
   }, null as any)
@@ -99,51 +111,70 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           }}
         />
 
-        <div style={{ position: 'relative', zIndex: 2, padding: '3rem', width: '100%' }}>
-          {/* Breadcrumb */}
-          <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', marginBottom: '1rem' }}>
-            <Link href="/titles" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Championships</Link>
-            {' / '}
-            {title.name}
-          </div>
-
-          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ width: 30, height: 1, background: 'var(--gold)' }} />
-            {title.category.toUpperCase()} TITLE
-          </p>
-
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(2.5rem, 6vw, 5rem)',
-              color: 'var(--text-strong)',
-              textTransform: 'uppercase',
-              lineHeight: 0.9,
-              marginBottom: '2rem',
-            }}
-          >
-            {title.name}
-          </h1>
-
-          {/* Stats strip */}
-          <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'white', lineHeight: 1 }}>{totalReigns}</div>
-              <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Total Reigns</div>
+        <div style={{ position: 'relative', zIndex: 2, padding: '3rem', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '3rem' }}>
+          {/* Left: text content */}
+          <div style={{ flex: 1 }}>
+            {/* Breadcrumb */}
+            <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.15em', marginBottom: '1rem' }}>
+              <Link href="/titles" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Championships</Link>
+              {' / '}
+              {title.name}
             </div>
-            {longestReign && (
+
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ width: 30, height: 1, background: 'var(--gold)' }} />
+              {title.category.toUpperCase()} TITLE
+            </p>
+
+            <h1
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(2.5rem, 6vw, 5rem)',
+                color: 'var(--text-strong)',
+                textTransform: 'uppercase',
+                lineHeight: 0.9,
+                marginBottom: '2rem',
+              }}
+            >
+              {title.name}
+            </h1>
+
+            {/* Stats strip */}
+            <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--gold)', lineHeight: 1 }}>{longestReign.days}</div>
-                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Longest Reign (days)</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'white', lineHeight: 1 }}>{totalReigns}</div>
+                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Total Reigns</div>
               </div>
-            )}
-            {currentReign && (
-              <div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--purple-hot)', lineHeight: 1 }}>{daysBetween(currentReign.won_date, null)}</div>
-                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Current Reign (days)</div>
-              </div>
-            )}
+              {longestReign && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--gold)', lineHeight: 1 }}>{longestReign.days}</div>
+                  <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Longest Reign (days)</div>
+                </div>
+              )}
+              {currentReign && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--purple-hot)', lineHeight: 1 }}>{daysBetween(currentReign.won_date, null)}</div>
+                  <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Current Reign (days)</div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Right: belt image */}
+          {title.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={title.image_url}
+              alt={title.name}
+              style={{
+                height: 'clamp(120px, 18vw, 200px)',
+                maxWidth: 320,
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 4px 32px rgba(255,201,51,0.45))',
+                flexShrink: 0,
+              }}
+            />
+          )}
         </div>
       </section>
 
@@ -219,7 +250,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           REIGN HISTORY
         </p>
 
-        {reigns.length === 0 ? (
+        {visibleReigns.length === 0 ? (
           <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
             No recorded reigns.
           </p>
@@ -243,10 +274,10 @@ export default async function TitleHistoryPage({ params }: PageProps) {
               ))}
             </div>
 
-            {reigns.map((reign: any, idx: number) => {
+            {visibleReigns.map((reign: any, idx: number) => {
               const holder = reign.wrestlers ?? reign.teams
-              if (!holder) return null
-              const isCurrent = !reign.lost_date
+              const isCurrent  = !reign.lost_date
+              const isCashedIn = cashedInIds.has(reign.id)
               const days = daysBetween(reign.won_date, reign.lost_date)
               const isLongest = longestReign?.id === reign.id
 
@@ -265,7 +296,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                   }}
                 >
                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
-                    {reign.reign_number ?? (reigns.length - idx)}
+                    {reign.reign_number ?? (visibleReigns.length - idx)}
                   </span>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -284,7 +315,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                       >
                         {holder.name}
                       </Link>
-                    ) : reign.teams ? (
+                    ) : (
                       <Link
                         href={`/roster/factions`}
                         style={{
@@ -298,10 +329,6 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                       >
                         {holder.name}
                       </Link>
-                    ) : (
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>
-                        {holder.name}
-                      </span>
                     )}
                   </div>
 
@@ -320,6 +347,10 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                     {isCurrent ? (
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--gold)', letterSpacing: '0.1em', fontWeight: 700 }}>
                         Present
+                      </span>
+                    ) : isCashedIn ? (
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: '#f59e0b', letterSpacing: '0.12em', fontWeight: 700 }}>
+                        CASHED IN
                       </span>
                     ) : (
                       <>
