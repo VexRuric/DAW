@@ -71,9 +71,10 @@ export default async function TitleHistoryPage({ params }: PageProps) {
 
   const { title, reigns } = data
 
-  // Partition: vacant entries (no holder) vs real reigns
-  const vacantReigns   = reigns.filter((r: any) => !r.wrestlers && !r.teams)
-  const visibleReigns  = reigns.filter((r: any) =>  r.wrestlers ||  r.teams)
+  // Partition: "Vacant" holder entries vs real reigns
+  const isVacant = (r: any) => (r.wrestlers?.name ?? r.teams?.name ?? '').toLowerCase() === 'vacant'
+  const vacantReigns  = reigns.filter((r: any) => isVacant(r))
+  const visibleReigns = reigns.filter((r: any) => !isVacant(r) && (r.wrestlers || r.teams))
 
   // Tag reigns that ended with the title going Vacant (cash-in / surrendered)
   const cashedInIds = new Set<string>()
