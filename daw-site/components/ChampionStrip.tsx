@@ -51,7 +51,7 @@ function ChampionCard({ champion, renderUrl, titleImageUrl }: ChampionCardProps)
           <img
             src={titleImageUrl}
             alt={champion.title_name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: 'drop-shadow(0 4px 20px rgba(255,201,51,0.45))' }}
+            style={{ position: 'absolute', top: '50%', left: '50%', width: '150%', height: '150%', objectFit: 'cover', objectPosition: 'center', transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 4px 20px rgba(255,201,51,0.45))' }}
           />
         ) : (
           <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'rgba(255,201,51,0.35)', lineHeight: 1 }}>★</span>
