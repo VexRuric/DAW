@@ -45,13 +45,13 @@ function ChampionCard({ champion, renderUrl, titleImageUrl }: ChampionCardProps)
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 55%, rgba(0,0,0,0.97) 100%)' }} />
 
       {/* Belt image — centrepiece */}
-      <div style={{ position: 'absolute', top: '10%', left: '8%', right: '8%', height: '48%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+      <div style={{ position: 'absolute', top: '10%', left: '8%', right: '8%', height: '48%', overflow: 'hidden', zIndex: 2 }}>
         {titleImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={titleImageUrl}
             alt={champion.title_name}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(255,201,51,0.45))' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: 'drop-shadow(0 4px 20px rgba(255,201,51,0.45))' }}
           />
         ) : (
           <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'rgba(255,201,51,0.35)', lineHeight: 1 }}>★</span>
