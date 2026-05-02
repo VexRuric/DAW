@@ -99,7 +99,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           position: 'relative',
           borderBottom: '1px solid var(--border)',
           overflow: 'hidden',
-          minHeight: 280,
+          minHeight: 360,
           display: 'flex',
           alignItems: 'flex-end',
         }}
@@ -112,7 +112,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           }}
         />
 
-        <div style={{ position: 'relative', zIndex: 2, padding: '3rem', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '3rem' }}>
+        <div style={{ position: 'relative', zIndex: 2, padding: '3rem', width: '100%', display: 'flex', alignItems: 'center', gap: '3rem' }}>
           {/* Left: text content */}
           <div style={{ flex: 1 }}>
             {/* Breadcrumb */}
@@ -168,10 +168,10 @@ export default async function TitleHistoryPage({ params }: PageProps) {
               src={title.image_url}
               alt={title.name}
               style={{
-                height: 'clamp(120px, 18vw, 200px)',
-                maxWidth: 320,
+                height: 'clamp(180px, 28vw, 380px)',
+                maxWidth: '45%',
                 objectFit: 'contain',
-                filter: 'drop-shadow(0 4px 32px rgba(255,201,51,0.45))',
+                filter: 'drop-shadow(0 6px 40px rgba(255,201,51,0.55))',
                 flexShrink: 0,
               }}
             />
