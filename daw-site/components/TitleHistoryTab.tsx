@@ -65,8 +65,10 @@ export default function TitleHistoryTab({ reigns }: Props) {
                   }}
                 >
                   {reign.titles?.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={reign.titles.image_url} alt={reign.titles.name} style={{ width: '100%', maxHeight: 44, objectFit: 'contain', marginBottom: '0.4rem', opacity: 0.9 }} />
+                    <div style={{ width: '100%', height: 52, overflow: 'hidden', marginBottom: '0.4rem', position: 'relative' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={reign.titles.image_url} alt={reign.titles.name} style={{ position: 'absolute', top: '50%', left: '50%', width: '150%', height: '150%', objectFit: 'cover', objectPosition: 'center', transform: 'translate(-50%, -50%)', opacity: 0.9 }} />
+                    </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.88rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
