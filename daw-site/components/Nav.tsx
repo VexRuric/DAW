@@ -52,7 +52,7 @@ export default function Nav() {
         }}
       >
         {/* Logo */}
-        <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <Link href="/" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', flexShrink: 0, height: 42 }}>
           <Image src="/dawlogo.png" alt="DAW Warehouse Live" height={42} width={160} style={{ objectFit: 'contain', display: 'block' }} priority />
         </Link>
 
@@ -119,7 +119,7 @@ export default function Nav() {
       {menuOpen && (
         <div
           style={{
-            position: 'fixed', top: 56, left: 0, right: 0, zIndex: 199,
+            position: 'fixed', top: 56, left: 0, right: 0, zIndex: 201,
             background: 'rgba(10,10,12,0.98)',
             backdropFilter: 'blur(16px)',
             borderBottom: '2px solid var(--purple)',
