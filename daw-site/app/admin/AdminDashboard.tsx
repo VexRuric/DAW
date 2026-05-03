@@ -1412,21 +1412,28 @@ function TitleImages() {
 /* ── Roster Edits ────────────────────────────────────── */
 
 function RosterEdits() {
+  const [tab, setTab]               = useState<'active' | 'retired'>('active')
   const [search, setSearch]         = useState('')
   const [filterBrand, setFilterBrand]   = useState('')
   const [filterRole, setFilterRole]     = useState('')
   const [filterGender, setFilterGender] = useState('')
   const [filterInjured, setFilterInjured] = useState<'all' | 'yes' | 'no'>('all')
   const [rows, setRows]             = useState<RosterRow[]>([])
+  const [retiredRows, setRetiredRows] = useState<RosterRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState<string | null>(null)
+  const [reinstating, setReinstating] = useState<string | null>(null)
   const [backstoryEdit, setBackstoryEdit] = useState<{ id: string; name: string; text: string } | null>(null)
   const [backstorySaving, setBackstorySaving] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', true).order('name')
-      setRows((data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
+      const [activeRes, retiredRes] = await Promise.all([
+        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', true).order('name'),
+        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', false).order('name'),
+      ])
+      setRows((activeRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
+      setRetiredRows((retiredRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
       setLoading(false)
     }
     load()
@@ -1455,8 +1462,21 @@ function RosterEdits() {
   }
 
   async function retire(id: string) {
-    await supabase.from('wrestlers').update({ status: 'retired', active: false }).eq('id', id)
+    const row = rows.find((r) => r.id === id)
+    if (!row) return
     setRows((prev) => prev.filter((r) => r.id !== id))
+    setRetiredRows((prev) => [{ ...row, status: 'retired', saved: false }, ...prev])
+    await supabase.from('wrestlers').update({ status: 'retired', active: false }).eq('id', id)
+  }
+
+  async function reinstate(id: string) {
+    const row = retiredRows.find((r) => r.id === id)
+    if (!row) return
+    setReinstating(id)
+    setRetiredRows((prev) => prev.filter((r) => r.id !== id))
+    setRows((prev) => [...prev, { ...row, status: 'hired', saved: false }].sort((a, b) => a.name.localeCompare(b.name)))
+    await supabase.from('wrestlers').update({ status: 'hired', active: true }).eq('id', id)
+    setReinstating(null)
   }
 
   async function saveBackstory() {
@@ -1478,6 +1498,8 @@ function RosterEdits() {
     return true
   })
 
+  const filteredRetired = retiredRows.filter((r) => !search || r.name.toLowerCase().includes(search.toLowerCase()))
+
   const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
     padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
     letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
@@ -1492,66 +1514,94 @@ function RosterEdits() {
         <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
       </div>
 
-      {/* Filter bar */}
-      <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
-          {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>ROLE</span>
-          {['Face','Heel'].map(r => <button key={r} style={chipStyle(filterRole === r)} onClick={() => setFilterRole(filterRole === r ? '' : r)}>{r}</button>)}
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>GENDER</span>
-          {['Male','Female'].map(g => <button key={g} style={chipStyle(filterGender === g)} onClick={() => setFilterGender(filterGender === g ? '' : g)}>{g}</button>)}
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>INJURED</span>
-          <button style={chipStyle(filterInjured === 'yes', 'var(--accent-red)', 'var(--accent-red)')} onClick={() => setFilterInjured(filterInjured === 'yes' ? 'all' : 'yes')}>Yes</button>
-          <button style={chipStyle(filterInjured === 'no')} onClick={() => setFilterInjured(filterInjured === 'no' ? 'all' : 'no')}>No</button>
-        </div>
-        <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+      {/* Tabs */}
+      <div className="tab-group" style={{ marginBottom:'1.25rem' }}>
+        <button className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>Active ({rows.length})</button>
+        <button className={`tab${tab === 'retired' ? ' active' : ''}`} onClick={() => setTab('retired')}>Retired ({retiredRows.length})</button>
       </div>
 
       {loading ? (
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : tab === 'active' ? (
+        <>
+          {/* Filter bar */}
+          <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
+              {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>ROLE</span>
+              {['Face','Heel'].map(r => <button key={r} style={chipStyle(filterRole === r)} onClick={() => setFilterRole(filterRole === r ? '' : r)}>{r}</button>)}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>GENDER</span>
+              {['Male','Female'].map(g => <button key={g} style={chipStyle(filterGender === g)} onClick={() => setFilterGender(filterGender === g ? '' : g)}>{g}</button>)}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>INJURED</span>
+              <button style={chipStyle(filterInjured === 'yes', 'var(--accent-red)', 'var(--accent-red)')} onClick={() => setFilterInjured(filterInjured === 'yes' ? 'all' : 'yes')}>Yes</button>
+              <button style={chipStyle(filterInjured === 'no')} onClick={() => setFilterInjured(filterInjured === 'no' ? 'all' : 'no')}>No</button>
+            </div>
+            <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+          </div>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+              {['Name','Brand','Gender','Division','Role','Injured','Status','','','Backstory'].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+            </div>
+            <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
+              {filtered.map((row) => (
+                <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                  <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
+                  <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.gender ?? ''} onChange={(e) => update(row.id, 'gender', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['Male','Female'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
+                    <input type="checkbox" checked={row.injured} onChange={(e) => update(row.id, 'injured', e.target.checked)} style={{ accentColor:'var(--accent-red)' }} />
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: row.injured ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing:'0.08em' }}>{row.injured ? 'Yes' : 'No'}</span>
+                  </label>
+                  <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['hired','released','retired'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                  <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
+                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['Name','Brand','Gender','Division','Role','Injured','Status','','','Backstory'].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 110px 100px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Name','Brand','Gender','Division','Role',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
           </div>
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
-            {filtered.map((row) => (
-              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
-                <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
-                <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.gender ?? ''} onChange={(e) => update(row.id, 'gender', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['Male','Female'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
-                  <input type="checkbox" checked={row.injured} onChange={(e) => update(row.id, 'injured', e.target.checked)} style={{ accentColor:'var(--accent-red)' }} />
-                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: row.injured ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing:'0.08em' }}>{row.injured ? 'Yes' : 'No'}</span>
-                </label>
-                <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['hired','released','retired'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
-                <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
-                <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+            {filteredRetired.length === 0 && (
+              <p style={{ padding:'2rem 1.25rem', fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No retired wrestlers.</p>
+            )}
+            {filteredRetired.map((row) => (
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 110px 100px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', opacity:0.8 }}>
+                <span style={{ fontFamily:'var(--font-display)', fontSize:'0.88rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{row.name}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.brand ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.gender ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.division ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.role ?? '—'}</span>
+                <button onClick={() => reinstate(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
               </div>
             ))}
           </div>
@@ -1588,11 +1638,14 @@ function RosterEdits() {
 /* ── Faction Edits ────────────────────────────────────── */
 
 function FactionEdits() {
+  const [tab, setTab]                 = useState<'active' | 'dissolved'>('active')
   const [search, setSearch]           = useState('')
   const [filterBrand, setFilterBrand] = useState('')
   const [rows, setRows]               = useState<FactionRow[]>([])
+  const [dissolvedRows, setDissolvedRows] = useState<FactionRow[]>([])
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState<string | null>(null)
+  const [reinstating, setReinstating] = useState<string | null>(null)
   const [backstoryEdit, setBackstoryEdit] = useState<{ id: string; name: string; text: string } | null>(null)
   const [backstorySaving, setBackstorySaving] = useState(false)
   const [membersPopup, setMembersPopup] = useState<{ teamId: string; teamName: string } | null>(null)
@@ -1603,8 +1656,12 @@ function FactionEdits() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('teams').select('id, name, brand, division, role, status, backstory').order('name')
-      setRows((data ?? []).map((r: any) => ({ ...r, saved: false, role: r.role ?? null, backstory: r.backstory ?? null })))
+      const [activeRes, dissolvedRes] = await Promise.all([
+        supabase.from('teams').select('id, name, brand, division, role, status, backstory').eq('active', true).order('name'),
+        supabase.from('teams').select('id, name, brand, division, role, status, backstory').eq('active', false).order('name'),
+      ])
+      setRows((activeRes.data ?? []).map((r: any) => ({ ...r, saved: false, role: r.role ?? null, backstory: r.backstory ?? null })))
+      setDissolvedRows((dissolvedRes.data ?? []).map((r: any) => ({ ...r, saved: false, role: r.role ?? null, backstory: r.backstory ?? null })))
       setLoading(false)
     }
     load()
@@ -1631,8 +1688,21 @@ function FactionEdits() {
   }
 
   async function dissolve(id: string) {
-    await supabase.from('teams').update({ status: 'disbanded', active: false }).eq('id', id)
+    const row = rows.find((r) => r.id === id)
+    if (!row) return
     setRows((prev) => prev.filter((r) => r.id !== id))
+    setDissolvedRows((prev) => [{ ...row, status: 'disbanded', saved: false }, ...prev])
+    await supabase.from('teams').update({ status: 'disbanded', active: false }).eq('id', id)
+  }
+
+  async function reinstateFaction(id: string) {
+    const row = dissolvedRows.find((r) => r.id === id)
+    if (!row) return
+    setReinstating(id)
+    setDissolvedRows((prev) => prev.filter((r) => r.id !== id))
+    setRows((prev) => [...prev, { ...row, status: 'hired', saved: false }].sort((a, b) => a.name.localeCompare(b.name)))
+    await supabase.from('teams').update({ status: 'hired', active: true }).eq('id', id)
+    setReinstating(null)
   }
 
   async function saveFactionBackstory() {
@@ -1679,6 +1749,8 @@ function FactionEdits() {
     return true
   })
 
+  const filteredDissolved = dissolvedRows.filter((r) => !search || r.name.toLowerCase().includes(search.toLowerCase()))
+
   const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
     padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
     letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
@@ -1693,46 +1765,73 @@ function FactionEdits() {
         <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
       </div>
 
-      {/* Filter bar */}
-      <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
-          {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
-        </div>
-        <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+      {/* Tabs */}
+      <div className="tab-group" style={{ marginBottom:'1.25rem' }}>
+        <button className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>Active ({rows.length})</button>
+        <button className={`tab${tab === 'dissolved' ? ' active' : ''}`} onClick={() => setTab('dissolved')}>Dissolved ({dissolvedRows.length})</button>
       </div>
 
       {loading ? (
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : tab === 'active' ? (
+        <>
+          {/* Filter bar */}
+          <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
+              {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
+            </div>
+            <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+          </div>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+              {['Faction','Brand','Division','Role','Status','','','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+            </div>
+            <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
+              {filtered.map((row) => (
+                <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                  <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
+                  <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                    <option value="">—</option>
+                    {['hired','released','disbanded'].map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.5rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                  <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
+                  <button onClick={() => openMembers(row)} style={{ padding:'0.35rem 0.5rem', background:'rgba(0,200,100,0.08)', border:'1px solid rgba(0,200,100,0.4)', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Members</button>
+                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['Faction','Brand','Division','Role','Status','','','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Faction','Brand','Division','Role',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
           </div>
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
-            {filtered.map((row) => (
-              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
-                <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
-                <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                  <option value="">—</option>
-                  {['hired','released','disbanded'].map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.5rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
-                <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
-                <button onClick={() => openMembers(row)} style={{ padding:'0.35rem 0.5rem', background:'rgba(0,200,100,0.08)', border:'1px solid rgba(0,200,100,0.4)', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Members</button>
-                <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+            {filteredDissolved.length === 0 && (
+              <p style={{ padding:'2rem 1.25rem', fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No dissolved factions.</p>
+            )}
+            {filteredDissolved.map((row) => (
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', opacity:0.8 }}>
+                <span style={{ fontFamily:'var(--font-display)', fontSize:'0.88rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{row.name}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.brand ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.division ?? '—'}</span>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.role ?? '—'}</span>
+                <button onClick={() => reinstateFaction(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
               </div>
             ))}
           </div>
