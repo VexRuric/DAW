@@ -63,21 +63,33 @@ function buildExcerpt(match: any, andNewIds: Set<string>): string {
   return `${wName} picks up the win${lStr ? ` over ${lStr}` : ''} in a ${match.match_type}${stip}.`
 }
 
-function buildSides(participants: any[]) {
+function buildSides(participants: any[], matchType: string) {
   const teamMap = new Map<string, any>()
   for (const p of participants) {
     if (p.team_id && p.teams && !teamMap.has(p.team_id)) teamMap.set(p.team_id, p)
   }
   if (teamMap.size >= 2) {
-    return Array.from(teamMap.values()).slice(0, 2).map(p => ({
+    return Array.from(teamMap.values()).map(p => ({
       name: p.teams.name as string,
       image_url: (p.teams.render_url ?? null) as string | null,
     }))
   }
-  return participants
-    .filter(p => p.wrestlers || p.write_in_name)
-    .slice(0, 2)
-    .map(p => ({ name: participantName(p), image_url: participantImage(p) }))
+
+  const wrestlers = participants.filter(p => p.wrestlers || p.write_in_name)
+
+  if (matchType === 'Tag Team') {
+    const sides: { name: string; image_url: string | null }[] = []
+    for (let i = 0; i < wrestlers.length; i += 2) {
+      const pair = wrestlers.slice(i, i + 2)
+      sides.push({
+        name: pair.map((p: any) => participantName(p)).join(' & '),
+        image_url: participantImage(pair[0]),
+      })
+    }
+    return sides
+  }
+
+  return wrestlers.map(p => ({ name: participantName(p), image_url: participantImage(p) }))
 }
 
 export default async function HomePage() {
@@ -175,7 +187,7 @@ export default async function HomePage() {
       titleName: m.titles?.name ?? null,
       titleImageUrl: m.titles?.image_url ?? null,
       hashtag: streamIsCompleted ? deriveHashtag(m, andNewIds) : null,
-      sides: buildSides(m.match_participants ?? []),
+      sides: buildSides(m.match_participants ?? [], m.match_type),
     }))
 
     // News grid: from last completed show only

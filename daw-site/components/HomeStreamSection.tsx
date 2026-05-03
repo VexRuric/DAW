@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 export interface CompactMatch {
   id: string
@@ -34,6 +34,15 @@ const HASHTAG_COLOR: Record<string, string> = {
   ANDNEW:   'var(--accent-red)',
   ANDSTILL: 'var(--gold)',
   WINNER:   'var(--purple-hot)',
+}
+
+const STIP_COLORS: Record<string, string> = {
+  'Extreme': '#ff6b35', 'Weapons': '#ff4444', 'Steel Cage': '#8899aa',
+  'Falls Count Anywhere': '#22cc88', 'No Holds Barred': '#ff3355',
+  'Iron Man': '#ffc933', 'Ladder': '#4488ff', 'TLC': '#6644ff',
+  'Table': '#44aaff', 'No DQ': '#ff2244', 'Elimination Chamber': '#aa44ff',
+  'Hardcore': '#cc2222', 'Ambulance': '#aaaacc', 'War Games': '#882288',
+  'Casket': '#555577',
 }
 
 const YT_PLAYLIST = 'PLJmTlWB_rLnAUfvozUqtODPuxAE3nC004'
@@ -270,8 +279,11 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
 }
 
 function MatchRow({ match }: { match: CompactMatch }) {
-  const left  = match.sides[0]
-  const right = match.sides[1]
+  const sides = match.sides
+  const isMassMatch = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
+  const stipParts = match.stipulation
+    ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean)
+    : []
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.6rem 0.8rem', flexShrink: 0 }}>
@@ -280,16 +292,41 @@ function MatchRow({ match }: { match: CompactMatch }) {
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
           {String(match.matchNumber).padStart(2, '0')}
         </span>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {left?.name ?? 'TBA'}
-        </span>
-        {match.sides.length >= 2 && (
-          <>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--purple-hot)', flexShrink: 0 }}>VS</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
-              {right?.name ?? 'TBA'}
+
+        {isMassMatch ? (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block' }}>
+              {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
             </span>
+            {sides.length > 0 && (
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)', letterSpacing: '0.05em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {sides.map(s => s.name).join(' · ')}
+              </span>
+            )}
+          </div>
+        ) : sides.length <= 2 ? (
+          <>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {sides[0]?.name ?? 'TBA'}
+            </span>
+            {sides.length >= 2 && (
+              <>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--purple-hot)', flexShrink: 0 }}>VS</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                  {sides[1]?.name ?? 'TBA'}
+                </span>
+              </>
+            )}
           </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.25rem', minWidth: 0 }}>
+            {sides.map((s, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.6rem', color: 'var(--purple-hot)' }}>vs</span>}
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>{s.name}</span>
+              </React.Fragment>
+            ))}
+          </div>
         )}
       </div>
 
@@ -318,12 +355,12 @@ function MatchRow({ match }: { match: CompactMatch }) {
             {match.titleName}
           </span>
         )}
-        {match.stipulation && (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            · {match.stipulation}
+        {stipParts.map(tag => (
+          <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.08rem 0.3rem', letterSpacing: '0.08em', fontWeight: 700 }}>
+            {tag}
           </span>
-        )}
-        {!match.isTitleMatch && !match.stipulation && (
+        ))}
+        {!match.isTitleMatch && stipParts.length === 0 && (
           <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             {match.matchType}
           </span>
