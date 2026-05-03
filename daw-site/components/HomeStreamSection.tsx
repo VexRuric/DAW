@@ -80,13 +80,8 @@ export default function HomeStreamSection({
   const labelText   = isLive ? '● LIVE NOW · THE STREAM' : isLive === false ? 'ON DEMAND · YOUTUBE PLAYLIST' : 'THE STREAM'
 
   return (
-    <section style={{ padding: '3rem 3rem 4rem', borderBottom: '1px solid var(--border)' }}>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1.35fr 1fr',
-        gap: '2rem',
-        alignItems: 'stretch',
-      }}>
+    <section className="home-stream-section" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="stream-grid">
 
         {/* LEFT: Twitch when live, YouTube playlist when offline */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>

@@ -21,6 +21,7 @@ export default function TitleHistoryTab({ reigns }: Props) {
 
   return (
     <div
+      className="title-history-tab-wrapper"
       style={{
         position: 'fixed',
         right: 0,

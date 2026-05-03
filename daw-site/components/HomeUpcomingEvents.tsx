@@ -21,9 +21,9 @@ export default function HomeUpcomingEvents({ events }: { events: EventItem[] }) 
   if (events.length === 0) return null
 
   return (
-    <section style={{ padding: '4rem 3rem', borderTop: '1px solid var(--border)' }}>
+    <section className="home-section" style={{ borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '1rem' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2.75rem', color: 'var(--text-strong)', letterSpacing: '0.01em', textTransform: 'uppercase', lineHeight: 1 }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.6rem, 5vw, 2.75rem)', color: 'var(--text-strong)', letterSpacing: '0.01em', textTransform: 'uppercase', lineHeight: 1 }}>
           Upcoming Events
         </h2>
         <Link href="/schedule" style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>

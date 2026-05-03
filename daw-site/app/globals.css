@@ -427,6 +427,101 @@ a, button { cursor: none; }
 }
 
 /* ============================================================
+   RESPONSIVE COMPONENTS — layout grids & nav
+   ============================================================ */
+
+/* Hamburger button — visible only on mobile */
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-strong);
+  font-size: 1.25rem;
+  line-height: 1;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.nav-hamburger:hover { border-color: var(--purple); color: var(--purple-hot); }
+
+/* Section padding helpers */
+.home-section      { padding: 4rem 3rem; }
+.home-stream-section { padding: 3rem 3rem 4rem; }
+
+/* Layout grids */
+.stream-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 2rem;
+  align-items: stretch;
+}
+.news-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+/* ============================================================
+   TABLET (≤1024px)
+   ============================================================ */
+@media (max-width: 1024px) {
+  .home-section        { padding: 3rem 2rem; }
+  .home-stream-section { padding: 2.5rem 2rem 3rem; }
+  .news-grid           { gap: 2rem; }
+  .community-grid      { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   MOBILE (≤768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Nav */
+  .nav-hamburger     { display: flex; }
+  .nav-links-desktop,
+  .nav-right-desktop { display: none !important; }
+  .site-nav          { padding: 0 1.25rem !important; height: 56px !important; }
+
+  /* TopBar */
+  .topbar-inner      { padding: 0.5rem 1.25rem !important; }
+  .topbar-links      { display: none !important; }
+
+  /* Section padding */
+  .home-section        { padding: 2.5rem 1.25rem; }
+  .home-stream-section { padding: 1.75rem 1.25rem 2.5rem; }
+
+  /* Grids → single column */
+  .stream-grid    { grid-template-columns: 1fr; gap: 1.5rem; }
+  .news-grid      { grid-template-columns: 1fr; gap: 1.5rem; }
+  .community-grid { grid-template-columns: 1fr; }
+
+  /* Community section text scaling */
+  .community-heading      { font-size: clamp(1.5rem, 6vw, 2.75rem) !important; }
+  .community-card-heading { font-size: clamp(1.1rem, 4vw, 2rem) !important; }
+  .community-card-link    { font-size: 1rem !important; }
+
+  /* Title History side-tab — hide on mobile */
+  .title-history-tab-wrapper { display: none !important; }
+}
+
+/* ============================================================
+   SMALL MOBILE (≤480px)
+   ============================================================ */
+@media (max-width: 480px) {
+  .home-section        { padding: 2rem 1rem; }
+  .home-stream-section { padding: 1.5rem 1rem 2rem; }
+}
+
+/* ============================================================
    MODAL SYSTEM
    ============================================================ */
 

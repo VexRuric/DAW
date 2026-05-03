@@ -44,6 +44,7 @@ export default function TopBar() {
 
   return (
     <div
+      className="topbar-inner"
       style={{
         background: live ? 'var(--purple)' : '#000',
         borderBottom: live ? '1px solid transparent' : '2px solid var(--purple)',
@@ -83,7 +84,7 @@ export default function TopBar() {
               : 'DAW Warehouse LIVE')}
       </div>
 
-      <div style={{ display: 'flex', gap: '1.25rem' }}>
+      <div className="topbar-links" style={{ display: 'flex', gap: '1.25rem' }}>
         <Link
           href={`https://twitch.tv/${channel}`}
           target="_blank"

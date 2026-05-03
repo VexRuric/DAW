@@ -50,7 +50,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
   const next = () => setFeatIdx(i => (i + 1) % filtered.length)
 
   return (
-    <section style={{ padding: '4rem 3rem', borderTop: '1px solid var(--border)' }}>
+    <section className="home-section" style={{ borderTop: '1px solid var(--border)' }}>
       {/* Section label */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '2.5rem' }}>
         <span style={{ display: 'inline-block', width: 28, height: 1, background: 'var(--purple-hot)' }} />
@@ -59,7 +59,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', alignItems: 'start' }}>
+      <div className="news-grid">
 
         {/* LEFT: Featured card */}
         <div>
