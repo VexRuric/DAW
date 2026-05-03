@@ -328,7 +328,9 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
       return
     }
 
-    const { error } = await supabase.from(item.table).update({ status: 'hired' }).eq('id', item.id)
+    const updates: Record<string, unknown> = { status: 'hired' }
+    if (item.table === 'wrestlers') { updates.brand = 'DAW'; updates.active = true }
+    const { error } = await supabase.from(item.table).update(updates).eq('id', item.id)
     if (!error) setItems((prev) => { const next = prev.filter((i) => i.id !== item.id); onCountChange(next.length); return next })
     setActing(null)
   }
@@ -1366,7 +1368,16 @@ function RosterEdits() {
     setSaving(id)
     const row = rows.find((r) => r.id === id)
     if (!row) { setSaving(null); return }
-    await supabase.from('wrestlers').update({ division: row.division, role: row.role, injured: row.injured }).eq('id', id)
+    await supabase.from('wrestlers').update({
+      name: row.name,
+      brand: row.brand,
+      gender: row.gender,
+      division: row.division,
+      role: row.role,
+      injured: row.injured,
+      status: row.status,
+      active: row.status === 'hired',
+    }).eq('id', id)
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, saved: true } : r))
     setSaving(null)
   }
@@ -1426,28 +1437,37 @@ function RosterEdits() {
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 100px 90px 80px', gap:'0.75rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['Wrestler','Division','Role','Injured','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Name','Brand','Gender','Division','Role','Injured','Status','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
           </div>
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
             {filtered.map((row) => (
-              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 100px 90px 80px', gap:'0.75rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
-                <div>
-                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{row.name}</span>
-                  {row.brand && <span style={{ display:'block', fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.1rem' }}>{row.brand} · {row.gender ?? '—'}</span>}
-                </div>
-                <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 2rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
+                <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <select className="form-input form-select" value={row.gender ?? ''} onChange={(e) => update(row.id, 'gender', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['Male','Female'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
                   {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 2rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
                   {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
                 </select>
                 <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
                   <input type="checkbox" checked={row.injured} onChange={(e) => update(row.id, 'injured', e.target.checked)} style={{ accentColor:'var(--accent-red)' }} />
-                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: row.injured ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing:'0.08em' }}>{row.injured ? 'Injured' : 'Active'}</span>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: row.injured ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing:'0.08em' }}>{row.injured ? 'Yes' : 'No'}</span>
                 </label>
+                <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['hired','released','retired'].map((o) => <option key={o}>{o}</option>)}
+                </select>
                 <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
                 <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
               </div>
