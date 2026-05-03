@@ -105,7 +105,7 @@ export default async function ArchivePage({ searchParams }: PageProps) {
           No shows found for the selected filters.
         </div>
       ) : (
-        <ArchiveShowList shows={shows as ArchiveShow[]} />
+        <ArchiveShowList shows={shows as unknown as ArchiveShow[]} />
       )}
 
       {/* Pagination */}
