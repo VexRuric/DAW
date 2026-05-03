@@ -794,6 +794,7 @@ export default function PortalPage() {
       .from('story_suggestions')
       .select('id, body, created_at')
       .eq('submitted_by', user.id)
+      .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setSuggestions(data ?? [])
   }, [user])
