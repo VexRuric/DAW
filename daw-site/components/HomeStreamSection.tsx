@@ -84,7 +84,7 @@ export default function HomeStreamSection({
       <div className="stream-grid">
 
         {/* LEFT: Twitch when live, YouTube playlist when offline */}
-        <div className="stream-video-col" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="stream-video-col">
 
           {/* Section label */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
@@ -185,7 +185,7 @@ export default function HomeStreamSection({
           {show ? (
             <>
               {/* Show header */}
-              <div style={{ marginBottom: '1.25rem' }}>
+              <div className="stream-show-header" style={{ marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                   {show.show_type === 'ppv' && (
                     <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', background: 'var(--gold)', color: 'var(--bg-top)', padding: '0.15rem 0.45rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
@@ -251,7 +251,7 @@ export default function HomeStreamSection({
 
 function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainEvent: boolean }) {
   return (
-    <div style={{ background: 'var(--surface)', border: `1px solid ${isMainEvent ? 'rgba(255,201,51,0.2)' : 'var(--border)'}`, padding: '0.6rem 0.8rem', flexShrink: 0, opacity: 0.45 }}>
+    <div className="match-row" style={{ background: 'var(--surface)', border: `1px solid ${isMainEvent ? 'rgba(255,201,51,0.2)' : 'var(--border)'}`, flexShrink: 0, opacity: 0.45 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: isMainEvent ? 'var(--gold)' : 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
           {String(matchNumber).padStart(2, '0')}
@@ -281,7 +281,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
     : []
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.6rem 0.8rem', flexShrink: 0 }}>
+    <div className="match-row" style={{ background: 'var(--surface)', border: '1px solid var(--border)', flexShrink: 0 }}>
       {/* Participants row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: 'var(--purple-hot)', flexShrink: 0, width: 28 }}>

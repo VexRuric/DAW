@@ -459,6 +459,11 @@ a, button { cursor: none; }
   gap: 2rem;
   align-items: stretch;
 }
+.stream-video-col {
+  display: flex;
+  flex-direction: column;
+}
+.match-row { padding: 0.6rem 0.8rem; }
 .news-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -500,12 +505,16 @@ a, button { cursor: none; }
   .home-stream-section { padding: 1.75rem 1.25rem 2.5rem; }
 
   /* Video player — hidden on mobile, matchcard takes full width */
-  .stream-video-col { display: none; }
+  .stream-video-col { display: none !important; }
 
   /* Grids → single column */
   .stream-grid    { grid-template-columns: 1fr; gap: 1.5rem; }
   .news-grid      { grid-template-columns: 1fr; gap: 1.5rem; }
   .community-grid { grid-template-columns: 1fr; }
+
+  /* Matchcard compact on mobile */
+  .match-row         { padding: 0.45rem 0.6rem; }
+  .stream-show-header { margin-bottom: 0.75rem !important; }
 
   /* Community section text scaling */
   .community-heading      { font-size: clamp(1.5rem, 6vw, 2.75rem) !important; }
