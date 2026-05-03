@@ -99,9 +99,8 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           position: 'relative',
           borderBottom: '1px solid var(--border)',
           overflow: 'hidden',
-          minHeight: 360,
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
         }}
       >
         <div
@@ -112,7 +111,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
           }}
         />
 
-        <div style={{ position: 'relative', zIndex: 2, padding: '3rem', width: '100%', display: 'flex', alignItems: 'center', gap: '3rem' }}>
+        <div style={{ position: 'relative', zIndex: 2, padding: '2rem 3rem', width: '100%', display: 'flex', alignItems: 'center', gap: '3rem' }}>
           {/* Left: text content */}
           <div style={{ flex: 1 }}>
             {/* Breadcrumb */}
