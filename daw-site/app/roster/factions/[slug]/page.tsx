@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import TitleHistoryTab from '@/components/TitleHistoryTab'
+import FactionHeroImages from '@/components/FactionHeroImages'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -139,39 +140,20 @@ export default async function FactionStatPage({ params }: PageProps) {
 
       {/* ── Hero ─────────────────────────────────────────── */}
       <section style={{ position: 'relative', height: '65vh', minHeight: 320, overflow: 'hidden', background: 'var(--surface-2)' }}>
-        {hasComposite ? (
-          memberRenders.slice(0, 5).map((url, i) => {
-            const count = Math.min(memberRenders.length, 5)
-            const segW  = 100 / count
-            const leftPct = i * segW - (count > 2 ? segW * 0.2 : 0)
-            const zIdx = Math.round(count / 2) === i ? count + 1 : count - Math.abs(i - Math.floor(count / 2))
-            return (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={url} alt=""
-                style={{ position: 'absolute', top: 0, left: `${leftPct}%`, width: count <= 2 ? '60%' : '50%', height: '125%', objectFit: 'cover', objectPosition: 'top center', zIndex: zIdx }}
-              />
-            )
-          })
-        ) : team.render_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={team.render_url} alt={team.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-        ) : (
-          <FactionPlaceholder />
-        )}
+        {/* Interactive: wrestler images zoom individually, logo badge zooms separately */}
+        <FactionHeroImages
+          memberRenders={memberRenders}
+          logoUrl={team.render_url ?? null}
+          hasComposite={hasComposite}
+        />
+        {!hasComposite && !team.render_url && <FactionPlaceholder />}
 
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,10,14,1) 0%, rgba(10,10,14,0.55) 35%, rgba(10,10,14,0.1) 65%, transparent 80%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,10,14,1) 0%, rgba(10,10,14,0.55) 35%, rgba(10,10,14,0.1) 65%, transparent 80%)', zIndex: 10 }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accentColor, zIndex: 20 }} />
 
         {isDisbanded && (
           <div style={{ position: 'absolute', top: '1rem', left: '1rem', zIndex: 20, background: 'rgba(60,60,60,0.9)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', padding: '4px 10px', textTransform: 'uppercase' }}>
             DISBANDED
-          </div>
-        )}
-
-        {hasComposite && team.render_url && (
-          <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 20, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', padding: 6 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={team.render_url} alt="" style={{ display: 'block', height: 40, width: 40, objectFit: 'contain' }} />
           </div>
         )}
 

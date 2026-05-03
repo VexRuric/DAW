@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { Team } from '@/lib/types'
+import FactionLogoBadge from '@/components/FactionLogoBadge'
 
 export const metadata: Metadata = {
   title: 'Factions',
@@ -178,16 +179,9 @@ export default async function FactionsPage() {
                     {/* Role accent bar */}
                     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: accentColor, zIndex: 11 }} />
 
-                    {/* Faction logo badge (top-right) — only shown when composite is active */}
+                    {/* Faction logo badge (top-right) — click to zoom logo, stops card navigation */}
                     {hasComposite && team.render_url && (
-                      <div style={{
-                        position: 'absolute', top: '0.6rem', right: '0.6rem', zIndex: 12,
-                        background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)',
-                        padding: '4px', borderRadius: 2,
-                      }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={team.render_url} alt="" style={{ display: 'block', height: 36, width: 36, objectFit: 'contain' }} />
-                      </div>
+                      <FactionLogoBadge src={team.render_url} size={36} />
                     )}
 
                     {/* Info */}
