@@ -704,6 +704,15 @@ export default function PortalPage() {
   const [creations, setCreations]             = useState<Creation[]>([])
   const [loadingCreations, setLoadingCreations] = useState(true)
 
+  // Story suggestions state
+  const [suggestions, setSuggestions]         = useState<{ id: string; body: string; created_at: string }[]>([])
+  const [suggBody, setSuggBody]               = useState('')
+  const [suggWrestlerId, setSuggWrestlerId]   = useState('')
+  const [suggTeamId, setSuggTeamId]           = useState('')
+  const [suggSubmitting, setSuggSubmitting]   = useState(false)
+  const [suggError, setSuggError]             = useState<string | null>(null)
+  const [suggToast, setSuggToast]             = useState(false)
+
   useEffect(() => {
     if (!loading && !isFan) router.push('/login')
   }, [isFan, loading, router])
@@ -778,6 +787,36 @@ export default function PortalPage() {
   }, [user])
 
   useEffect(() => { fetchCreations() }, [fetchCreations])
+
+  const fetchSuggestions = useCallback(async () => {
+    if (!user) return
+    const { data } = await supabase
+      .from('story_suggestions')
+      .select('id, body, created_at')
+      .eq('submitted_by', user.id)
+      .order('created_at', { ascending: false })
+    setSuggestions(data ?? [])
+  }, [user])
+
+  useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
+
+  async function submitSuggestion() {
+    if (!suggBody.trim()) { setSuggError('Please describe your story idea.'); return }
+    if (!suggWrestlerId && !suggTeamId) { setSuggError('Select a wrestler or faction this is about.'); return }
+    setSuggSubmitting(true); setSuggError(null)
+    const { error } = await supabase.from('story_suggestions').insert({
+      submitted_by: user!.id,
+      wrestler_id: suggWrestlerId || null,
+      team_id: suggTeamId || null,
+      body: suggBody.trim(),
+    })
+    setSuggSubmitting(false)
+    if (error) { setSuggError('Submission failed — please try again.'); return }
+    setSuggToast(true)
+    setTimeout(() => setSuggToast(false), 3000)
+    setSuggBody(''); setSuggWrestlerId(''); setSuggTeamId('')
+    fetchSuggestions()
+  }
 
   if (loading || !isFan || !user) return null
 
@@ -935,6 +974,65 @@ export default function PortalPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Story Suggestions */}
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
+        <p className="section-label" style={{ marginBottom: '0.25rem' }}>My Creations</p>
+        <h2 className="section-title" style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>Story Suggestions</h2>
+        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em', lineHeight: 1.8, maxWidth: 520, marginBottom: '1.5rem' }}>
+          Have an idea for a story you want to see your wrestler or faction pursue? Submit it here.<br />
+          The creative team reviews all suggestions — if yours gets used, you&apos;ll be surprised on-screen!
+        </p>
+
+        {/* Submission form */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.5rem', maxWidth: 580, marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Wrestler</label>
+              <select className="form-input form-select" value={suggWrestlerId} onChange={(e) => { setSuggWrestlerId(e.target.value); if (e.target.value) setSuggTeamId('') }}>
+                <option value="">— select —</option>
+                {creations.filter((c) => c.type === 'wrestler' && c.status === 'hired').map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Faction</label>
+              <select className="form-input form-select" value={suggTeamId} onChange={(e) => { setSuggTeamId(e.target.value); if (e.target.value) setSuggWrestlerId('') }}>
+                <option value="">— select —</option>
+                {creations.filter((c) => c.type === 'faction' && c.status === 'hired').map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="form-field" style={{ marginBottom: '0.75rem' }}>
+            <label className="form-label">Your Story Idea</label>
+            <textarea className="form-input form-textarea" rows={4} placeholder="Describe what you'd like to see happen…" value={suggBody} onChange={(e) => setSuggBody(e.target.value)} />
+          </div>
+          {suggError && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--accent-red)', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{suggError}</p>}
+          {suggToast && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>✓ Suggestion submitted!</p>}
+          <button className="btn btn-primary" onClick={submitSuggestion} disabled={suggSubmitting}>{suggSubmitting ? 'Submitting…' : 'Submit Idea'}</button>
+        </div>
+
+        {/* Past submissions */}
+        {suggestions.length > 0 && (
+          <div>
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.75rem' }}>PAST SUBMISSIONS</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: 580 }}>
+              {suggestions.map((s) => (
+                <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--purple)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.12em' }}>SUBMITTED</span>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}

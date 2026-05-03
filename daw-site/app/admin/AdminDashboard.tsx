@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'accounts' | 'settings' | 'legends'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -25,7 +25,7 @@ const PERSONALITY_TRAITS = [
 
 /* ── Types ──────────────────────────────────────────── */
 
-interface StoryNote { id: number; type: string; content: string; createdAt: string }
+interface DBStoryNote { id: string; note_type: string; title: string; body: string; wrestler_ids: string[]; team_ids: string[]; priority: string; resolved: boolean; created_by: string | null; created_at: string; author_name?: string | null }
 interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null; render_url: string | null; gender: string | null; role: string | null; country: string | null }
 interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
@@ -42,7 +42,7 @@ interface ChampRow { title_id: string; title_name: string; holder_name: string; 
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
 interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
 interface FactionRow { id: string; name: string; brand: string | null; division: string | null; status: string; saved: boolean }
-interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; status: string; saved: boolean }
+interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; ppv_color: string | null; ppv_abbr: string | null; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -400,11 +400,11 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
 
 /* ── Show Booker ─────────────────────────────────────── */
 
-function ShowBooker({ notes: _notes }: { notes: StoryNote[] }) {
+function ShowBooker() {
   return <AdminScheduleBuilder />
 }
 
-function _ShowBookerOld({ notes: _notes }: { notes: StoryNote[] }) {
+function _ShowBookerOld({ notes: _notes }: { notes: DBStoryNote[] }) {
   const [mode, setMode]         = useState<'weekly' | 'ppv'>('weekly')
   const [showName, setShowName] = useState('')
   const [showDate, setShowDate] = useState('')
@@ -1654,125 +1654,285 @@ function FactionEdits() {
   )
 }
 
-/* ── Schedule Editor ────────────────────────────────── */
+/* ── Schedule Planner ───────────────────────────────── */
 
 function ScheduleEditor() {
-  const [tab, setTab]               = useState<'shows' | 'ppv'>('shows')
-  const [rows, setRows]             = useState<ScheduleShowRow[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [saving, setSaving]         = useState<string | null>(null)
-  const [yearFilter, setYearFilter] = useState('all')
-  const [ppvColors, setPpvColors]   = useState<Record<string, string>>({})
-  const [ppvColorsSaving, setPpvColorsSaving] = useState(false)
-  const [ppvColorsSaved, setPpvColorsSaved]   = useState(false)
+  const [year, setYear]           = useState(new Date().getFullYear())
+  const [showMap, setShowMap]     = useState<Record<string, ScheduleShowRow>>({})
+  const [loading, setLoading]     = useState(true)
+  const [selected, setSelected]   = useState<string | null>(null)
+  const [editForm, setEditForm]   = useState<(Partial<ScheduleShowRow> & { show_date: string }) | null>(null)
+  const [saving, setSaving]       = useState(false)
+  const [deleting, setDeleting]   = useState(false)
 
-  useEffect(() => {
-    async function load() {
-      const [showsRes, colorRes] = await Promise.all([
-        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status').order('show_date', { ascending: false }),
-        supabase.from('site_settings').select('value').eq('key', 'ppv_colors').maybeSingle(),
-      ])
-      setRows((showsRes.data ?? []).map((r: any) => ({ ...r, saved: false })))
-      if (colorRes.data?.value) try { setPpvColors(JSON.parse(colorRes.data.value)) } catch { /* */ }
-      setLoading(false)
+  const loadYear = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('shows')
+      .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, status')
+      .gte('show_date', `${year}-01-01`)
+      .lte('show_date', `${year}-12-31`)
+      .order('show_date')
+    const map: Record<string, ScheduleShowRow> = {}
+    ;(data ?? []).forEach((r: any) => { map[r.show_date] = { ...r, saved: true } })
+    setShowMap(map)
+    setLoading(false)
+  }, [year])
+
+  useEffect(() => { loadYear() }, [loadYear])
+
+  function selectDate(dateStr: string) {
+    const existing = showMap[dateStr]
+    setSelected(dateStr)
+    if (existing) {
+      setEditForm({ ...existing })
+    } else {
+      setEditForm({ show_date: dateStr, name: 'DAW Warehouse LIVE', show_type: 'weekly', ppv_name: null, ppv_color: '#a855f7', ppv_abbr: null, status: 'draft' })
     }
-    load()
-  }, [])
-
-  function updateRow(id: string, key: keyof ScheduleShowRow, value: any) {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, [key]: value, saved: false } : r))
   }
 
-  async function saveRow(id: string) {
-    setSaving(id)
-    const row = rows.find(r => r.id === id)
-    if (!row) { setSaving(null); return }
-    await supabase.from('shows').update({ name: row.name, show_date: row.show_date, show_type: row.show_type, ppv_name: row.ppv_name || null }).eq('id', id)
-    setRows(prev => prev.map(r => r.id === id ? { ...r, saved: true } : r))
-    setSaving(null)
+  function closePanel() { setSelected(null); setEditForm(null) }
+
+  async function saveShow() {
+    if (!editForm) return
+    setSaving(true)
+    const existing = selected ? showMap[selected] : null
+    const payload = { name: editForm.name, show_type: editForm.show_type, ppv_name: editForm.ppv_name || null, ppv_color: editForm.ppv_color || null, ppv_abbr: editForm.ppv_abbr || null, show_date: editForm.show_date, status: editForm.status ?? 'draft' }
+    if (existing?.id) {
+      await supabase.from('shows').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('shows').insert(payload)
+    }
+    await loadYear()
+    setSaving(false)
+    closePanel()
   }
 
-  async function savePPVColors() {
-    setPpvColorsSaving(true)
-    await supabase.from('site_settings').upsert({ key: 'ppv_colors', value: JSON.stringify(ppvColors) })
-    setPpvColorsSaving(false); setPpvColorsSaved(true)
-    setTimeout(() => setPpvColorsSaved(false), 2500)
+  async function deleteShow() {
+    if (!selected || !showMap[selected]?.id) return
+    setDeleting(true)
+    await supabase.from('shows').delete().eq('id', showMap[selected].id)
+    await loadYear()
+    setDeleting(false)
+    closePanel()
   }
 
-  const YEARS = ['all', '2022', '2023', '2024', '2025', '2026']
-  const filtered  = rows.filter(r => yearFilter === 'all' || r.show_date.startsWith(yearFilter))
-  const ppvNames  = Array.from(new Set(rows.filter(r => r.show_type === 'ppv' && r.ppv_name).map(r => r.ppv_name as string))).sort()
-  const tabBtn = (t: 'shows' | 'ppv', label: string) => (
-    <button onClick={() => setTab(t)} style={{ padding:'0.4rem 0.9rem', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer', background: tab === t ? 'rgba(128,0,218,0.15)' : 'transparent', border:`1px solid ${tab === t ? 'var(--purple)' : 'var(--border)'}`, color: tab === t ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{label}</button>
-  )
+  const PLAN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const PLAN_DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
+  const PLAN_YEARS  = [2022, 2023, 2024, 2025, 2026, 2027]
+
+  function planDateStr(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+  }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const ppvColorMap: Record<string, string> = {}
+  Object.values(showMap).filter(s => s.show_type === 'ppv').forEach(s => { ppvColorMap[s.show_date] = s.ppv_color ?? '#a855f7' })
+
+  function PlannerCell({ date }: { date: Date | null }) {
+    if (!date) return <div style={{ aspectRatio: '1', minHeight: 30 }} />
+    const dateStr  = planDateStr(date)
+    const isFri    = date.getDay() === 5
+    const show     = showMap[dateStr]
+    const isSelected  = selected === dateStr
+    const isPpv       = show?.show_type === 'ppv'
+    const isSkip      = show?.show_type === 'skip'
+    const isDraft     = show?.status === 'draft'
+    const isCompleted = show?.status === 'completed'
+    const isCommitted = show?.status === 'committed'
+    const ppvColor    = isPpv ? (show.ppv_color ?? '#a855f7') : null
+    const isPast      = date < today
+
+    const borderColor = isPpv && ppvColor ? ppvColor
+      : isSkip ? 'rgba(255,255,255,0.12)'
+      : isCompleted ? '#00c864'
+      : isCommitted ? 'var(--purple-hot)'
+      : isDraft ? 'rgba(128,0,218,0.4)'
+      : isFri ? 'rgba(128,0,218,0.18)'
+      : 'transparent'
+
+    return (
+      <div
+        onClick={() => isFri && selectDate(dateStr)}
+        style={{
+          aspectRatio: '1', minHeight: 30,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: isPpv && ppvColor ? (isDraft ? ppvColor + '66' : ppvColor + 'bb') : undefined,
+          border: isFri ? `${isDraft ? '1px dashed' : '1px solid'} ${borderColor}` : undefined,
+          outline: isSelected ? '2px solid #fff' : undefined, outlineOffset: -2,
+          opacity: isDraft ? 0.7 : isPast && !show ? 0.28 : 1,
+          cursor: isFri ? 'pointer' : 'default',
+          transition: 'filter 0.1s',
+        }}
+        onMouseEnter={(e) => { if (isFri) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}
+        title={show ? `${show.name}${isDraft ? ' (DRAFT)' : ''}` : isFri ? 'Click to add show' : undefined}
+      >
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', lineHeight: 1, color: isPpv && !isDraft ? '#fff' : isFri ? (isCompleted ? '#00c864' : isCommitted ? 'var(--purple-hot)' : isDraft ? 'rgba(168,85,247,0.8)' : 'var(--text-dim)') : 'var(--text-dim)' }}>
+          {date.getDate()}
+        </span>
+        {isFri && !isPpv && show && (
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.36rem', fontWeight: 700, letterSpacing: '0.1em', marginTop: '1px', color: isSkip ? 'rgba(255,255,255,0.25)' : isCompleted ? '#00c864' : isCommitted ? 'var(--purple-hot)' : 'rgba(168,85,247,0.65)' }}>
+            {isSkip ? 'BRK' : isDraft ? 'DFT' : isCompleted ? '✓' : 'DAW'}
+          </span>
+        )}
+        {isPpv && (
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.36rem', fontWeight: 700, letterSpacing: '0.06em', marginTop: '1px', color: isDraft ? 'rgba(255,255,255,0.6)' : '#fff' }}>
+            {show.ppv_abbr ?? (show.ppv_name ?? show.name).slice(0, 4).toUpperCase()}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  function PlannerMonthGrid({ month }: { month: number }) {
+    const firstDay    = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const cells: (Date | null)[] = []
+    for (let i = 0; i < firstDay; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+    let monthDotColor: string | null = null
+    for (let d = 1; d <= daysInMonth; d++) {
+      const c = ppvColorMap[planDateStr(new Date(year, month, d))]
+      if (c) { monthDotColor = c; break }
+    }
+    return (
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.65rem', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{PLAN_MONTHS[month]}</span>
+          {monthDotColor && <span style={{ width: 7, height: 7, borderRadius: '50%', background: monthDotColor, flexShrink: 0 }} />}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border)' }}>
+          {PLAN_DAYS.map((d) => (
+            <div key={d} style={{ textAlign: 'center', padding: '0.18rem 0', fontFamily: 'var(--font-meta)', fontSize: '0.44rem', fontWeight: 700, letterSpacing: '0.06em', color: d === 'Fr' ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          {cells.map((date, i) => <PlannerCell key={i} date={date} />)}
+        </div>
+      </div>
+    )
+  }
+
+  const isPpvEdit       = editForm?.show_type === 'ppv'
+  const isExistingShow  = !!(selected && showMap[selected]?.id)
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Schedule Editor</h2>
-        <div style={{ display:'flex', gap:'0.35rem' }}>{tabBtn('shows','Shows')}{tabBtn('ppv','PPV Colors')}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>Schedule Planner</h2>
+        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.12em', marginRight: '0.25rem' }}>YEAR</span>
+          {PLAN_YEARS.map(y => (
+            <button key={y} onClick={() => setYear(y)} style={{ padding: '0.3rem 0.6rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', background: year === y ? 'rgba(128,0,218,0.15)' : 'transparent', border: `1px solid ${year === y ? 'var(--purple)' : 'var(--border)'}`, color: year === y ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{y}</button>
+          ))}
+        </div>
       </div>
 
-      {tab === 'shows' && (
-        <>
-          <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
-            {YEARS.map(y => (
-              <button key={y} onClick={() => setYearFilter(y)} style={{ padding:'0.35rem 0.75rem', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', background: yearFilter === y ? 'rgba(128,0,218,0.15)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)' }}>
-                {y === 'all' ? 'All Years' : y}
-              </button>
-            ))}
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Draft', color: 'rgba(128,0,218,0.4)', dashed: true },
+          { label: 'Published', color: 'var(--purple-hot)', dashed: false },
+          { label: 'Completed', color: '#00c864', dashed: false },
+          { label: 'PPV', color: '#a855f7', dot: true },
+          { label: 'Break', color: 'rgba(255,255,255,0.12)', dashed: false },
+        ].map(({ label, color, dashed, dot }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {dot ? <span style={{ width: 9, height: 9, borderRadius: '50%', background: color }} />
+                 : <span style={{ width: 14, height: 9, border: `${dashed ? '1px dashed' : '1px solid'} ${color}` }} />}
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{label}</span>
           </div>
-          {loading ? (
-            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
-          ) : (
-            <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'120px 1fr 1fr 120px 80px 90px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-                {['Date','Event Name','PPV Title','Type','Status',''].map((h,i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
-              </div>
-              <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
-                {filtered.map(row => (
-                  <div key={row.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1fr 120px 80px 90px', gap:'0.5rem', padding:'0.55rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', borderLeft:`3px solid ${row.show_type === 'ppv' ? 'var(--gold)' : row.status === 'completed' ? '#00c864' : 'var(--purple)'}` }}>
-                    <input type="date" className="form-input" value={row.show_date} onChange={e => updateRow(row.id, 'show_date', e.target.value)} style={{ padding:'0.35rem 0.4rem', fontSize:'0.65rem' }} />
-                    <input className="form-input" value={row.name} onChange={e => updateRow(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.7rem' }} />
-                    <input className="form-input" value={row.ppv_name ?? ''} onChange={e => updateRow(row.id, 'ppv_name', e.target.value || null)} placeholder="PPV title…" style={{ padding:'0.35rem 0.6rem', fontSize:'0.7rem' }} />
-                    <select className="form-input form-select" value={row.show_type} onChange={e => updateRow(row.id, 'show_type', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
-                      <option value="weekly">Weekly</option>
-                      <option value="ppv">PPV</option>
-                      <option value="special">Special</option>
-                    </select>
-                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color: row.status === 'completed' ? '#00c864' : row.status === 'committed' ? 'var(--purple-hot)' : 'var(--text-dim)', letterSpacing:'0.1em' }}>{row.status.toUpperCase()}</span>
-                    <button onClick={() => saveRow(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.6rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
-                      {saving === row.id ? '…' : row.saved ? '✓ Saved' : 'Save'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+        ))}
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginLeft: 'auto' }}>Click any Friday to add or edit a show</span>
+      </div>
 
-      {tab === 'ppv' && (
-        <div style={{ maxWidth:520 }}>
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'1.5rem' }}>
-            Set a custom color for each PPV event. These override the default colors on the public schedule calendar.
-          </p>
-          {ppvNames.length === 0 ? (
-            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No PPV shows found — set show_type to PPV on a show first.</p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem', marginBottom:'1.5rem' }}>
-              {ppvNames.map(name => (
-                <div key={name} style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.65rem 1rem', background:'var(--surface)', border:'1px solid var(--border)', borderLeft:`3px solid ${ppvColors[name] ?? '#555577'}` }}>
-                  <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'0.9rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{name}</span>
-                  <input type="color" value={ppvColors[name] ?? '#a855f7'} onChange={e => setPpvColors(prev => ({ ...prev, [name]: e.target.value }))} style={{ width:40, height:32, border:'none', background:'none', cursor:'pointer', padding:0 }} />
-                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.08em', minWidth:56 }}>{ppvColors[name] ?? 'default'}</span>
+      {loading ? (
+        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>Loading…</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: editForm ? '1fr 285px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          {/* 12-month calendar grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem' }}>
+            {PLAN_MONTHS.map((_, monthIdx) => <PlannerMonthGrid key={monthIdx} month={monthIdx} />)}
+          </div>
+
+          {/* Edit panel */}
+          {editForm && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', top: '1.5rem' }}>
+              <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.15em', fontWeight: 700 }}>
+                    {isExistingShow ? 'EDIT SHOW' : 'NEW SHOW'}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginTop: '0.1rem' }}>
+                    {new Date((editForm.show_date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </p>
                 </div>
-              ))}
+                <button onClick={closePanel} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', flexShrink: 0 }}>✕</button>
+              </div>
+
+              <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                {/* Type */}
+                <div>
+                  <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>TYPE</label>
+                  <select className="form-input form-select" value={editForm.show_type ?? 'weekly'} onChange={e => setEditForm(f => f ? { ...f, show_type: e.target.value } : f)} style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 1.5rem 0.38rem 0.55rem' }}>
+                    <option value="weekly">Weekly Show</option>
+                    <option value="ppv">PPV Event</option>
+                    <option value="special">Special Event</option>
+                    <option value="skip">Skip / Break Week</option>
+                  </select>
+                </div>
+
+                {/* Name */}
+                <div>
+                  <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>SHOW NAME</label>
+                  <input className="form-input" value={editForm.name ?? ''} onChange={e => setEditForm(f => f ? { ...f, name: e.target.value } : f)} style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 0.55rem', boxSizing: 'border-box' }} />
+                </div>
+
+                {/* PPV fields */}
+                {isPpvEdit && (<>
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>PPV TITLE</label>
+                    <input className="form-input" value={editForm.ppv_name ?? ''} onChange={e => setEditForm(f => f ? { ...f, ppv_name: e.target.value || null } : f)} placeholder="e.g. Fright Night" style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 0.55rem', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>ABBREVIATION (4–6 chars)</label>
+                    <input className="form-input" value={editForm.ppv_abbr ?? ''} onChange={e => setEditForm(f => f ? { ...f, ppv_abbr: e.target.value.slice(0, 6).toUpperCase() || null } : f)} placeholder="e.g. FGHT" maxLength={6} style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 0.55rem', boxSizing: 'border-box', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>EVENT COLOR</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <input type="color" value={editForm.ppv_color ?? '#a855f7'} onChange={e => setEditForm(f => f ? { ...f, ppv_color: e.target.value } : f)} style={{ width: 40, height: 30, border: 'none', background: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.06em', flexShrink: 0 }}>{editForm.ppv_color ?? '#a855f7'}</span>
+                      <span style={{ flex: 1, height: 22, background: editForm.ppv_color ?? '#a855f7', borderRadius: 2 }} />
+                    </div>
+                  </div>
+                </>)}
+
+                {/* Status */}
+                <div>
+                  <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>STATUS</label>
+                  <select className="form-input form-select" value={editForm.status ?? 'draft'} onChange={e => setEditForm(f => f ? { ...f, status: e.target.value } : f)} style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 1.5rem 0.38rem 0.55rem' }}>
+                    <option value="draft">Draft (admin only)</option>
+                    <option value="committed">Published (public)</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border)' }}>
+                  <button onClick={saveShow} disabled={saving} style={{ padding: '0.5rem 1rem', background: 'rgba(128,0,218,0.15)', border: '1px solid var(--purple-hot)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.63rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'pointer', width: '100%' }}>
+                    {saving ? 'Saving…' : isExistingShow ? 'Save Changes' : 'Create Show'}
+                  </button>
+                  {isExistingShow && (
+                    <button onClick={deleteShow} disabled={deleting} style={{ padding: '0.42rem 1rem', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: 'rgba(239,68,68,0.8)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'pointer', width: '100%' }}>
+                      {deleting ? 'Deleting…' : 'Delete Show'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
-          <button onClick={savePPVColors} disabled={ppvColorsSaving} style={{ padding:'0.55rem 1.5rem', background: ppvColorsSaved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${ppvColorsSaved ? '#00c864' : 'var(--purple-hot)'}`, color: ppvColorsSaved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer' }}>
-            {ppvColorsSaving ? 'Saving…' : ppvColorsSaved ? '✓ Saved' : 'Save PPV Colors'}
-          </button>
         </div>
       )}
     </div>
@@ -1781,47 +1941,302 @@ function ScheduleEditor() {
 
 /* ── Story Development ───────────────────────────────── */
 
-function StoryDevelopment({ notes, addNote }: { notes: StoryNote[]; addNote: (n: StoryNote) => void }) {
-  const [content, setContent]   = useState('')
-  const [noteType, setNoteType] = useState(NOTE_TYPES[0])
-  const [show, setShow]         = useState('')
-  const [result, setResult]     = useState('')
+function StoryDevelopment() {
+  const { user } = useAuth()
+  const [notes, setNotes]           = useState<DBStoryNote[]>([])
+  const [loadingNotes, setLoadingNotes] = useState(true)
+  const [wrestlers, setWrestlers]   = useState<{ id: string; name: string }[]>([])
+  const [teams, setTeams]           = useState<{ id: string; name: string }[]>([])
+  const [filterWrestler, setFilterWrestler] = useState('')
+  const [filterTeam, setFilterTeam]         = useState('')
 
-  function submitNote() {
-    if (!content.trim()) return
-    addNote({ id: Date.now(), type: noteType, content, createdAt: new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) })
-    setContent('')
+  const [noteType, setNoteType]     = useState(NOTE_TYPES[0])
+  const [title, setTitle]           = useState('')
+  const [body, setBody]             = useState('')
+  const [tagWrestlers, setTagWrestlers] = useState<string[]>([])
+  const [tagTeams, setTagTeams]         = useState<string[]>([])
+  const [priority, setPriority]     = useState<'low' | 'normal' | 'high'>('normal')
+  const [submitting, setSubmitting] = useState(false)
+
+  const fetchNotes = useCallback(async () => {
+    setLoadingNotes(true)
+    const { data } = await supabase
+      .from('story_notes')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!data) { setLoadingNotes(false); return }
+
+    const authorIds = [...new Set(data.map((n) => n.created_by).filter(Boolean))] as string[]
+    let profileMap: Record<string, string> = {}
+    if (authorIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', authorIds)
+      for (const p of profiles ?? []) { if (p.display_name) profileMap[p.id] = p.display_name }
+    }
+
+    setNotes(data.map((n) => ({ ...n, author_name: n.created_by ? (profileMap[n.created_by] ?? null) : null })))
+    setLoadingNotes(false)
+  }, [])
+
+  useEffect(() => {
+    fetchNotes()
+    Promise.all([
+      supabase.from('wrestlers').select('id, name').eq('status', 'hired').order('name'),
+      supabase.from('teams').select('id, name').eq('active', true).order('name'),
+    ]).then(([w, t]) => { setWrestlers(w.data ?? []); setTeams(t.data ?? []) })
+  }, [fetchNotes])
+
+  async function toggleResolved(note: DBStoryNote) {
+    await supabase.from('story_notes').update({ resolved: !note.resolved }).eq('id', note.id)
+    setNotes((prev) => prev.map((n) => n.id === note.id ? { ...n, resolved: !n.resolved } : n))
   }
+
+  async function submitNote() {
+    if (!body.trim()) return
+    setSubmitting(true)
+    const { data, error } = await supabase.from('story_notes').insert({
+      note_type: noteType,
+      title: title.trim() || noteType,
+      body: body.trim(),
+      wrestler_ids: tagWrestlers,
+      team_ids: tagTeams,
+      priority,
+      created_by: user?.id ?? null,
+    }).select('*').single()
+    setSubmitting(false)
+    if (!error && data) {
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', data.created_by ?? '').maybeSingle()
+      setNotes((prev) => [{ ...data, author_name: profile?.display_name ?? null }, ...prev])
+      setTitle(''); setBody(''); setTagWrestlers([]); setTagTeams([])
+    }
+  }
+
+  const filteredNotes = notes.filter((n) => {
+    if (filterWrestler && !n.wrestler_ids?.includes(filterWrestler)) return false
+    if (filterTeam && !n.team_ids?.includes(filterTeam)) return false
+    return true
+  })
+
+  const metaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
+  const dimStyle: React.CSSProperties = { ...metaStyle, color: 'var(--text-dim)' }
 
   return (
     <div>
-      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.5rem' }}>Story Development</h2>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.5rem', marginBottom:'2rem' }}>
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', padding:'1.5rem' }}>
-          <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1rem' }}>Event Results</h3>
-          <div className="form-field"><label className="form-label">Show / Event</label><input className="form-input" placeholder="e.g. DAW 04-18-2025" value={show} onChange={(e) => setShow(e.target.value)} /></div>
-          <div className="form-field" style={{ marginBottom:'1rem' }}><label className="form-label">Results Notes</label><textarea className="form-input form-textarea" placeholder="Key outcomes, upsets, notable moments..." value={result} onChange={(e) => setResult(e.target.value)} /></div>
-          <button className="btn btn-primary" style={{ width:'100%' }} onClick={() => { setShow(''); setResult('') }}>Save Results</button>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Story Development</h2>
+
+      {/* Add Note Form */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.5rem', marginBottom: '2rem' }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '1rem' }}>New Story Note</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label className="form-label">Note Type</label>
+            <select className="form-input form-select" value={noteType} onChange={(e) => setNoteType(e.target.value)}>
+              {NOTE_TYPES.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label className="form-label">Priority</label>
+            <select className="form-input form-select" value={priority} onChange={(e) => setPriority(e.target.value as 'low' | 'normal' | 'high')}>
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label className="form-label">Title (optional)</label>
+            <input className="form-input" placeholder="Short title…" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
         </div>
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', padding:'1.5rem' }}>
-          <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1rem' }}>Story Note</h3>
-          <div className="form-field"><label className="form-label">Note Type</label><select className="form-input form-select" value={noteType} onChange={(e) => setNoteType(e.target.value)}>{NOTE_TYPES.map((t) => <option key={t}>{t}</option>)}</select></div>
-          <div className="form-field" style={{ marginBottom:'1rem' }}><label className="form-label">Note</label><textarea className="form-input form-textarea" placeholder="Describe the feud, arc, or idea..." value={content} onChange={(e) => setContent(e.target.value)} /></div>
-          <button className="btn btn-primary" style={{ width:'100%' }} onClick={submitNote}>Add to Story Board</button>
-        </div>
-      </div>
-      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--purple-hot)', letterSpacing:'0.25em', marginBottom:'1rem', fontWeight:700 }}>STORY BOARD</p>
-      {notes.length === 0 ? (
-        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No story notes yet.</p>
-      ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
-          {notes.map((n) => (
-            <div key={n.id} style={{ padding:'0.85rem 1rem', background:'var(--surface)', border:'1px solid var(--border)', borderLeft:'3px solid var(--purple)' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.3rem' }}>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--purple-hot)', fontWeight:700, letterSpacing:'0.15em' }}>{n.type.toUpperCase()}</span>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.08em' }}>{n.createdAt}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label className="form-label">Tag Wrestlers</label>
+            <select className="form-input form-select" value="" onChange={(e) => { if (e.target.value && !tagWrestlers.includes(e.target.value)) setTagWrestlers((p) => [...p, e.target.value]) }}>
+              <option value="">+ Add wrestler…</option>
+              {wrestlers.filter((w) => !tagWrestlers.includes(w.id)).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            {tagWrestlers.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
+                {tagWrestlers.map((id) => {
+                  const w = wrestlers.find((x) => x.id === id)
+                  return w ? <span key={id} onClick={() => setTagWrestlers((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'pointer' }}>{w.name} ×</span> : null
+                })}
               </div>
-              <p style={{ fontSize:'0.82rem', color:'var(--text-muted)', lineHeight:1.6 }}>{n.content}</p>
+            )}
+          </div>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label className="form-label">Tag Factions</label>
+            <select className="form-input form-select" value="" onChange={(e) => { if (e.target.value && !tagTeams.includes(e.target.value)) setTagTeams((p) => [...p, e.target.value]) }}>
+              <option value="">+ Add faction…</option>
+              {teams.filter((t) => !tagTeams.includes(t.id)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            {tagTeams.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
+                {tagTeams.map((id) => {
+                  const t = teams.find((x) => x.id === id)
+                  return t ? <span key={id} onClick={() => setTagTeams((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'pointer' }}>{t.name} ×</span> : null
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="form-field" style={{ marginBottom: '0.75rem' }}>
+          <label className="form-label">Note</label>
+          <textarea className="form-input form-textarea" rows={3} placeholder="Describe the feud, arc, or idea…" value={body} onChange={(e) => setBody(e.target.value)} />
+        </div>
+        <button className="btn btn-primary" onClick={submitNote} disabled={submitting || !body.trim()}>{submitting ? 'Saving…' : 'Add to Story Board'}</button>
+      </div>
+
+      {/* Filter Row */}
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <p style={{ ...metaStyle, color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.25em' }}>STORY BOARD</p>
+        <select className="form-input form-select" style={{ width: 'auto', fontSize: '0.7rem', padding: '0.3rem 0.5rem' }} value={filterWrestler} onChange={(e) => setFilterWrestler(e.target.value)}>
+          <option value="">All Wrestlers</option>
+          {wrestlers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <select className="form-input form-select" style={{ width: 'auto', fontSize: '0.7rem', padding: '0.3rem 0.5rem' }} value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)}>
+          <option value="">All Factions</option>
+          {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {(filterWrestler || filterTeam) && (
+          <button onClick={() => { setFilterWrestler(''); setFilterTeam('') }} style={{ ...dimStyle, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ Clear</button>
+        )}
+        <span style={{ ...dimStyle, marginLeft: 'auto' }}>{filteredNotes.length} note{filteredNotes.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {loadingNotes ? (
+        <p style={dimStyle}>Loading…</p>
+      ) : filteredNotes.length === 0 ? (
+        <p style={dimStyle}>No story notes{filterWrestler || filterTeam ? ' matching this filter' : ' yet'}.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {filteredNotes.map((n) => {
+            const taggedWrestlerNames = (n.wrestler_ids ?? []).map((id) => wrestlers.find((w) => w.id === id)?.name).filter(Boolean)
+            const taggedTeamNames = (n.team_ids ?? []).map((id) => teams.find((t) => t.id === id)?.name).filter(Boolean)
+            const priorityColor = n.priority === 'high' ? 'var(--accent-red)' : n.priority === 'low' ? 'var(--text-dim)' : 'var(--purple)'
+            return (
+              <div key={n.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${priorityColor}`, opacity: n.resolved ? 0.55 : 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ ...metaStyle, color: 'var(--purple-hot)', fontWeight: 700 }}>{n.note_type.toUpperCase()}</span>
+                    {n.title && n.title !== n.note_type && <span style={{ ...metaStyle, color: 'var(--text-strong)' }}>— {n.title}</span>}
+                    {[...taggedWrestlerNames, ...taggedTeamNames].map((name) => (
+                      <span key={name} style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{name}</span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
+                    {n.author_name && <span style={dimStyle}>{n.author_name}</span>}
+                    <span style={dimStyle}>{new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <button onClick={() => toggleResolved(n)} title={n.resolved ? 'Mark active' : 'Mark done / scrapped'} style={{ background: 'none', border: '1px solid var(--border)', color: n.resolved ? 'var(--text-dim)' : 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', padding: '0.2rem 0.5rem', cursor: 'pointer', letterSpacing: '0.08em' }}>
+                      {n.resolved ? 'REOPEN' : 'DONE'}
+                    </button>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, textDecoration: n.resolved ? 'line-through' : 'none' }}>{n.body}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Story Suggestions (Admin) ───────────────────────── */
+
+interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
+
+function StorySuggestions() {
+  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [acting, setActing]           = useState<string | null>(null)
+
+  async function fetchSuggestions() {
+    setLoading(true)
+    const { data } = await supabase.from('story_suggestions').select('*').eq('status', 'pending').order('created_at', { ascending: true })
+    if (!data) { setLoading(false); return }
+
+    const submitterIds = [...new Set(data.map((s) => s.submitted_by).filter(Boolean))] as string[]
+    const wrestlerIds  = [...new Set(data.map((s) => s.wrestler_id).filter(Boolean))] as string[]
+    const teamIds      = [...new Set(data.map((s) => s.team_id).filter(Boolean))] as string[]
+
+    const [pRes, wRes, tRes] = await Promise.all([
+      submitterIds.length ? supabase.from('profiles').select('id, display_name').in('id', submitterIds) : Promise.resolve({ data: [] }),
+      wrestlerIds.length  ? supabase.from('wrestlers').select('id, name').in('id', wrestlerIds) : Promise.resolve({ data: [] }),
+      teamIds.length      ? supabase.from('teams').select('id, name').in('id', teamIds)         : Promise.resolve({ data: [] }),
+    ])
+
+    const profileMap: Record<string, string> = {}
+    for (const p of pRes.data ?? []) { if (p.display_name) profileMap[p.id] = p.display_name }
+    const wrestlerMap: Record<string, string> = {}
+    for (const w of wRes.data ?? []) { wrestlerMap[w.id] = w.name }
+    const teamMap: Record<string, string> = {}
+    for (const t of tRes.data ?? []) { teamMap[t.id] = t.name }
+
+    setSuggestions(data.map((s) => ({
+      ...s,
+      submitter_name: s.submitted_by ? (profileMap[s.submitted_by] ?? null) : null,
+      wrestler_name: s.wrestler_id ? (wrestlerMap[s.wrestler_id] ?? null) : null,
+      team_name: s.team_id ? (teamMap[s.team_id] ?? null) : null,
+    })))
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchSuggestions() }, [])
+
+  async function approve(s: SuggestionRow) {
+    setActing(s.id)
+    const subjectName = s.wrestler_name ?? s.team_name ?? 'Unknown'
+    await supabase.from('story_notes').insert({
+      note_type: 'Owner Suggestion',
+      title: `Owner Suggestion — ${subjectName}`,
+      body: s.body,
+      wrestler_ids: s.wrestler_id ? [s.wrestler_id] : [],
+      team_ids: s.team_id ? [s.team_id] : [],
+      priority: 'normal',
+    })
+    await supabase.from('story_suggestions').update({ status: 'approved' }).eq('id', s.id)
+    setSuggestions((prev) => prev.filter((x) => x.id !== s.id))
+    setActing(null)
+  }
+
+  async function reject(id: string) {
+    setActing(id)
+    await supabase.from('story_suggestions').update({ status: 'rejected' }).eq('id', id)
+    setSuggestions((prev) => prev.filter((x) => x.id !== id))
+    setActing(null)
+  }
+
+  const metaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
+  const dimStyle: React.CSSProperties  = { ...metaStyle, color: 'var(--text-dim)' }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Fan Story Suggestions</h2>
+      <p style={dimStyle}>Approved suggestions are added to Story Development as "Owner Suggestion" notes. Fans cannot see approval status.</p>
+
+      {loading ? (
+        <p style={{ ...dimStyle, marginTop: '1.5rem' }}>Loading…</p>
+      ) : suggestions.length === 0 ? (
+        <p style={{ ...dimStyle, marginTop: '1.5rem' }}>No pending suggestions.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {suggestions.map((s) => (
+            <div key={s.id} style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--gold)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {s.submitter_name && <span style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
+                  {s.wrestler_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
+                  {s.team_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
+                </div>
+                <span style={dimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '0.75rem' }}>{s.body}</p>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => approve(s)}>Approve → Story Board</button>
+                <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => reject(s.id)}>Reject</button>
+              </div>
             </div>
           ))}
         </div>
@@ -1832,40 +2247,40 @@ function StoryDevelopment({ notes, addNote }: { notes: StoryNote[]; addNote: (n:
 
 /* ── Story Notes Floating Window ────────────────────── */
 
-function StoryNotesWindow({ notes, onClose }: { notes: StoryNote[]; onClose: () => void }) {
-  const [pos, setPos]         = useState({ x: 40, y: 120 })
+function StoryNotesWindow({ onClose }: { onClose: () => void }) {
+  const [pos, setPos]           = useState({ x: 40, y: 120 })
   const [dragging, setDragging] = useState(false)
   const offsetRef               = useRef({ x: 0, y: 0 })
+  const [notes, setNotes]       = useState<DBStoryNote[]>([])
 
   useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      if (!dragging) return
-      setPos({ x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y })
-    }
+    supabase.from('story_notes').select('*').eq('resolved', false).order('created_at', { ascending: false }).limit(20)
+      .then(({ data }) => setNotes(data ?? []))
+  }, [])
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) { if (!dragging) return; setPos({ x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y }) }
     function onMouseUp() { setDragging(false) }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
     return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp) }
   }, [dragging])
 
-  function onMouseDown(e: React.MouseEvent) {
-    offsetRef.current = { x: e.clientX - pos.x, y: e.clientY - pos.y }
-    setDragging(true)
-  }
+  function onMouseDown(e: React.MouseEvent) { offsetRef.current = { x: e.clientX - pos.x, y: e.clientY - pos.y }; setDragging(true) }
 
   return (
     <div className="float-panel" style={{ left: pos.x, top: pos.y }}>
       <div className="float-panel-header" onMouseDown={onMouseDown}>
         <span>📋 Story Notes</span>
-        <button onClick={onClose} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:'0.9rem' }}>✕</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
       </div>
       <div className="float-panel-body">
         {notes.length === 0 ? (
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No notes yet.</p>
+          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-dim)', letterSpacing: '0.12em' }}>No active notes.</p>
         ) : notes.map((n) => (
-          <div key={n.id} style={{ borderBottom:'1px solid var(--border)', paddingBottom:'0.6rem', marginBottom:'0.6rem' }}>
-            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', fontWeight:700, letterSpacing:'0.12em', marginBottom:'0.2rem' }}>{n.type.toUpperCase()}</p>
-            <p style={{ fontSize:'0.75rem', color:'var(--text-muted)', lineHeight:1.5 }}>{n.content}</p>
+          <div key={n.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.6rem', marginBottom: '0.6rem' }}>
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.12em', marginBottom: '0.2rem' }}>{n.note_type.toUpperCase()}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{n.body}</p>
           </div>
         ))}
       </div>
@@ -2318,7 +2733,6 @@ function SiteSettings() {
 export default function AdminDashboard() {
   const { isAdmin, isCreative, loading } = useAuth()
   const [section, setSection]    = useState<Section>('approvals')
-  const [notes, setNotes]        = useState<StoryNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
   const [approvalCount, setApprovalCount] = useState(0)
 
@@ -2339,8 +2753,6 @@ export default function AdminDashboard() {
     )
   }
 
-  function addNote(n: StoryNote) { setNotes((prev) => [n, ...prev]) }
-
   interface NavGroup { label?: string; items: { id: Section; label: string; badge?: number }[] }
   const NAV_GROUPS: NavGroup[] = [
     { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }] },
@@ -2348,11 +2760,11 @@ export default function AdminDashboard() {
       { id: 'booker',    label: 'Show Booker' },
       { id: 'results',   label: 'Results Entry' },
       { id: 'schedule',  label: 'Schedule Editor' },
-      { id: 'champions', label: 'Champions' },
     ]},
     { label: 'Roster & Factions', items: [
       { id: 'edits',     label: 'Roster Edits' },
       { id: 'factions',  label: 'Faction Edits' },
+      { id: 'champions', label: 'Champions' },
       { id: 'legends',   label: 'Legends' },
       { id: 'ownership', label: 'Assign Ownership' },
     ]},
@@ -2361,7 +2773,8 @@ export default function AdminDashboard() {
       { id: 'titleimages', label: 'Title Images' },
     ]},
     { label: 'Creative', items: [
-      { id: 'story', label: 'Story Development' },
+      { id: 'story',       label: 'Story Development' },
+      { id: 'suggestions', label: 'Fan Suggestions' },
     ]},
     ...(isAdmin ? [{ label: 'Administration', items: [{ id: 'accounts' as Section, label: 'Account Management' }] }] : []),
     ...(isAdmin ? [{ items: [{ id: 'settings' as Section, label: 'Site Settings' }] }] : []),
@@ -2397,22 +2810,23 @@ export default function AdminDashboard() {
         </aside>
         <main className="admin-content">
           {section === 'approvals'  && <PendingApprovals onCountChange={setApprovalCount} />}
-          {section === 'booker'     && <ShowBooker notes={notes} />}
-          {section === 'results'    && <ResultsEntry />}
-          {section === 'schedule'   && <ScheduleEditor />}
-          {section === 'champions'  && <ChampionsSection />}
-          {section === 'ownership'  && <OwnershipSection />}
+          {section === 'booker'      && <ShowBooker />}
+          {section === 'results'     && <ResultsEntry />}
+          {section === 'schedule'    && <ScheduleEditor />}
+          {section === 'champions'   && <ChampionsSection />}
+          {section === 'ownership'   && <OwnershipSection />}
           {section === 'images'      && <RosterImages />}
           {section === 'titleimages' && <TitleImages />}
           {section === 'edits'       && <RosterEdits />}
           {section === 'factions'    && <FactionEdits />}
-          {section === 'legends'    && <LegendsSection />}
-          {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
-          {section === 'accounts'   && isAdmin && <AccountManagement />}
-          {section === 'settings'   && isAdmin && <SiteSettings />}
+          {section === 'legends'     && <LegendsSection />}
+          {section === 'story'       && <StoryDevelopment />}
+          {section === 'suggestions' && <StorySuggestions />}
+          {section === 'accounts'    && isAdmin && <AccountManagement />}
+          {section === 'settings'    && isAdmin && <SiteSettings />}
         </main>
       </div>
-      {showNotes && <StoryNotesWindow notes={notes} onClose={() => setShowNotes(false)} />}
+      {showNotes && <StoryNotesWindow onClose={() => setShowNotes(false)} />}
     </>
   )
 }

@@ -2,29 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getPPVsForYear, getPPVForDate, getPPVForMonth, PPVEvent } from '@/lib/ppv-data'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa']
 const YEARS  = [2022, 2023, 2024, 2025, 2026]
 
 function isFriday(date: Date) { return date.getDay() === 5 }
-
-function getFridaysInMonth(year: number, month: number): Date[] {
-  const fridays: Date[] = []
-  const d = new Date(year, month, 1)
-  while (d.getDay() !== 5) d.setDate(d.getDate() + 1)
-  while (d.getMonth() === month) {
-    fridays.push(new Date(d))
-    d.setDate(d.getDate() + 7)
-  }
-  return fridays
-}
-
-function getLastFriday(year: number, month: number): Date {
-  const fridays = getFridaysInMonth(year, month)
-  return fridays[fridays.length - 1]
-}
 
 function toDateStr(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
@@ -45,12 +28,16 @@ function getYouTubeEmbedUrl(url: string): string | null {
   }
 }
 
+interface DbPPV { name: string; abbr: string; color: string; date: string }
+
 interface ShowStub {
   id: string
   name: string
   show_date: string
   show_type: string
   ppv_name: string | null
+  ppv_color: string | null
+  ppv_abbr: string | null
   stream_url: string | null
   status: string
 }
@@ -291,11 +278,10 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
 /* ── Calendar cell ─────────────────────────────────── */
 
 function CalendarCell({
-  date, year, ppvMap, today, showMap, onShowClick,
+  date, ppvMap, today, showMap, onShowClick,
 }: {
   date: Date | null
-  year: number
-  ppvMap: Record<string, PPVEvent>
+  ppvMap: Record<string, DbPPV>
   today: Date
   showMap: Record<string, ShowStub>
   onShowClick: (show: ShowStub) => void
@@ -307,13 +293,13 @@ function CalendarCell({
   const isToday     = dateStr === toDateStr(today)
   const isFri       = isFriday(date)
   const ppv         = ppvMap[dateStr]
-  const lastFri     = isFri ? toDateStr(getLastFriday(year, date.getMonth())) === dateStr : false
-  const hasPPV      = !!ppv && lastFri
+  const hasPPV      = !!ppv
   const dbShow      = showMap[dateStr]
-  const isCompleted = dbShow?.status === 'completed'
-  const isClickable = (isFri || hasPPV) && !!dbShow
+  const isSkip      = dbShow?.show_type === 'skip'
+  const isCompleted = !isSkip && dbShow?.status === 'completed'
+  const isClickable = (isFri || hasPPV) && !!dbShow && !isSkip
 
-  const bgColor = hasPPV ? ppv.color : (isPast && isCompleted ? 'rgba(0,200,100,0.05)' : undefined)
+  const bgColor = hasPPV && !isSkip ? ppv.color : (isPast && isCompleted ? 'rgba(0,200,100,0.05)' : undefined)
 
   return (
     <div
@@ -327,10 +313,9 @@ function CalendarCell({
         justifyContent: 'center',
         position: 'relative',
         backgroundColor: bgColor,
-        borderBottom: isFri && !hasPPV ? `2px solid ${isCompleted ? 'rgba(0,200,100,0.4)' : 'var(--purple)'}` : undefined,
+        borderBottom: isFri && !hasPPV ? `2px solid ${isSkip ? 'rgba(255,255,255,0.08)' : isCompleted ? 'rgba(0,200,100,0.4)' : 'var(--purple)'}` : undefined,
         outline: isToday ? '2px solid var(--purple-hot)' : undefined,
         outlineOffset: -2,
-        // only fade past dates that have no show data at all
         opacity: isPast && !hasPPV && !dbShow ? 0.35 : 1,
         cursor: isClickable ? 'none' : 'default',
         transition: 'filter 0.15s',
@@ -356,10 +341,10 @@ function CalendarCell({
           fontSize: '0.42rem',
           fontWeight: 700,
           letterSpacing: '0.15em',
-          color: isCompleted ? '#00c864' : dbShow ? 'var(--purple-hot)' : 'var(--text-dim)',
+          color: isSkip ? 'rgba(255,255,255,0.2)' : isCompleted ? '#00c864' : dbShow ? 'var(--purple-hot)' : 'var(--text-dim)',
           marginTop: '1px',
         }}>
-          {isCompleted ? '✓' : dbShow ? 'DAW' : ''}
+          {isSkip ? 'BRK' : isCompleted ? '✓' : dbShow ? 'DAW' : ''}
         </span>
       )}
       {hasPPV && (
@@ -374,12 +359,18 @@ function CalendarCell({
 /* ── Month grid ────────────────────────────────────── */
 
 function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
-  year: number; month: number; ppvMap: Record<string, PPVEvent>; today: Date
+  year: number; month: number; ppvMap: Record<string, DbPPV>; today: Date
   showMap: Record<string, ShowStub>; onShowClick: (show: ShowStub) => void
 }) {
   const firstDay    = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const ppv         = getPPVForMonth(year, month)
+
+  // Find PPV for this month from DB ppvMap
+  let monthPpv: DbPPV | null = null
+  for (let d = 1; d <= daysInMonth; d++) {
+    const candidate = ppvMap[toDateStr(new Date(year, month, d))]
+    if (candidate) { monthPpv = candidate; break }
+  }
 
   const cells: (Date | null)[] = []
   for (let i = 0; i < firstDay; i++) cells.push(null)
@@ -392,9 +383,9 @@ function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
           {MONTHS[month]}
         </span>
-        {ppv && (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.25rem 0.6rem', background: ppv.color, color: '#fff' }}>
-            {ppv.name}
+        {monthPpv && (
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.25rem 0.6rem', background: monthPpv.color, color: '#fff' }}>
+            {monthPpv.name}
           </span>
         )}
       </div>
@@ -411,7 +402,7 @@ function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
       {/* Date cells */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
         {cells.map((date, i) => (
-          <CalendarCell key={i} date={date} year={year} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={onShowClick} />
+          <CalendarCell key={i} date={date} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={onShowClick} />
         ))}
       </div>
     </div>
@@ -421,45 +412,49 @@ function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
 /* ── Sidebar show row ──────────────────────────────── */
 
 function SidebarShowRow({
-  show,
-  ppv,
-  dateLabel,
-  onShowClick,
-  dimmed,
+  show, ppv, dateLabel, onShowClick, dimmed, isSkip,
 }: {
   show: ShowStub | null
-  ppv: PPVEvent | null
+  ppv: DbPPV | null
   dateLabel: string
   onShowClick: (s: ShowStub) => void
   dimmed?: boolean
+  isSkip?: boolean
 }) {
   const isCompleted = show?.status === 'completed'
+  const clickable   = !!show && !isSkip
   return (
     <div
-      onClick={() => { if (show) onShowClick(show) }}
+      onClick={() => { if (clickable) onShowClick(show!) }}
       className={`show-row${ppv ? ' ppv' : ''}`}
       style={{
-        cursor: show ? 'none' : 'default',
-        opacity: dimmed ? 0.55 : 1,
-        ...(ppv ? { borderLeftColor: ppv.color } : {}),
+        cursor: clickable ? 'none' : 'default',
+        opacity: dimmed ? 0.55 : isSkip ? 0.45 : 1,
+        ...(ppv && !isSkip ? { borderLeftColor: ppv.color } : {}),
+        ...(isSkip ? { borderLeftColor: 'rgba(255,255,255,0.1)' } : {}),
       }}
-      onMouseEnter={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = isCompleted ? '#00c864' : 'var(--purple-hot)' }}
-      onMouseLeave={(e) => { if (show) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : 'var(--border)' }}
+      onMouseEnter={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = isCompleted ? '#00c864' : 'var(--purple-hot)' }}
+      onMouseLeave={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : 'var(--border)' }}
     >
-      {ppv && (
+      {isSkip && (
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.18rem 0.5rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+          BREAK
+        </span>
+      )}
+      {ppv && !isSkip && (
         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.2rem 0.5rem', background: ppv.color, color: '#fff', flexShrink: 0 }}>
           PPV
         </span>
       )}
       <div style={{ flex: 1 }}>
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-          {show?.ppv_name ?? show?.name ?? (ppv ? ppv.name : 'DAW Weekly')}
+        <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
+          {isSkip ? 'DAW on Break' : (show?.ppv_name ?? show?.name ?? (ppv ? ppv.name : 'DAW Weekly'))}
         </p>
         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.15rem' }}>
           {dateLabel}
         </p>
       </div>
-      {show && (
+      {show && !isSkip && (
         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: isCompleted ? '#00c864' : 'var(--purple-hot)', letterSpacing: '0.1em', flexShrink: 0 }}>
           {isCompleted ? '✓ RESULTS' : 'VIEW ›'}
         </span>
@@ -468,27 +463,38 @@ function SidebarShowRow({
   )
 }
 
+/* ── Helpers ───────────────────────────────────────── */
+
+function showToDbPpv(show: ShowStub): DbPPV {
+  return {
+    name:  show.ppv_name ?? show.name,
+    abbr:  show.ppv_abbr ?? (show.ppv_name ?? show.name).slice(0, 4).toUpperCase(),
+    color: show.ppv_color ?? '#a855f7',
+    date:  show.show_date,
+  }
+}
+
 /* ── Main calendar component ───────────────────────── */
 
 export default function ScheduleClient({ initialYear }: { initialYear: number }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const [year, setYear]         = useState(initialYear)
-  const [viewMonth, setViewMonth] = useState(today.getMonth())
-  const [showMap, setShowMap]   = useState<Record<string, ShowStub>>({})
+  const [year, setYear]               = useState(initialYear)
+  const [viewMonth, setViewMonth]     = useState(today.getMonth())
+  const [showMap, setShowMap]         = useState<Record<string, ShowStub>>({})
   const [recentShows, setRecentShows] = useState<ShowStub[]>([])
+  const [upcomingDbShows, setUpcomingDbShows] = useState<ShowStub[]>([])
   const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
   const [sidebarTab, setSidebarTab]   = useState<'upcoming' | 'recent'>('upcoming')
-  const [storedColors, setStoredColors] = useState<Record<string, string>>({})
 
-  const ppvList = getPPVsForYear(year)
-  const ppvMap: Record<string, PPVEvent> = {}
-  ppvList.forEach((p) => { ppvMap[p.date] = p })
+  // Build ppvMap from DB shows for the selected year (fully DB-driven, no static data)
+  const ppvMap: Record<string, DbPPV> = {}
+  Object.values(showMap)
+    .filter(s => s.show_type === 'ppv')
+    .forEach(s => { ppvMap[s.show_date] = showToDbPpv(s) })
 
-  const effectivePpvList = ppvList.map(p => storedColors[p.name] ? { ...p, color: storedColors[p.name] } : p)
-  const effectivePpvMap: Record<string, PPVEvent> = {}
-  effectivePpvList.forEach(p => { effectivePpvMap[p.date] = p })
+  const ppvList = Object.values(ppvMap).sort((a, b) => a.date.localeCompare(b.date))
 
   // Shows for selected year (calendar)
   useEffect(() => {
@@ -497,7 +503,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
       const end   = `${year}-12-31`
       const { data } = await supabase
         .from('shows')
-        .select('id, name, show_date, show_type, ppv_name, stream_url, status')
+        .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, stream_url, status')
         .gte('show_date', start)
         .lte('show_date', end)
         .in('status', ['committed', 'completed'])
@@ -514,7 +520,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
       const todayStr = toDateStr(today)
       const { data } = await supabase
         .from('shows')
-        .select('id, name, show_date, show_type, ppv_name, stream_url, status')
+        .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, stream_url, status')
         .eq('status', 'completed')
         .lt('show_date', todayStr)
         .order('show_date', { ascending: false })
@@ -524,27 +530,22 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     loadRecent()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // PPV color overrides from site_settings (set in admin Schedule Editor)
+  // Upcoming DB shows — master list driven by admin schedule editor
   useEffect(() => {
-    supabase.from('site_settings').select('value').eq('key', 'ppv_colors').maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) try { setStoredColors(JSON.parse(data.value)) } catch { /* */ }
-      })
-  }, [])
+    const todayStr = toDateStr(today)
+    supabase
+      .from('shows')
+      .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, stream_url, status')
+      .eq('status', 'committed')
+      .gte('show_date', todayStr)
+      .order('show_date', { ascending: true })
+      .limit(12)
+      .then(({ data }) => setUpcomingDbShows(data ?? []))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeModal = useCallback(() => setActiveModal(null), [])
 
-  // Upcoming shows (next 8 Fridays)
-  const upcomingShows: { date: Date; show: ShowStub | null; ppv: PPVEvent | null }[] = []
-  const cursor = new Date(today)
-  while (cursor.getDay() !== 5) cursor.setDate(cursor.getDate() + 1)
-  for (let i = 0; i < 8; i++) {
-    const ds = toDateStr(cursor)
-    upcomingShows.push({ date: new Date(cursor), show: showMap[ds] ?? null, ppv: getPPVForDate(ds, cursor.getFullYear()) })
-    cursor.setDate(cursor.getDate() + 7)
-  }
-
-  const ppvCount = effectivePpvList.length
+  const ppvCount = ppvList.length
 
   const tabBtn = (id: 'upcoming' | 'recent', label: string) => (
     <button
@@ -583,16 +584,30 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
       {sidebarTab === 'upcoming' ? (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {upcomingShows.map(({ date, show, ppv }, i) => (
-              <SidebarShowRow key={i} show={show} ppv={ppv} dateLabel={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
-            ))}
+            {upcomingDbShows.length === 0 ? (
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No upcoming shows scheduled.</p>
+            ) : upcomingDbShows.map((show) => {
+              const d = new Date(show.show_date + 'T00:00:00')
+              const isSkip = show.show_type === 'skip'
+              const ppv = (!isSkip && show.show_type === 'ppv') ? showToDbPpv(show) : null
+              return (
+                <SidebarShowRow
+                  key={show.id}
+                  show={isSkip ? null : show}
+                  ppv={ppv}
+                  dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  onShowClick={setActiveModal}
+                  isSkip={isSkip}
+                />
+              )
+            })}
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>{year} PPVs</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {effectivePpvList.map((ppv) => {
+            {ppvList.map((ppv) => {
               const ppvShow = showMap[ppv.date]
               return (
-                <div key={ppv.name} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
+                <div key={ppv.date} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
                     <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>{new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
@@ -610,8 +625,8 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           ) : (
             recentShows.map((show) => {
               const d = new Date(show.show_date + 'T00:00:00')
-              const ppv = getPPVForDate(show.show_date, d.getFullYear())
-              return <SidebarShowRow key={show.id} show={show} ppv={ppv ?? null} dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
+              const ppv = show.show_type === 'ppv' ? showToDbPpv(show) : null
+              return <SidebarShowRow key={show.id} show={show} ppv={ppv} dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
             })
           )}
         </div>
@@ -650,11 +665,11 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
             ))}
           </div>
         </div>
-        {effectivePpvList.length > 0 && (
+        {ppvList.length > 0 && (
           <div style={{ padding: '0 3rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.2rem', textTransform: 'uppercase', marginRight: '1rem' }}>PPV EVENTS</span>
-            {effectivePpvList.map((ppv) => (
-              <span key={ppv.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.65rem', letterSpacing: '0.05em', padding: '0.25rem 0.6rem', border: `1px solid ${ppv.color}`, color: ppv.color, textTransform: 'uppercase' }}>
+            {ppvList.map((ppv) => (
+              <span key={ppv.date} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.65rem', letterSpacing: '0.05em', padding: '0.25rem 0.6rem', border: `1px solid ${ppv.color}`, color: ppv.color, textTransform: 'uppercase' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: ppv.color, display: 'inline-block' }} />{ppv.name}
               </span>
             ))}
@@ -664,7 +679,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           <div style={{ padding: '2rem 3rem', borderRight: '1px solid var(--border)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
               {MONTHS.map((_, monthIdx) => (
-                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={effectivePpvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
               ))}
             </div>
           </div>
@@ -685,7 +700,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         </div>
 
         {/* Single month calendar */}
-        <MonthGrid year={year} month={viewMonth} ppvMap={effectivePpvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+        <MonthGrid year={year} month={viewMonth} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
 
         {/* Upcoming / recent below calendar */}
         <div style={{ marginTop: '1.5rem' }}>{sharedSidebar}</div>

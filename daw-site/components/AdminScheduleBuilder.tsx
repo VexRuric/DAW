@@ -673,6 +673,7 @@ export default function AdminScheduleBuilder() {
   const [ppvDate, setPpvDate]           = useState('')
   const [ppvNameInput, setPpvNameInput] = useState('')
   const [ppvSaving, setPpvSaving]       = useState(false)
+  const [skipSaving, setSkipSaving]     = useState(false)
 
   const [editNames, setEditNames]       = useState<Record<string, string>>({})
   const [editPPVNames, setEditPPVNames] = useState<Record<string, string>>({})
@@ -729,9 +730,13 @@ export default function AdminScheduleBuilder() {
     load()
   }, [])
 
-  async function addWeekly() {
+  function nextShowDate(): string {
     const lastDate = shows.length > 0 ? shows[shows.length - 1].show_date : toDateStr(new Date())
-    const newDate  = nextFridayAfter(lastDate)
+    return nextFridayAfter(lastDate)
+  }
+
+  async function addWeekly() {
+    const newDate  = nextShowDate()
     const d        = new Date(newDate + 'T00:00:00')
     const label    = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     const showName = `DAW Warehouse LIVE — ${label}`
@@ -745,6 +750,25 @@ export default function AdminScheduleBuilder() {
       setEditNames(prev => ({ ...prev, [data.id]: showName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
     }
+  }
+
+  async function addSkipWeek() {
+    setSkipSaving(true)
+    const newDate  = nextShowDate()
+    const d        = new Date(newDate + 'T00:00:00')
+    const label    = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    const showName = `DAW on Break — ${label}`
+    const { data, error } = await supabase
+      .from('shows')
+      .insert({ name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed' })
+      .select('id').single()
+    if (!error && data) {
+      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed', match_count: 0 }
+      setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
+      setEditNames(prev => ({ ...prev, [data.id]: showName }))
+      setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
+    }
+    setSkipSaving(false)
   }
 
   async function createPPV() {
@@ -816,6 +840,9 @@ export default function AdminScheduleBuilder() {
           <button onClick={() => setAddingPPV(!addingPPV)} className="btn" style={{ padding: '0.6rem 1.1rem', fontSize: '0.65rem', borderColor: addingPPV ? 'var(--gold)' : undefined, color: addingPPV ? 'var(--gold)' : undefined }}>
             {addingPPV ? '✕ Cancel' : '+ PPV Event'}
           </button>
+          <button onClick={addSkipWeek} disabled={skipSaving} className="btn" style={{ padding: '0.6rem 1.1rem', fontSize: '0.65rem', borderColor: 'rgba(255,255,255,0.2)', color: 'var(--text-dim)' }} title="Mark next Friday as a break week (no show)">
+            {skipSaving ? '…' : '— Skip DAW'}
+          </button>
         </div>
       </div>
 
@@ -846,27 +873,28 @@ export default function AdminScheduleBuilder() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {shows.map(show => {
+            const isSkip   = show.show_type === 'skip'
             const isPPV    = show.show_type === 'ppv'
             const slotCount = isPPV ? 12 : 9
-            const pct       = show.match_count / slotCount
-            const isBuilt   = pct >= 1
-            const isPartial = pct > 0 && pct < 1
+            const pct       = isSkip ? 0 : show.match_count / slotCount
+            const isBuilt   = !isSkip && pct >= 1
+            const isPartial = !isSkip && pct > 0 && pct < 1
 
             return (
               <div key={show.id}
-                style={{ background: 'var(--surface)', border: `1px solid ${isPPV ? 'rgba(255,201,51,0.35)' : 'var(--border)'}`, padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}
+                style={{ background: isSkip ? 'rgba(255,255,255,0.02)' : 'var(--surface)', border: `1px solid ${isPPV ? 'rgba(255,201,51,0.35)' : isSkip ? 'rgba(255,255,255,0.07)' : 'var(--border)'}`, padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', opacity: isSkip ? 0.65 : 1 }}
               >
-                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.18rem 0.5rem', background: isPPV ? 'var(--gold)' : 'rgba(128,0,218,0.15)', color: isPPV ? '#0a0a0c' : 'var(--purple-hot)', border: isPPV ? 'none' : '1px solid var(--purple)', flexShrink: 0 }}>
-                  {isPPV ? '★ PPV' : 'WEEKLY'}
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.18rem 0.5rem', background: isPPV ? 'var(--gold)' : isSkip ? 'rgba(255,255,255,0.07)' : 'rgba(128,0,218,0.15)', color: isPPV ? '#0a0a0c' : isSkip ? 'var(--text-dim)' : 'var(--purple-hot)', border: isPPV ? 'none' : `1px solid ${isSkip ? 'rgba(255,255,255,0.1)' : 'var(--purple)'}`, flexShrink: 0 }}>
+                  {isPPV ? '★ PPV' : isSkip ? 'BREAK' : 'WEEKLY'}
                 </span>
                 <input type="date" value={show.show_date} onChange={e => updateDate(show.id, e.target.value)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'pointer', flexShrink: 0 }} />
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'pointer', flexShrink: 0 }} />
                 <input type="text" value={editNames[show.id] ?? show.name}
                   onChange={e => setEditNames(prev => ({ ...prev, [show.id]: e.target.value }))}
                   onBlur={() => updateName(show.id)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-muted)', background: 'transparent', border: '1px solid transparent', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '0.3rem 0.4rem', flex: 1, minWidth: 180, letterSpacing: '0.05em', outline: 'none' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--purple)' }}
-                  onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = 'rgba(255,255,255,0.08)' }}
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-muted)', background: 'transparent', border: '1px solid transparent', borderBottom: `1px solid ${isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'}`, padding: '0.3rem 0.4rem', flex: 1, minWidth: 180, letterSpacing: '0.05em', outline: 'none' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = isSkip ? 'rgba(255,255,255,0.15)' : 'var(--purple)' }}
+                  onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)' }}
                 />
                 {isPPV && (
                   <input type="text" value={editPPVNames[show.id] ?? ''} placeholder="PPV name…"
@@ -877,18 +905,24 @@ export default function AdminScheduleBuilder() {
                     onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = 'rgba(255,201,51,0.25)' }}
                   />
                 )}
-                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isBuilt ? '#00c864' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
-                  {isBuilt ? '✓ ' : ''}{show.match_count}/{slotCount} matches
-                </span>
-                <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
-                  style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isBuilt ? 'transparent' : undefined, border: isBuilt ? '1px solid var(--purple)' : undefined, color: isBuilt ? 'var(--purple-hot)' : undefined }}>
-                  {show.match_count === 0 ? 'Build Card ▶' : isBuilt ? 'Edit Card ▶' : 'Continue ▶'}
-                </button>
+                {isSkip ? (
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>no show</span>
+                ) : (
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isBuilt ? '#00c864' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
+                    {isBuilt ? '✓ ' : ''}{show.match_count}/{slotCount} matches
+                  </span>
+                )}
+                {!isSkip && (
+                  <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
+                    style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isBuilt ? 'transparent' : undefined, border: isBuilt ? '1px solid var(--purple)' : undefined, color: isBuilt ? 'var(--purple-hot)' : undefined }}>
+                    {show.match_count === 0 ? 'Build Card ▶' : isBuilt ? 'Edit Card ▶' : 'Continue ▶'}
+                  </button>
+                )}
                 <button onClick={() => deleteShow(show.id)}
                   style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.75rem', flexShrink: 0 }}
                   onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
                   onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
-                  title="Delete show">✕</button>
+                  title={isSkip ? 'Remove break week' : 'Delete show'}>✕</button>
               </div>
             )
           })}
