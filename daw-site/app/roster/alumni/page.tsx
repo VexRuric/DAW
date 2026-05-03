@@ -87,6 +87,27 @@ export default async function AlumniPage() {
 }
 
 function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: WrestlerRecord | undefined }) {
+  const isFace = wrestler.role === 'Face'
+  const isHeel = wrestler.role === 'Heel'
+
+  const cardBg = isFace
+    ? 'rgb(5, 8, 55)'
+    : isHeel
+    ? 'rgb(55, 5, 8)'
+    : 'rgb(10,10,14)'
+
+  const gradient = isFace
+    ? 'linear-gradient(to top, rgba(2,4,35,0.98) 0%, rgba(4,8,55,0.45) 40%, transparent 70%)'
+    : isHeel
+    ? 'linear-gradient(to top, rgba(35,2,4,0.98) 0%, rgba(65,4,8,0.45) 40%, transparent 70%)'
+    : 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.30) 45%, transparent 70%)'
+
+  const accentColor = isFace
+    ? 'rgba(80,130,255,0.5)'
+    : isHeel
+    ? 'rgba(255,51,85,0.5)'
+    : 'rgba(255,255,255,0.2)'
+
   return (
     <Link
       href={`/roster/${toSlug(wrestler.name)}`}
@@ -97,8 +118,8 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
         aspectRatio: '3/4',
         overflow: 'hidden',
         border: '1px solid var(--border)',
-        background: 'rgb(10,10,14)',
-        filter: 'grayscale(0.65) brightness(0.75)',
+        background: cardBg,
+        filter: 'brightness(0.8)',
       }}
     >
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -122,7 +143,7 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
         )}
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.30) 45%, transparent 70%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: gradient }} />
 
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
@@ -136,7 +157,7 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
       </div>
 
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '2.5rem 0.85rem 0.9rem', zIndex: 2 }}>
-        <div style={{ borderLeft: '2px solid rgba(255,255,255,0.2)', paddingLeft: '0.6rem' }}>
+        <div style={{ borderLeft: `2px solid ${accentColor}`, paddingLeft: '0.6rem' }}>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', lineHeight: 1, marginBottom: '0.4rem' }}>
             {wrestler.name}
           </p>
