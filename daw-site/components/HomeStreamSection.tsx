@@ -84,7 +84,7 @@ export default function HomeStreamSection({
       <div className="stream-grid">
 
         {/* LEFT: Twitch when live, YouTube playlist when offline */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="stream-video-col" style={{ display: 'flex', flexDirection: 'column' }}>
 
           {/* Section label */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>

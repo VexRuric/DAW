@@ -499,6 +499,9 @@ a, button { cursor: none; }
   .home-section        { padding: 2.5rem 1.25rem; }
   .home-stream-section { padding: 1.75rem 1.25rem 2.5rem; }
 
+  /* Video player — hidden on mobile, matchcard takes full width */
+  .stream-video-col { display: none; }
+
   /* Grids → single column */
   .stream-grid    { grid-template-columns: 1fr; gap: 1.5rem; }
   .news-grid      { grid-template-columns: 1fr; gap: 1.5rem; }
