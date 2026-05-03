@@ -480,10 +480,15 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
   const [recentShows, setRecentShows] = useState<ShowStub[]>([])
   const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
   const [sidebarTab, setSidebarTab]   = useState<'upcoming' | 'recent'>('upcoming')
+  const [storedColors, setStoredColors] = useState<Record<string, string>>({})
 
   const ppvList = getPPVsForYear(year)
   const ppvMap: Record<string, PPVEvent> = {}
   ppvList.forEach((p) => { ppvMap[p.date] = p })
+
+  const effectivePpvList = ppvList.map(p => storedColors[p.name] ? { ...p, color: storedColors[p.name] } : p)
+  const effectivePpvMap: Record<string, PPVEvent> = {}
+  effectivePpvList.forEach(p => { effectivePpvMap[p.date] = p })
 
   // Shows for selected year (calendar)
   useEffect(() => {
@@ -519,6 +524,14 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     loadRecent()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // PPV color overrides from site_settings (set in admin Schedule Editor)
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'ppv_colors').maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) try { setStoredColors(JSON.parse(data.value)) } catch { /* */ }
+      })
+  }, [])
+
   const closeModal = useCallback(() => setActiveModal(null), [])
 
   // Upcoming shows (next 8 Fridays)
@@ -531,7 +544,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     cursor.setDate(cursor.getDate() + 7)
   }
 
-  const ppvCount = ppvList.length
+  const ppvCount = effectivePpvList.length
 
   const tabBtn = (id: 'upcoming' | 'recent', label: string) => (
     <button
@@ -576,7 +589,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>{year} PPVs</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {ppvList.map((ppv) => {
+            {effectivePpvList.map((ppv) => {
               const ppvShow = showMap[ppv.date]
               return (
                 <div key={ppv.name} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
@@ -637,10 +650,10 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
             ))}
           </div>
         </div>
-        {ppvList.length > 0 && (
+        {effectivePpvList.length > 0 && (
           <div style={{ padding: '0 3rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.2rem', textTransform: 'uppercase', marginRight: '1rem' }}>PPV EVENTS</span>
-            {ppvList.map((ppv) => (
+            {effectivePpvList.map((ppv) => (
               <span key={ppv.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.65rem', letterSpacing: '0.05em', padding: '0.25rem 0.6rem', border: `1px solid ${ppv.color}`, color: ppv.color, textTransform: 'uppercase' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: ppv.color, display: 'inline-block' }} />{ppv.name}
               </span>
@@ -651,7 +664,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           <div style={{ padding: '2rem 3rem', borderRight: '1px solid var(--border)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
               {MONTHS.map((_, monthIdx) => (
-                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={effectivePpvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
               ))}
             </div>
           </div>
@@ -672,7 +685,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         </div>
 
         {/* Single month calendar */}
-        <MonthGrid year={year} month={viewMonth} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+        <MonthGrid year={year} month={viewMonth} ppvMap={effectivePpvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
 
         {/* Upcoming / recent below calendar */}
         <div style={{ marginTop: '1.5rem' }}>{sharedSidebar}</div>

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'accounts' | 'settings' | 'legends'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'accounts' | 'settings' | 'legends'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -32,7 +32,7 @@ interface BookerTitle { id: string; name: string }
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
 interface BookerSlot { id: number; matchType: string; stipulation: string; isTitleMatch: boolean; titleId: string; participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[] }
 interface ShowStub { id: string; name: string; show_date: string; status: string; stream_url: string | null }
-interface Participant { mp_id: string; name: string; result: string | null }
+interface Participant { mp_id: string; name: string; result: string | null; wrestler_id: string | null; team_id: string | null }
 interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; participants: Participant[] }
 interface MatchResultForm { winner_mp_id: string; defeat_type: string; rating: string; notes: string; add_to_story_board: boolean }
 interface OwnerRow { id: string; name: string; status: string; submitted_by: string | null; owner: { display_name: string | null; twitch_handle: string | null } | null }
@@ -42,6 +42,7 @@ interface ChampRow { title_id: string; title_name: string; holder_name: string; 
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
 interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
 interface FactionRow { id: string; name: string; brand: string | null; division: string | null; status: string; saved: boolean }
+interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -652,6 +653,8 @@ function _ShowBookerOld({ notes: _notes }: { notes: StoryNote[] }) {
 
 /* ── Results Entry ───────────────────────────────────── */
 
+type RosterAddEntry = { id: string; name: string; kind: 'wrestler' | 'team' }
+
 function ResultsEntry() {
   const [shows, setShows]               = useState<ShowStub[]>([])
   const [loadingShows, setLoadingShows] = useState(true)
@@ -667,6 +670,11 @@ function ResultsEntry() {
   const [streamUrl, setStreamUrl]       = useState('')
   const [savingStream, setSavingStream] = useState(false)
   const [streamSaved, setStreamSaved]   = useState(false)
+  const [rosterEntries, setRosterEntries] = useState<RosterAddEntry[]>([])
+  const [addingTo, setAddingTo]           = useState<string | null>(null)
+  const [addSearch, setAddSearch]         = useState('')
+  const [addWriteIn, setAddWriteIn]       = useState('')
+  const [addingEntry, setAddingEntry]     = useState(false)
 
   useEffect(() => {
     async function loadShows() {
@@ -676,6 +684,37 @@ function ResultsEntry() {
     }
     loadShows()
   }, [])
+
+  useEffect(() => {
+    async function loadRoster() {
+      const [wRes, tRes] = await Promise.all([
+        supabase.from('wrestlers').select('id, name').eq('active', true).order('name'),
+        supabase.from('teams').select('id, name').eq('active', true).order('name'),
+      ])
+      const wrestlers = (wRes.data ?? []).map((w: any) => ({ id: w.id, name: w.name, kind: 'wrestler' as const }))
+      const teams     = (tRes.data ?? []).map((t: any) => ({ id: t.id, name: t.name, kind: 'team' as const }))
+      setRosterEntries([...wrestlers, ...teams])
+    }
+    loadRoster()
+  }, [])
+
+  async function addParticipant(matchId: string, entry: RosterAddEntry | null, writeInName?: string) {
+    if (!entry && !writeInName) return
+    setAddingEntry(true)
+    const payload: Record<string, unknown> = { match_id: matchId, result: 'loser' }
+    if (entry) {
+      if (entry.kind === 'wrestler') payload.wrestler_id = entry.id
+      else payload.team_id = entry.id
+    } else {
+      payload.write_in_name = writeInName
+    }
+    const { data, error } = await supabase.from('match_participants').insert(payload).select('id').single()
+    setAddingEntry(false)
+    if (error || !data) return
+    const newP: Participant = { mp_id: data.id, name: entry?.name ?? writeInName ?? 'Unknown', result: 'loser', wrestler_id: entry?.kind === 'wrestler' ? entry.id : null, team_id: entry?.kind === 'team' ? entry.id : null }
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, participants: [...m.participants, newP] } : m))
+    setAddingTo(null); setAddSearch(''); setAddWriteIn('')
+  }
 
   async function saveStreamUrl() {
     if (!selectedShow) return
@@ -688,7 +727,7 @@ function ResultsEntry() {
   async function selectShow(show: ShowStub) {
     setSelectedShow(show); setStreamUrl(show.stream_url ?? ''); setStreamSaved(false); setLoadingMatches(true); setSubmitDone(false); setSubmitError(null)
     const { data } = await supabase.from('matches').select('id, match_number, match_type, stipulation, is_title_match, is_draw, defeat_type, rating, notes, match_participants(id, wrestler_id, team_id, write_in_name, result, wrestlers(name), teams(name))').eq('show_id', show.id).order('match_number')
-    const cards: MatchCard[] = (data ?? []).map((m: any) => ({ id: m.id, match_number: m.match_number, match_type: m.match_type, stipulation: m.stipulation, is_title_match: m.is_title_match, is_draw: m.is_draw, defeat_type: m.defeat_type, rating: m.rating, notes: m.notes, participants: (m.match_participants ?? []).map((mp: any) => ({ mp_id: mp.id, name: mp.write_in_name ?? mp.wrestlers?.name ?? mp.teams?.name ?? 'Unknown', result: mp.result })) }))
+    const cards: MatchCard[] = (data ?? []).map((m: any) => ({ id: m.id, match_number: m.match_number, match_type: m.match_type, stipulation: m.stipulation, is_title_match: m.is_title_match, is_draw: m.is_draw, defeat_type: m.defeat_type, rating: m.rating, notes: m.notes, participants: (m.match_participants ?? []).map((mp: any) => ({ mp_id: mp.id, name: mp.write_in_name ?? mp.wrestlers?.name ?? mp.teams?.name ?? 'Unknown', result: mp.result, wrestler_id: mp.wrestler_id ?? null, team_id: mp.team_id ?? null })) }))
     setMatches(cards)
     const initial: Record<string, MatchResultForm> = {}
     for (const c of cards) {
@@ -848,6 +887,36 @@ function ResultsEntry() {
                     <textarea className="form-input form-textarea" placeholder="Key moments, angles, post-match happenings…" value={form.notes} onChange={(e) => updateForm(match.id, { notes: e.target.value })} style={{ fontSize:'0.72rem', minHeight:64, resize:'vertical' }} />
                   </div>
                 </div>
+                {/* Add Participant panel */}
+                {addingTo === match.id ? (
+                  <div style={{ marginTop:'0.75rem', padding:'0.75rem', background:'rgba(128,0,218,0.06)', border:'1px solid var(--purple)' }}>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.15em', fontWeight:700, marginBottom:'0.5rem' }}>ADD PARTICIPANT — RUN IN / CASH IN</p>
+                    <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.5rem', flexWrap:'wrap' }}>
+                      <input className="form-input" placeholder="Search roster…" value={addSearch} onChange={e => setAddSearch(e.target.value)} style={{ flex:1, minWidth:180, fontSize:'0.72rem' }} autoFocus />
+                      <button onClick={() => { setAddingTo(null); setAddSearch(''); setAddWriteIn('') }} style={{ padding:'0.35rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer' }}>Cancel</button>
+                    </div>
+                    <div style={{ maxHeight:160, overflowY:'auto', display:'flex', flexDirection:'column', gap:'0.25rem', marginBottom:'0.5rem' }}>
+                      {rosterEntries.filter(e => !addSearch || e.name.toLowerCase().includes(addSearch.toLowerCase())).map(entry => (
+                        <button key={entry.id} onClick={() => addParticipant(match.id, entry)} disabled={addingEntry} style={{ textAlign:'left', padding:'0.35rem 0.75rem', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                        >
+                          <span>{entry.name}</span>
+                          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.08em' }}>{entry.kind === 'team' ? 'FACTION' : 'WRESTLER'}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                      <input className="form-input" placeholder="Write-in name (mystery entrant)…" value={addWriteIn} onChange={e => setAddWriteIn(e.target.value)} style={{ flex:1, fontSize:'0.68rem' }} />
+                      <button onClick={() => addWriteIn.trim() && addParticipant(match.id, null, addWriteIn.trim())} disabled={addingEntry || !addWriteIn.trim()} style={{ padding:'0.35rem 0.75rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'pointer' }}>Add Write-In</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setAddingTo(match.id); setAddSearch('') }} style={{ marginTop:'0.75rem', padding:'0.35rem 0.85rem', background:'transparent', border:'1px dashed rgba(128,0,218,0.4)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', width:'100%' }}>
+                    + Add Participant (Run In / Cash In)
+                  </button>
+                )}
+
                 <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'0.75rem' }}>
                   <button
                     onClick={() => saveMatch(match.id)}
@@ -1585,6 +1654,131 @@ function FactionEdits() {
   )
 }
 
+/* ── Schedule Editor ────────────────────────────────── */
+
+function ScheduleEditor() {
+  const [tab, setTab]               = useState<'shows' | 'ppv'>('shows')
+  const [rows, setRows]             = useState<ScheduleShowRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState<string | null>(null)
+  const [yearFilter, setYearFilter] = useState('all')
+  const [ppvColors, setPpvColors]   = useState<Record<string, string>>({})
+  const [ppvColorsSaving, setPpvColorsSaving] = useState(false)
+  const [ppvColorsSaved, setPpvColorsSaved]   = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const [showsRes, colorRes] = await Promise.all([
+        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status').order('show_date', { ascending: false }),
+        supabase.from('site_settings').select('value').eq('key', 'ppv_colors').maybeSingle(),
+      ])
+      setRows((showsRes.data ?? []).map((r: any) => ({ ...r, saved: false })))
+      if (colorRes.data?.value) try { setPpvColors(JSON.parse(colorRes.data.value)) } catch { /* */ }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  function updateRow(id: string, key: keyof ScheduleShowRow, value: any) {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, [key]: value, saved: false } : r))
+  }
+
+  async function saveRow(id: string) {
+    setSaving(id)
+    const row = rows.find(r => r.id === id)
+    if (!row) { setSaving(null); return }
+    await supabase.from('shows').update({ name: row.name, show_date: row.show_date, show_type: row.show_type, ppv_name: row.ppv_name || null }).eq('id', id)
+    setRows(prev => prev.map(r => r.id === id ? { ...r, saved: true } : r))
+    setSaving(null)
+  }
+
+  async function savePPVColors() {
+    setPpvColorsSaving(true)
+    await supabase.from('site_settings').upsert({ key: 'ppv_colors', value: JSON.stringify(ppvColors) })
+    setPpvColorsSaving(false); setPpvColorsSaved(true)
+    setTimeout(() => setPpvColorsSaved(false), 2500)
+  }
+
+  const YEARS = ['all', '2022', '2023', '2024', '2025', '2026']
+  const filtered  = rows.filter(r => yearFilter === 'all' || r.show_date.startsWith(yearFilter))
+  const ppvNames  = Array.from(new Set(rows.filter(r => r.show_type === 'ppv' && r.ppv_name).map(r => r.ppv_name as string))).sort()
+  const tabBtn = (t: 'shows' | 'ppv', label: string) => (
+    <button onClick={() => setTab(t)} style={{ padding:'0.4rem 0.9rem', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer', background: tab === t ? 'rgba(128,0,218,0.15)' : 'transparent', border:`1px solid ${tab === t ? 'var(--purple)' : 'var(--border)'}`, color: tab === t ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{label}</button>
+  )
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
+        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Schedule Editor</h2>
+        <div style={{ display:'flex', gap:'0.35rem' }}>{tabBtn('shows','Shows')}{tabBtn('ppv','PPV Colors')}</div>
+      </div>
+
+      {tab === 'shows' && (
+        <>
+          <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
+            {YEARS.map(y => (
+              <button key={y} onClick={() => setYearFilter(y)} style={{ padding:'0.35rem 0.75rem', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', background: yearFilter === y ? 'rgba(128,0,218,0.15)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)' }}>
+                {y === 'all' ? 'All Years' : y}
+              </button>
+            ))}
+          </div>
+          {loading ? (
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+          ) : (
+            <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'120px 1fr 1fr 120px 80px 90px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+                {['Date','Event Name','PPV Title','Type','Status',''].map((h,i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+              </div>
+              <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+                {filtered.map(row => (
+                  <div key={row.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1fr 120px 80px 90px', gap:'0.5rem', padding:'0.55rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center', borderLeft:`3px solid ${row.show_type === 'ppv' ? 'var(--gold)' : row.status === 'completed' ? '#00c864' : 'var(--purple)'}` }}>
+                    <input type="date" className="form-input" value={row.show_date} onChange={e => updateRow(row.id, 'show_date', e.target.value)} style={{ padding:'0.35rem 0.4rem', fontSize:'0.65rem' }} />
+                    <input className="form-input" value={row.name} onChange={e => updateRow(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.7rem' }} />
+                    <input className="form-input" value={row.ppv_name ?? ''} onChange={e => updateRow(row.id, 'ppv_name', e.target.value || null)} placeholder="PPV title…" style={{ padding:'0.35rem 0.6rem', fontSize:'0.7rem' }} />
+                    <select className="form-input form-select" value={row.show_type} onChange={e => updateRow(row.id, 'show_type', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                      <option value="weekly">Weekly</option>
+                      <option value="ppv">PPV</option>
+                      <option value="special">Special</option>
+                    </select>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color: row.status === 'completed' ? '#00c864' : row.status === 'committed' ? 'var(--purple-hot)' : 'var(--text-dim)', letterSpacing:'0.1em' }}>{row.status.toUpperCase()}</span>
+                    <button onClick={() => saveRow(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.6rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                      {saving === row.id ? '…' : row.saved ? '✓ Saved' : 'Save'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'ppv' && (
+        <div style={{ maxWidth:520 }}>
+          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'1.5rem' }}>
+            Set a custom color for each PPV event. These override the default colors on the public schedule calendar.
+          </p>
+          {ppvNames.length === 0 ? (
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No PPV shows found — set show_type to PPV on a show first.</p>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem', marginBottom:'1.5rem' }}>
+              {ppvNames.map(name => (
+                <div key={name} style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'0.65rem 1rem', background:'var(--surface)', border:'1px solid var(--border)', borderLeft:`3px solid ${ppvColors[name] ?? '#555577'}` }}>
+                  <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'0.9rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{name}</span>
+                  <input type="color" value={ppvColors[name] ?? '#a855f7'} onChange={e => setPpvColors(prev => ({ ...prev, [name]: e.target.value }))} style={{ width:40, height:32, border:'none', background:'none', cursor:'pointer', padding:0 }} />
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.08em', minWidth:56 }}>{ppvColors[name] ?? 'default'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={savePPVColors} disabled={ppvColorsSaving} style={{ padding:'0.55rem 1.5rem', background: ppvColorsSaved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${ppvColorsSaved ? '#00c864' : 'var(--purple-hot)'}`, color: ppvColorsSaved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer' }}>
+            {ppvColorsSaving ? 'Saving…' : ppvColorsSaved ? '✓ Saved' : 'Save PPV Colors'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Story Development ───────────────────────────────── */
 
 function StoryDevelopment({ notes, addNote }: { notes: StoryNote[]; addNote: (n: StoryNote) => void }) {
@@ -2153,6 +2347,7 @@ export default function AdminDashboard() {
     { label: 'Show Management', items: [
       { id: 'booker',    label: 'Show Booker' },
       { id: 'results',   label: 'Results Entry' },
+      { id: 'schedule',  label: 'Schedule Editor' },
       { id: 'champions', label: 'Champions' },
     ]},
     { label: 'Roster & Factions', items: [
@@ -2204,6 +2399,7 @@ export default function AdminDashboard() {
           {section === 'approvals'  && <PendingApprovals onCountChange={setApprovalCount} />}
           {section === 'booker'     && <ShowBooker notes={notes} />}
           {section === 'results'    && <ResultsEntry />}
+          {section === 'schedule'   && <ScheduleEditor />}
           {section === 'champions'  && <ChampionsSection />}
           {section === 'ownership'  && <OwnershipSection />}
           {section === 'images'      && <RosterImages />}
