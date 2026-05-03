@@ -207,6 +207,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             : isHeel
             ? 'linear-gradient(to bottom, rgba(55,4,8,0.10) 0%, rgba(55,4,8,0.55) 100%)'
             : 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%)',
+          opacity: 0.75,
           pointerEvents: 'none',
         }} />
 
