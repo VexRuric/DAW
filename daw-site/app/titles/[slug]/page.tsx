@@ -172,6 +172,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
                 objectFit: 'contain',
                 filter: 'drop-shadow(0 6px 40px rgba(255,201,51,0.55))',
                 flexShrink: 0,
+                transform: 'scale(1.25)',
               }}
             />
           )}
