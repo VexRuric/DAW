@@ -355,25 +355,22 @@ export default async function WrestlerStatPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* Plain-text bio */}
-            {wrestler.bio && (() => {
-              try { JSON.parse(wrestler.bio); return null } catch { /* plain text */ }
-              return (
-                <details style={{ border: '1px solid var(--border)' }}>
-                  <summary style={{
-                    fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700,
-                    color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase',
-                    cursor: 'pointer', listStyle: 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0.65rem 1rem', userSelect: 'none',
-                  }}>
-                    <span>Backstory</span>
-                    <span style={{ opacity: 0.5 }}>▾</span>
-                  </summary>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.75, padding: '0.75rem 1rem 1rem' }}>{wrestler.bio}</p>
-                </details>
-              )
-            })()}
+            {/* Backstory */}
+            {wrestler.backstory && (
+              <details style={{ border: '1px solid var(--border)' }}>
+                <summary style={{
+                  fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700,
+                  color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase',
+                  cursor: 'pointer', listStyle: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.65rem 1rem', userSelect: 'none',
+                }}>
+                  <span>Backstory</span>
+                  <span style={{ opacity: 0.5 }}>▾</span>
+                </summary>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.75, padding: '0.75rem 1rem 1rem' }}>{wrestler.backstory}</p>
+              </details>
+            )}
           </div>
         </div>
       </section>

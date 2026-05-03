@@ -40,8 +40,8 @@ interface ProfileResult { id: string; display_name: string | null; twitch_handle
 interface TitleRow { id: string; name: string; category: string; display_order: number }
 interface ChampRow { title_id: string; title_name: string; holder_name: string; holder_wrestler_id: string | null; holder_team_id: string | null; won_date: string; days_held: number }
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
-interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
-interface FactionRow { id: string; name: string; brand: string | null; division: string | null; status: string; saved: boolean }
+interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean; backstory: string | null }
+interface FactionRow { id: string; name: string; brand: string | null; division: string | null; role: string | null; status: string; saved: boolean; backstory: string | null }
 interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; ppv_color: string | null; ppv_abbr: string | null; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -1420,11 +1420,13 @@ function RosterEdits() {
   const [rows, setRows]             = useState<RosterRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState<string | null>(null)
+  const [backstoryEdit, setBackstoryEdit] = useState<{ id: string; name: string; text: string } | null>(null)
+  const [backstorySaving, setBackstorySaving] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status').eq('active', true).order('name')
-      setRows((data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false })))
+      const { data } = await supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', true).order('name')
+      setRows((data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
       setLoading(false)
     }
     load()
@@ -1455,6 +1457,15 @@ function RosterEdits() {
   async function retire(id: string) {
     await supabase.from('wrestlers').update({ status: 'retired', active: false }).eq('id', id)
     setRows((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  async function saveBackstory() {
+    if (!backstoryEdit) return
+    setBackstorySaving(true)
+    await supabase.from('wrestlers').update({ backstory: backstoryEdit.text || null }).eq('id', backstoryEdit.id)
+    setRows((prev) => prev.map((r) => r.id === backstoryEdit!.id ? { ...r, backstory: backstoryEdit!.text || null } : r))
+    setBackstorySaving(false)
+    setBackstoryEdit(null)
   }
 
   const filtered = rows.filter((r) => {
@@ -1507,12 +1518,12 @@ function RosterEdits() {
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['Name','Brand','Gender','Division','Role','Injured','Status','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Name','Brand','Gender','Division','Role','Injured','Status','','','Backstory'].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
           </div>
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
             {filtered.map((row) => (
-              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
                 <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
                 <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
@@ -1540,8 +1551,33 @@ function RosterEdits() {
                 </select>
                 <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
                 <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
+                <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {backstoryEdit && (
+        <div onClick={() => setBackstoryEdit(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Backstory — {backstoryEdit.name}</h3>
+              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ padding:'1.25rem' }}>
+              <textarea
+                value={backstoryEdit.text}
+                onChange={(e) => setBackstoryEdit((prev) => prev ? { ...prev, text: e.target.value } : null)}
+                rows={8}
+                placeholder="Enter wrestler backstory…"
+                style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.78rem', lineHeight:1.7, padding:'0.75rem', resize:'vertical', boxSizing:'border-box' }}
+              />
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
+                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+                <button onClick={saveBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1557,11 +1593,18 @@ function FactionEdits() {
   const [rows, setRows]               = useState<FactionRow[]>([])
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState<string | null>(null)
+  const [backstoryEdit, setBackstoryEdit] = useState<{ id: string; name: string; text: string } | null>(null)
+  const [backstorySaving, setBackstorySaving] = useState(false)
+  const [membersPopup, setMembersPopup] = useState<{ teamId: string; teamName: string } | null>(null)
+  const [membersList, setMembersList] = useState<{ wrestlerId: string; membershipId: string; name: string }[]>([])
+  const [availWrestlers, setAvailWrestlers] = useState<{ id: string; name: string }[]>([])
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberOp, setMemberOp] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('teams').select('id, name, brand, division, status').order('name')
-      setRows((data ?? []).map((r: any) => ({ ...r, saved: false })))
+      const { data } = await supabase.from('teams').select('id, name, brand, division, role, status, backstory').order('name')
+      setRows((data ?? []).map((r: any) => ({ ...r, saved: false, role: r.role ?? null, backstory: r.backstory ?? null })))
       setLoading(false)
     }
     load()
@@ -1579,6 +1622,7 @@ function FactionEdits() {
       name: row.name,
       brand: row.brand,
       division: row.division,
+      role: row.role,
       status: row.status,
       active: row.status === 'hired',
     }).eq('id', id)
@@ -1589,6 +1633,44 @@ function FactionEdits() {
   async function dissolve(id: string) {
     await supabase.from('teams').update({ status: 'disbanded', active: false }).eq('id', id)
     setRows((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  async function saveFactionBackstory() {
+    if (!backstoryEdit) return
+    setBackstorySaving(true)
+    await supabase.from('teams').update({ backstory: backstoryEdit.text || null }).eq('id', backstoryEdit.id)
+    setRows((prev) => prev.map((r) => r.id === backstoryEdit!.id ? { ...r, backstory: backstoryEdit!.text || null } : r))
+    setBackstorySaving(false)
+    setBackstoryEdit(null)
+  }
+
+  async function openMembers(row: FactionRow) {
+    setMembersPopup({ teamId: row.id, teamName: row.name })
+    setMemberSearch('')
+    const [membRes, wRes] = await Promise.all([
+      supabase.from('team_memberships').select('id, wrestler_id, wrestlers(id, name)').eq('team_id', row.id).is('end_date', null),
+      supabase.from('wrestlers').select('id, name').eq('active', true).order('name'),
+    ])
+    setMembersList((membRes.data ?? []).map((m: any) => ({ wrestlerId: m.wrestlers?.id ?? m.wrestler_id, membershipId: m.id, name: m.wrestlers?.name ?? '?' })))
+    setAvailWrestlers((wRes.data ?? []) as { id: string; name: string }[])
+  }
+
+  async function addMember(wrestlerId: string, wrestlerName: string) {
+    if (!membersPopup || memberOp) return
+    setMemberOp(true)
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase.from('team_memberships').insert({ team_id: membersPopup.teamId, wrestler_id: wrestlerId, start_date: today }).select('id').single()
+    if (data) setMembersList((prev) => [...prev, { wrestlerId, membershipId: data.id, name: wrestlerName }])
+    setMemberOp(false)
+  }
+
+  async function removeMember(membershipId: string) {
+    if (!membersPopup || memberOp) return
+    setMemberOp(true)
+    const today = new Date().toISOString().split('T')[0]
+    await supabase.from('team_memberships').update({ end_date: today }).eq('id', membershipId)
+    setMembersList((prev) => prev.filter((m) => m.membershipId !== membershipId))
+    setMemberOp(false)
   }
 
   const filtered = rows.filter((r) => {
@@ -1624,12 +1706,12 @@ function FactionEdits() {
         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
       ) : (
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 120px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-            {['Faction','Brand','Division','Status','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Faction','Brand','Division','Role','Status','','','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
           </div>
           <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
             {filtered.map((row) => (
-              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 120px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 110px 95px 110px 60px 80px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
                 <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
                 <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
@@ -1639,14 +1721,85 @@ function FactionEdits() {
                   <option value="">—</option>
                   {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
                 </select>
+                <select className="form-input form-select" value={row.role ?? ''} onChange={(e) => update(row.id, 'role', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
+                </select>
                 <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                   <option value="">—</option>
                   {['hired','released','disbanded'].map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
-                <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
+                <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.5rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
+                <button onClick={() => openMembers(row)} style={{ padding:'0.35rem 0.5rem', background:'rgba(0,200,100,0.08)', border:'1px solid rgba(0,200,100,0.4)', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Members</button>
+                <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Members popup */}
+      {membersPopup && (
+        <div onClick={() => setMembersPopup(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:480, maxHeight:'80vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Members — {membersPopup.teamName}</h3>
+              <button onClick={() => setMembersPopup(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ overflowY:'auto', flex:1, padding:'1rem 1.25rem' }}>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'#00c864', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>CURRENT MEMBERS</p>
+              {membersList.length === 0 ? (
+                <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', color:'var(--text-dim)', marginBottom:'1rem' }}>No members.</p>
+              ) : (
+                <div style={{ marginBottom:'1.25rem', border:'1px solid var(--border)' }}>
+                  {membersList.map((m) => (
+                    <div key={m.membershipId} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.45rem 0.75rem', borderBottom:'1px solid rgba(42,42,51,0.5)' }}>
+                      <span style={{ fontFamily:'var(--font-display)', fontSize:'0.85rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{m.name}</span>
+                      <button onClick={() => removeMember(m.membershipId)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'pointer' }}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--purple-hot)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>ADD MEMBER</p>
+              <input className="form-input" placeholder="Search roster…" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} style={{ fontSize:'0.72rem', marginBottom:'0.5rem', width:'100%', boxSizing:'border-box' }} />
+              <div style={{ maxHeight:220, overflowY:'auto', border:'1px solid var(--border)' }}>
+                {availWrestlers
+                  .filter((w) => !membersList.some((m) => m.wrestlerId === w.id) && w.name.toLowerCase().includes(memberSearch.toLowerCase()))
+                  .map((w) => (
+                    <div key={w.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.4rem 0.75rem', borderBottom:'1px solid rgba(42,42,51,0.3)' }}>
+                      <span style={{ fontFamily:'var(--font-display)', fontSize:'0.8rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{w.name}</span>
+                      <button onClick={() => addMember(w.id, w.name)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'pointer' }}>Add</button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backstory popup */}
+      {backstoryEdit && (
+        <div onClick={() => setBackstoryEdit(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Backstory — {backstoryEdit.name}</h3>
+              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ padding:'1.25rem' }}>
+              <textarea
+                value={backstoryEdit.text}
+                onChange={(e) => setBackstoryEdit((prev) => prev ? { ...prev, text: e.target.value } : null)}
+                rows={8}
+                placeholder="Enter faction backstory…"
+                style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.78rem', lineHeight:1.7, padding:'0.75rem', resize:'vertical', boxSizing:'border-box' }}
+              />
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
+                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+                <button onClick={saveFactionBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
