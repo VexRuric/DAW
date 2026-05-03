@@ -2147,11 +2147,57 @@ function StoryDevelopment() {
 
 interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
 
+const suggMetaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
+const suggDimStyle: React.CSSProperties  = { ...suggMetaStyle, color: 'var(--text-dim)' }
+
+function SuggestionCard({ s, inDumpster, acting, onApprove, onReject, onRecall }: {
+  s: SuggestionRow
+  inDumpster?: boolean
+  acting: string | null
+  onApprove: (s: SuggestionRow) => void
+  onReject: (s: SuggestionRow) => void
+  onRecall: (s: SuggestionRow) => void
+}) {
+  const isApproved = s.status === 'approved'
+  const isRejected = s.status === 'rejected'
+  const bodyColor  = inDumpster ? (isApproved ? '#00c864' : 'var(--purple-hot)') : 'var(--text-muted)'
+  const leftBorder = inDumpster ? (isApproved ? '#00c864' : 'var(--purple)') : 'var(--gold)'
+  return (
+    <div style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftBorder}`, opacity: inDumpster ? 0.82 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {s.submitter_name && <span style={{ ...suggMetaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
+          {s.wrestler_name && <span style={{ ...suggDimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
+          {s.team_name && <span style={{ ...suggDimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
+          {inDumpster && (
+            <span style={{ ...suggMetaStyle, fontWeight: 700, letterSpacing: '0.15em', color: isApproved ? '#00c864' : 'var(--purple-hot)', padding: '0.1rem 0.45rem', border: `1px solid ${isApproved ? '#00c864' : 'var(--purple)'}`, background: isApproved ? 'rgba(0,200,100,0.08)' : 'rgba(128,0,218,0.1)' }}>
+              {isApproved ? '✓ APPROVED' : '✕ REJECTED'}
+            </span>
+          )}
+        </div>
+        <span style={suggDimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+      </div>
+      <p style={{ fontSize: '0.85rem', color: bodyColor, lineHeight: 1.6, marginBottom: '0.75rem', textDecoration: inDumpster && isRejected ? 'line-through' : 'none' }}>{s.body}</p>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        {!inDumpster && (<>
+          <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => onApprove(s)}>Approve → Story Board</button>
+          <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => onReject(s)}>Reject</button>
+        </>)}
+        {inDumpster && (
+          <button className="btn" style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: 'rgba(128,0,218,0.08)', border: '1px solid var(--border)', color: 'var(--text-dim)' }} disabled={acting === s.id} onClick={() => onRecall(s)}>
+            {acting === s.id ? '…' : '↩ Recall to Queue'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function StorySuggestions() {
-  const [pending, setPending]       = useState<SuggestionRow[]>([])
-  const [dumpster, setDumpster]     = useState<SuggestionRow[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [acting, setActing]         = useState<string | null>(null)
+  const [pending, setPending]           = useState<SuggestionRow[]>([])
+  const [dumpster, setDumpster]         = useState<SuggestionRow[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [acting, setActing]             = useState<string | null>(null)
   const [showDumpster, setShowDumpster] = useState(false)
 
   const fetchAll = useCallback(async () => {
@@ -2190,8 +2236,11 @@ function StorySuggestions() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  async function approve(s: SuggestionRow) {
+  const approve = useCallback(async (s: SuggestionRow) => {
     setActing(s.id)
+    // Optimistic: remove from pending, add to dumpster immediately
+    setPending((prev) => prev.filter((x) => x.id !== s.id))
+    setDumpster((prev) => [{ ...s, status: 'approved' }, ...prev])
     const subjectName = s.wrestler_name ?? s.team_name ?? 'Unknown'
     await supabase.from('story_notes').insert({
       note_type: 'Owner Suggestion',
@@ -2202,81 +2251,45 @@ function StorySuggestions() {
       priority: 'normal',
     })
     await supabase.from('story_suggestions').update({ status: 'approved' }).eq('id', s.id)
-    await fetchAll()
     setActing(null)
-  }
+  }, [])
 
-  async function reject(id: string) {
-    setActing(id)
-    await supabase.from('story_suggestions').update({ status: 'rejected' }).eq('id', id)
-    await fetchAll()
+  const reject = useCallback(async (s: SuggestionRow) => {
+    setActing(s.id)
+    // Optimistic: remove from pending, add to dumpster immediately
+    setPending((prev) => prev.filter((x) => x.id !== s.id))
+    setDumpster((prev) => [{ ...s, status: 'rejected' }, ...prev])
+    await supabase.from('story_suggestions').update({ status: 'rejected' }).eq('id', s.id)
     setActing(null)
-  }
+  }, [])
 
-  async function recall(id: string) {
-    setActing(id)
-    await supabase.from('story_suggestions').update({ status: 'pending' }).eq('id', id)
-    await fetchAll()
+  const recall = useCallback(async (s: SuggestionRow) => {
+    setActing(s.id)
+    // Optimistic: remove from dumpster, put back in pending
+    setDumpster((prev) => prev.filter((x) => x.id !== s.id))
+    setPending((prev) => [...prev, { ...s, status: 'pending' }])
+    await supabase.from('story_suggestions').update({ status: 'pending' }).eq('id', s.id)
     setActing(null)
-  }
-
-  const metaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
-  const dimStyle: React.CSSProperties  = { ...metaStyle, color: 'var(--text-dim)' }
-
-  function SuggestionCard({ s, inDumpster }: { s: SuggestionRow; inDumpster?: boolean }) {
-    const isApproved = s.status === 'approved'
-    const isRejected = s.status === 'rejected'
-    const bodyColor  = inDumpster ? (isApproved ? '#00c864' : 'var(--purple-hot)') : 'var(--text-muted)'
-    const leftBorder = inDumpster ? (isApproved ? '#00c864' : 'var(--purple)') : 'var(--gold)'
-    return (
-      <div style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftBorder}`, opacity: inDumpster ? 0.82 : 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            {s.submitter_name && <span style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
-            {s.wrestler_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
-            {s.team_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
-            {inDumpster && (
-              <span style={{ ...metaStyle, fontWeight: 700, letterSpacing: '0.15em', color: isApproved ? '#00c864' : 'var(--purple-hot)', padding: '0.1rem 0.45rem', border: `1px solid ${isApproved ? '#00c864' : 'var(--purple)'}`, background: isApproved ? 'rgba(0,200,100,0.08)' : 'rgba(128,0,218,0.1)' }}>
-                {isApproved ? '✓ APPROVED' : '✕ REJECTED'}
-              </span>
-            )}
-          </div>
-          <span style={dimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-        <p style={{ fontSize: '0.85rem', color: bodyColor, lineHeight: 1.6, marginBottom: '0.75rem', textDecoration: inDumpster && isRejected ? 'line-through' : 'none' }}>{s.body}</p>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {!inDumpster && (<>
-            <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => approve(s)}>Approve → Story Board</button>
-            <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => reject(s.id)}>Reject</button>
-          </>)}
-          {inDumpster && (
-            <button className="btn" style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: 'rgba(128,0,218,0.08)', border: '1px solid var(--border)', color: 'var(--text-dim)' }} disabled={acting === s.id} onClick={() => recall(s.id)}>
-              {acting === s.id ? '…' : '↩ Recall to Queue'}
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
+  }, [])
 
   return (
     <div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Fan Story Suggestions</h2>
-      <p style={dimStyle}>Approved suggestions are added to Story Development as "Owner Suggestion" notes. Fans cannot see approval status.</p>
+      <p style={suggDimStyle}>Approved suggestions are added to Story Development as "Owner Suggestion" notes. Fans cannot see approval status.</p>
 
       {loading ? (
-        <p style={{ ...dimStyle, marginTop: '1.5rem' }}>Loading…</p>
+        <p style={{ ...suggDimStyle, marginTop: '1.5rem' }}>Loading…</p>
       ) : (<>
         {/* Pending queue */}
         <div style={{ marginTop: '1.5rem' }}>
-          <p style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '0.75rem' }}>
+          <p style={{ ...suggMetaStyle, color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '0.75rem' }}>
             PENDING — {pending.length} suggestion{pending.length !== 1 ? 's' : ''}
           </p>
           {pending.length === 0 ? (
-            <p style={dimStyle}>No pending suggestions.</p>
+            <p style={suggDimStyle}>No pending suggestions.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {pending.map((s) => <SuggestionCard key={s.id} s={s} />)}
+              {pending.map((s) => <SuggestionCard key={s.id} s={s} acting={acting} onApprove={approve} onReject={reject} onRecall={recall} />)}
             </div>
           )}
         </div>
@@ -2291,19 +2304,19 @@ function StorySuggestions() {
               <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
                 🗑 Dumpster
               </span>
-              <span style={{ ...dimStyle, padding: '0.1rem 0.45rem', border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+              <span style={{ ...suggDimStyle, padding: '0.1rem 0.45rem', border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                 {dumpster.length}
               </span>
-              <span style={{ ...dimStyle, marginLeft: '0.25rem' }}>{showDumpster ? '▲ hide' : '▼ show'}</span>
+              <span style={{ ...suggDimStyle, marginLeft: '0.25rem' }}>{showDumpster ? '▲ hide' : '▼ show'}</span>
             </button>
 
             {showDumpster && (
               <>
-                <p style={{ ...dimStyle, marginBottom: '1rem' }}>
+                <p style={{ ...suggDimStyle, marginBottom: '1rem' }}>
                   Approved shown in green · Rejected shown in purple with strikethrough · Recall sends a suggestion back to the pending queue.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {dumpster.map((s) => <SuggestionCard key={s.id} s={s} inDumpster />)}
+                  {dumpster.map((s) => <SuggestionCard key={s.id} s={s} inDumpster acting={acting} onApprove={approve} onReject={reject} onRecall={recall} />)}
                 </div>
               </>
             )}
