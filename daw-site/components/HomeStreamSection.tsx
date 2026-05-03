@@ -282,8 +282,23 @@ function MatchRow({ match }: { match: CompactMatch }) {
     ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean)
     : []
 
-  const visibleNames = sides.slice(0, NAME_LIMIT)
-  const hiddenCount  = Math.max(0, sides.length - NAME_LIMIT)
+  const hiddenCount = Math.max(0, sides.length - NAME_LIMIT)
+  const [expanded, setExpanded] = useState(false)
+
+  const toggleStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-meta)',
+    fontSize: '0.44rem',
+    color: 'var(--purple-hot)',
+    letterSpacing: '0.1em',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    display: 'block',
+    marginTop: '0.15rem',
+    textTransform: 'uppercase',
+    textAlign: 'left',
+  }
 
   return (
     <div className="match-row" style={{ background: 'var(--surface)', border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
@@ -298,11 +313,25 @@ function MatchRow({ match }: { match: CompactMatch }) {
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block' }}>
               {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
             </span>
-            {visibleNames.length > 0 && (
-              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)', letterSpacing: '0.05em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {visibleNames.map(s => s.name).join(' · ')}
-                {hiddenCount > 0 && ` · +${hiddenCount} more`}
-              </span>
+            {sides.length > 0 && (
+              <>
+                <span style={{
+                  fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)',
+                  letterSpacing: '0.05em', display: 'block',
+                  ...(expanded
+                    ? { whiteSpace: 'normal', wordBreak: 'break-word' }
+                    : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+                }}>
+                  {expanded
+                    ? sides.map(s => s.name).join(' · ')
+                    : sides.slice(0, NAME_LIMIT).map(s => s.name).join(' · ')}
+                </span>
+                {hiddenCount > 0 && (
+                  <button style={toggleStyle} onClick={() => setExpanded(e => !e)}>
+                    {expanded ? '▲ show less' : `+${hiddenCount} more`}
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : sides.length <= 2 ? (
@@ -320,15 +349,23 @@ function MatchRow({ match }: { match: CompactMatch }) {
             )}
           </>
         ) : (
-          /* Triple Threat / Fatal 4-Way / etc. — up to 4 names, then drop line */
+          /* Triple Threat / Fatal 4-Way / etc. — up to 4 names, expandable */
           <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.78rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {visibleNames.map(s => s.name).join(' vs ')}
+            <span style={{
+              fontFamily: 'var(--font-display)', fontSize: '0.78rem', color: 'var(--text-strong)',
+              textTransform: 'uppercase', lineHeight: 1.3, display: 'block',
+              ...(expanded
+                ? { whiteSpace: 'normal', wordBreak: 'break-word' }
+                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+            }}>
+              {expanded
+                ? sides.map(s => s.name).join(' vs ')
+                : sides.slice(0, NAME_LIMIT).map(s => s.name).join(' vs ')}
             </span>
             {hiddenCount > 0 && (
-              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', display: 'block', marginTop: '0.1rem' }}>
-                +{hiddenCount} more
-              </span>
+              <button style={toggleStyle} onClick={() => setExpanded(e => !e)}>
+                {expanded ? '▲ show less' : `+${hiddenCount} more`}
+              </button>
             )}
           </div>
         )}
