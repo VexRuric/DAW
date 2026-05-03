@@ -168,8 +168,8 @@ export default async function TitleHistoryPage({ params }: PageProps) {
               src={title.image_url}
               alt={title.name}
               style={{
-                height: 'clamp(180px, 28vw, 380px)',
-                maxWidth: '45%',
+                height: 'clamp(260px, 40vw, 560px)',
+                maxWidth: '55%',
                 objectFit: 'contain',
                 filter: 'drop-shadow(0 6px 40px rgba(255,201,51,0.55))',
                 flexShrink: 0,
