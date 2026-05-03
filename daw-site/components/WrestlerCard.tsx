@@ -36,35 +36,36 @@ export default function WrestlerCard({
   const isHeel = role === 'Heel'
   const isFace = role === 'Face'
 
-  // Background shows through transparent PNG areas — this IS the alignment color.
-  // No overlay on the image itself so renders stay crisp and readable.
-  const cardBg = isChampion
-    ? 'rgb(14,12,10)'
-    : isFace
+  // Background always reflects alignment — champions keep their Face/Heel color
+  const cardBg = isFace
     ? 'rgb(6, 10, 72)'
     : isHeel
     ? 'rgb(72, 6, 10)'
     : 'rgb(12,12,16)'
 
-  // Gradient only at bottom (for text), minimal mid-card coverage
-  const gradientOverlay = isFace && !isChampion
+  // Gradient always uses alignment color
+  const gradientOverlay = isFace
     ? 'linear-gradient(to top, rgba(2,4,35,0.98) 0%, rgba(4,8,55,0.55) 30%, rgba(5,10,65,0.10) 55%, transparent 75%)'
-    : isHeel && !isChampion
+    : isHeel
     ? 'linear-gradient(to top, rgba(35,2,4,0.98) 0%, rgba(65,4,8,0.55) 30%, rgba(80,5,10,0.10) 55%, transparent 75%)'
     : 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.25) 30%, transparent 55%)'
 
-  const textAccent = isChampion
-    ? 'var(--gold)'
-    : isLegend
-    ? 'rgba(255,201,51,0.8)'
-    : isFace
+  // Face/Heel alignment takes priority; champion fallback = gold; legend fallback = silver
+  const textAccent = isFace
     ? 'rgba(80,130,255,0.9)'
     : isHeel
     ? 'var(--accent-red)'
+    : isChampion
+    ? 'var(--gold)'
+    : isLegend
+    ? 'rgba(192,192,210,0.85)'
     : 'var(--purple-hot)'
 
-  const cardBorder = (isChampion || isLegend)
+  // Champion = gold border; legend only = silver border
+  const cardBorder = isChampion
     ? 'rgba(255,201,51,0.5)'
+    : isLegend
+    ? 'rgba(192,192,210,0.5)'
     : 'var(--border)'
 
   return (
@@ -129,17 +130,17 @@ export default function WrestlerCard({
         </div>
       )}
 
-      {/* Legend banner */}
+      {/* Legend banner — silver */}
       {isLegend && (
         <div style={{
           position: 'absolute',
           top: isChampion ? '1.55rem' : 0,
           left: 0, right: 0, zIndex: 2,
           background: isChampion
-            ? 'rgba(0,0,0,0.65)'
-            : 'linear-gradient(90deg, rgba(30,20,0,0.92) 0%, rgba(50,35,0,0.92) 100%)',
-          borderBottom: `1px solid rgba(255,201,51,${isChampion ? '0.3' : '0.55'})`,
-          color: 'rgba(255,201,51,0.9)',
+            ? 'rgba(18,18,22,0.88)'
+            : 'linear-gradient(90deg, rgba(18,18,22,0.92) 0%, rgba(30,30,36,0.92) 100%)',
+          borderBottom: `1px solid rgba(192,192,210,${isChampion ? '0.3' : '0.5'})`,
+          color: 'rgba(210,210,225,0.95)',
           fontFamily: 'var(--font-meta)', fontSize: '0.48rem', fontWeight: 700,
           letterSpacing: '0.22em', padding: '0.25rem 0.5rem',
           textAlign: 'center', textTransform: 'uppercase',
