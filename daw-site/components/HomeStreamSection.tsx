@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export interface CompactMatch {
   id: string
@@ -181,7 +181,7 @@ export default function HomeStreamSection({
         </div>
 
         {/* RIGHT: Match card — stretches to fill the left column height */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
           {show ? (
             <>
               {/* Show header */}
@@ -273,6 +273,8 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
   )
 }
 
+const NAME_LIMIT = 4
+
 function MatchRow({ match }: { match: CompactMatch }) {
   const sides = match.sides
   const isMassMatch = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
@@ -280,8 +282,11 @@ function MatchRow({ match }: { match: CompactMatch }) {
     ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean)
     : []
 
+  const visibleNames = sides.slice(0, NAME_LIMIT)
+  const hiddenCount  = Math.max(0, sides.length - NAME_LIMIT)
+
   return (
-    <div className="match-row" style={{ background: 'var(--surface)', border: '1px solid var(--border)', flexShrink: 0 }}>
+    <div className="match-row" style={{ background: 'var(--surface)', border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
       {/* Participants row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
@@ -293,9 +298,10 @@ function MatchRow({ match }: { match: CompactMatch }) {
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block' }}>
               {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
             </span>
-            {sides.length > 0 && (
+            {visibleNames.length > 0 && (
               <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)', letterSpacing: '0.05em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {sides.map(s => s.name).join(' · ')}
+                {visibleNames.map(s => s.name).join(' · ')}
+                {hiddenCount > 0 && ` · +${hiddenCount} more`}
               </span>
             )}
           </div>
@@ -314,13 +320,16 @@ function MatchRow({ match }: { match: CompactMatch }) {
             )}
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.25rem', minWidth: 0 }}>
-            {sides.map((s, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.6rem', color: 'var(--purple-hot)' }}>vs</span>}
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>{s.name}</span>
-              </React.Fragment>
-            ))}
+          /* Triple Threat / Fatal 4-Way / etc. — up to 4 names, then drop line */
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.78rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {visibleNames.map(s => s.name).join(' vs ')}
+            </span>
+            {hiddenCount > 0 && (
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', display: 'block', marginTop: '0.1rem' }}>
+                +{hiddenCount} more
+              </span>
+            )}
           </div>
         )}
       </div>
