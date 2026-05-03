@@ -2148,13 +2148,15 @@ function StoryDevelopment() {
 interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
 
 function StorySuggestions() {
-  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [acting, setActing]           = useState<string | null>(null)
+  const [pending, setPending]       = useState<SuggestionRow[]>([])
+  const [dumpster, setDumpster]     = useState<SuggestionRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [acting, setActing]         = useState<string | null>(null)
+  const [showDumpster, setShowDumpster] = useState(false)
 
-  async function fetchSuggestions() {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('story_suggestions').select('*').eq('status', 'pending').order('created_at', { ascending: true })
+    const { data } = await supabase.from('story_suggestions').select('*').order('created_at', { ascending: true })
     if (!data) { setLoading(false); return }
 
     const submitterIds = [...new Set(data.map((s) => s.submitted_by).filter(Boolean))] as string[]
@@ -2174,16 +2176,19 @@ function StorySuggestions() {
     const teamMap: Record<string, string> = {}
     for (const t of tRes.data ?? []) { teamMap[t.id] = t.name }
 
-    setSuggestions(data.map((s) => ({
+    const enriched = data.map((s) => ({
       ...s,
       submitter_name: s.submitted_by ? (profileMap[s.submitted_by] ?? null) : null,
-      wrestler_name: s.wrestler_id ? (wrestlerMap[s.wrestler_id] ?? null) : null,
-      team_name: s.team_id ? (teamMap[s.team_id] ?? null) : null,
-    })))
-    setLoading(false)
-  }
+      wrestler_name:  s.wrestler_id  ? (wrestlerMap[s.wrestler_id]  ?? null) : null,
+      team_name:      s.team_id      ? (teamMap[s.team_id]          ?? null) : null,
+    }))
 
-  useEffect(() => { fetchSuggestions() }, [])
+    setPending(enriched.filter((s) => s.status === 'pending'))
+    setDumpster(enriched.filter((s) => s.status !== 'pending').reverse())
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
 
   async function approve(s: SuggestionRow) {
     setActing(s.id)
@@ -2197,19 +2202,62 @@ function StorySuggestions() {
       priority: 'normal',
     })
     await supabase.from('story_suggestions').update({ status: 'approved' }).eq('id', s.id)
-    setSuggestions((prev) => prev.filter((x) => x.id !== s.id))
+    await fetchAll()
     setActing(null)
   }
 
   async function reject(id: string) {
     setActing(id)
     await supabase.from('story_suggestions').update({ status: 'rejected' }).eq('id', id)
-    setSuggestions((prev) => prev.filter((x) => x.id !== id))
+    await fetchAll()
+    setActing(null)
+  }
+
+  async function recall(id: string) {
+    setActing(id)
+    await supabase.from('story_suggestions').update({ status: 'pending' }).eq('id', id)
+    await fetchAll()
     setActing(null)
   }
 
   const metaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
   const dimStyle: React.CSSProperties  = { ...metaStyle, color: 'var(--text-dim)' }
+
+  function SuggestionCard({ s, inDumpster }: { s: SuggestionRow; inDumpster?: boolean }) {
+    const isApproved = s.status === 'approved'
+    const isRejected = s.status === 'rejected'
+    const bodyColor  = inDumpster ? (isApproved ? '#00c864' : 'var(--purple-hot)') : 'var(--text-muted)'
+    const leftBorder = inDumpster ? (isApproved ? '#00c864' : 'var(--purple)') : 'var(--gold)'
+    return (
+      <div style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftBorder}`, opacity: inDumpster ? 0.82 : 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {s.submitter_name && <span style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
+            {s.wrestler_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
+            {s.team_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
+            {inDumpster && (
+              <span style={{ ...metaStyle, fontWeight: 700, letterSpacing: '0.15em', color: isApproved ? '#00c864' : 'var(--purple-hot)', padding: '0.1rem 0.45rem', border: `1px solid ${isApproved ? '#00c864' : 'var(--purple)'}`, background: isApproved ? 'rgba(0,200,100,0.08)' : 'rgba(128,0,218,0.1)' }}>
+                {isApproved ? '✓ APPROVED' : '✕ REJECTED'}
+              </span>
+            )}
+          </div>
+          <span style={dimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+        </div>
+        <p style={{ fontSize: '0.85rem', color: bodyColor, lineHeight: 1.6, marginBottom: '0.75rem', textDecoration: inDumpster && isRejected ? 'line-through' : 'none' }}>{s.body}</p>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {!inDumpster && (<>
+            <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => approve(s)}>Approve → Story Board</button>
+            <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => reject(s.id)}>Reject</button>
+          </>)}
+          {inDumpster && (
+            <button className="btn" style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: 'rgba(128,0,218,0.08)', border: '1px solid var(--border)', color: 'var(--text-dim)' }} disabled={acting === s.id} onClick={() => recall(s.id)}>
+              {acting === s.id ? '…' : '↩ Recall to Queue'}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -2218,29 +2266,50 @@ function StorySuggestions() {
 
       {loading ? (
         <p style={{ ...dimStyle, marginTop: '1.5rem' }}>Loading…</p>
-      ) : suggestions.length === 0 ? (
-        <p style={{ ...dimStyle, marginTop: '1.5rem' }}>No pending suggestions.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
-          {suggestions.map((s) => (
-            <div key={s.id} style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--gold)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {s.submitter_name && <span style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
-                  {s.wrestler_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
-                  {s.team_name && <span style={{ ...dimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
-                </div>
-                <span style={dimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '0.75rem' }}>{s.body}</p>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => approve(s)}>Approve → Story Board</button>
-                <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => reject(s.id)}>Reject</button>
-              </div>
+      ) : (<>
+        {/* Pending queue */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <p style={{ ...metaStyle, color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.2em', marginBottom: '0.75rem' }}>
+            PENDING — {pending.length} suggestion{pending.length !== 1 ? 's' : ''}
+          </p>
+          {pending.length === 0 ? (
+            <p style={dimStyle}>No pending suggestions.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {pending.map((s) => <SuggestionCard key={s.id} s={s} />)}
             </div>
-          ))}
+          )}
         </div>
-      )}
+
+        {/* Dumpster */}
+        {dumpster.length > 0 && (
+          <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+            <button
+              onClick={() => setShowDumpster((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: showDumpster ? '1rem' : 0 }}
+            >
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+                🗑 Dumpster
+              </span>
+              <span style={{ ...dimStyle, padding: '0.1rem 0.45rem', border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                {dumpster.length}
+              </span>
+              <span style={{ ...dimStyle, marginLeft: '0.25rem' }}>{showDumpster ? '▲ hide' : '▼ show'}</span>
+            </button>
+
+            {showDumpster && (
+              <>
+                <p style={{ ...dimStyle, marginBottom: '1rem' }}>
+                  Approved shown in green · Rejected shown in purple with strikethrough · Recall sends a suggestion back to the pending queue.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {dumpster.map((s) => <SuggestionCard key={s.id} s={s} inDumpster />)}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </>)}
     </div>
   )
 }
