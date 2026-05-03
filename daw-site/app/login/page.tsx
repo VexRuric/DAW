@@ -69,12 +69,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+    <div className="login-grid">
 
       {/* ── LEFT: Brand Pitch ── */}
-      <div style={{
+      <div className="login-brand-panel" style={{
         background: 'linear-gradient(135deg, var(--purple-deep) 0%, #0a000f 100%)',
-        padding: '5rem 4rem',
+        padding: 'clamp(2.5rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4rem)',
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         position: 'relative', overflow: 'hidden',
         borderRight: '1px solid var(--border)',

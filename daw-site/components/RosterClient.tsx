@@ -68,11 +68,11 @@ export default function RosterClient({ wrestlers, records, champions, titleImage
       <div
         style={{
           display: 'flex',
-          gap: '1rem',
-          alignItems: 'center',
-          flexWrap: 'wrap',
+          gap: '0.75rem',
+          alignItems: 'flex-start',
+          flexDirection: 'column',
           marginBottom: '2rem',
-          padding: '1.25rem',
+          padding: 'clamp(0.85rem,3vw,1.25rem)',
           background: 'var(--surface)',
           border: '1px solid var(--border)',
         }}
@@ -91,16 +91,17 @@ export default function RosterClient({ wrestlers, records, champions, titleImage
             letterSpacing: '0.1em',
             padding: '0.6rem 1rem',
             outline: 'none',
-            width: 200,
+            width: '100%',
           }}
         />
 
-        <FilterGroup label="Division" options={DIVISIONS} value={division} onChange={setDivision} />
-        <FilterGroup label="Role"     options={ROLES}     value={role}     onChange={setRole}     />
-
-        <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
-          {sorted.length} wrestlers
-        </span>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+          <FilterGroup label="Division" options={DIVISIONS} value={division} onChange={setDivision} />
+          <FilterGroup label="Role"     options={ROLES}     value={role}     onChange={setRole}     />
+          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
+            {sorted.length} wrestlers
+          </span>
+        </div>
       </div>
 
       {/* Active roster grid */}
@@ -149,21 +150,23 @@ export default function RosterClient({ wrestlers, records, champions, titleImage
 
 function FilterGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.15em', fontWeight: 700 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.15em', fontWeight: 700, flexShrink: 0 }}>
         {label}:
       </span>
-      <div className="tab-group" style={{ padding: '2px', gap: '1px' }}>
-        {options.map((opt) => (
-          <button
-            key={opt}
-            className={`tab${opt === value ? ' active' : ''}`}
-            onClick={() => onChange(opt)}
-            style={{ padding: '0.3rem 0.6rem', fontSize: '0.65rem' }}
-          >
-            {opt}
-          </button>
-        ))}
+      <div style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div className="tab-group" style={{ padding: '2px', gap: '1px', whiteSpace: 'nowrap' }}>
+          {options.map((opt) => (
+            <button
+              key={opt}
+              className={`tab${opt === value ? ' active' : ''}`}
+              onClick={() => onChange(opt)}
+              style={{ padding: '0.3rem 0.6rem', fontSize: '0.65rem' }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

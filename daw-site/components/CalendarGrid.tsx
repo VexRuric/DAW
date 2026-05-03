@@ -474,8 +474,9 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const [year, setYear]       = useState(initialYear)
-  const [showMap, setShowMap] = useState<Record<string, ShowStub>>({})
+  const [year, setYear]         = useState(initialYear)
+  const [viewMonth, setViewMonth] = useState(today.getMonth())
+  const [showMap, setShowMap]   = useState<Record<string, ShowStub>>({})
   const [recentShows, setRecentShows] = useState<ShowStub[]>([])
   const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
   const [sidebarTab, setSidebarTab]   = useState<'upcoming' | 'recent'>('upcoming')
@@ -547,6 +548,64 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     </button>
   )
 
+  const selectStyle: React.CSSProperties = {
+    background: 'var(--surface-2)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-strong)',
+    fontFamily: 'var(--font-meta)',
+    fontSize: '0.75rem',
+    letterSpacing: '0.08em',
+    padding: '0.5rem 0.75rem',
+    outline: 'none',
+    cursor: 'pointer',
+    flex: 1,
+  }
+
+  const sharedSidebar = (
+    <>
+      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+        {tabBtn('upcoming', 'Upcoming')}
+        {tabBtn('recent', 'Recent Results')}
+      </div>
+      {sidebarTab === 'upcoming' ? (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {upcomingShows.map(({ date, show, ppv }, i) => (
+              <SidebarShowRow key={i} show={show} ppv={ppv} dateLabel={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
+            ))}
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>{year} PPVs</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {ppvList.map((ppv) => {
+              const ppvShow = showMap[ppv.date]
+              return (
+                <div key={ppv.name} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>{new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  {ppvShow?.status === 'completed' ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: '#00c864', letterSpacing: '0.1em', flexShrink: 0 }}>✓ RESULTS</span> : <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {recentShows.length === 0 ? (
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No completed shows yet.</p>
+          ) : (
+            recentShows.map((show) => {
+              const d = new Date(show.show_date + 'T00:00:00')
+              const ppv = getPPVForDate(show.show_date, d.getFullYear())
+              return <SidebarShowRow key={show.id} show={show} ppv={ppv ?? null} dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
+            })
+          )}
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div>
       {/* Page header */}
@@ -567,133 +626,56 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         </div>
       </div>
 
-      {/* Year tabs */}
-      <div style={{ padding: '0 3rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-3)', paddingBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
-          {[...YEARS].reverse().map((y) => (
-            <button
-              key={y}
-              onClick={() => setYear(y)}
-              style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: year === y ? 'white' : 'var(--text-dim)', background: 'transparent', border: 'none', borderBottom: year === y ? '2px solid var(--purple-hot)' : '2px solid transparent', paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s' }}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* PPV legend */}
-      {ppvList.length > 0 && (
-        <div style={{ padding: '0 3rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.2rem', textTransform: 'uppercase', marginRight: '1rem' }}>
-            PPV EVENTS
-          </span>
-          {ppvList.map((ppv) => (
-            <span
-              key={ppv.name}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.65rem', letterSpacing: '0.05em', padding: '0.25rem 0.6rem', border: `1px solid ${ppv.color}`, color: ppv.color, textTransform: 'uppercase' }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: ppv.color, display: 'inline-block' }} />
-              {ppv.name}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Calendar + sidebar */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 0, borderTop: '1px solid var(--border)' }}>
-        {/* 12-month calendar */}
-        <div style={{ padding: '2rem 3rem', borderRight: '1px solid var(--border)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            {MONTHS.map((_, monthIdx) => (
-              <MonthGrid
-                key={monthIdx}
-                year={year}
-                month={monthIdx}
-                ppvMap={ppvMap}
-                today={today}
-                showMap={showMap}
-                onShowClick={setActiveModal}
-              />
+      {/* ── DESKTOP: year tabs + 12-month grid + sidebar ── */}
+      <div className="schedule-desktop">
+        <div style={{ padding: '0 3rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-3)', paddingBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
+            {[...YEARS].reverse().map((y) => (
+              <button key={y} onClick={() => setYear(y)} style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: year === y ? 'white' : 'var(--text-dim)', background: 'transparent', border: 'none', borderBottom: year === y ? '2px solid var(--purple-hot)' : '2px solid transparent', paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s' }}>
+                {y}
+              </button>
             ))}
           </div>
         </div>
-
-        {/* Sidebar */}
-        <div style={{ padding: '2rem' }}>
-          {/* Tab switcher */}
-          <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-            {tabBtn('upcoming', 'Upcoming')}
-            {tabBtn('recent', 'Recent Results')}
+        {ppvList.length > 0 && (
+          <div style={{ padding: '0 3rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.2rem', textTransform: 'uppercase', marginRight: '1rem' }}>PPV EVENTS</span>
+            {ppvList.map((ppv) => (
+              <span key={ppv.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'var(--font-display)', fontSize: '0.65rem', letterSpacing: '0.05em', padding: '0.25rem 0.6rem', border: `1px solid ${ppv.color}`, color: ppv.color, textTransform: 'uppercase' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: ppv.color, display: 'inline-block' }} />{ppv.name}
+              </span>
+            ))}
           </div>
-
-          {sidebarTab === 'upcoming' ? (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {upcomingShows.map(({ date, show, ppv }, i) => (
-                  <SidebarShowRow
-                    key={i}
-                    show={show}
-                    ppv={ppv}
-                    dateLabel={date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                    onShowClick={setActiveModal}
-                  />
-                ))}
-              </div>
-
-              {/* Year PPV list */}
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>
-                {year} PPVs
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                {ppvList.map((ppv) => {
-                  const ppvShow = showMap[ppv.date]
-                  return (
-                    <div
-                      key={ppv.name}
-                      onClick={() => { if (ppvShow) setActiveModal(ppvShow) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }}
-                      onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
-                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>
-                          {new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                        </p>
-                      </div>
-                      {ppvShow?.status === 'completed'
-                        ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: '#00c864', letterSpacing: '0.1em', flexShrink: 0 }}>✓ RESULTS</span>
-                        : <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />
-                      }
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          ) : (
-            /* Recent Results tab */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {recentShows.length === 0 ? (
-                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No completed shows yet.</p>
-              ) : (
-                recentShows.map((show) => {
-                  const d = new Date(show.show_date + 'T00:00:00')
-                  const ppv = getPPVForDate(show.show_date, d.getFullYear())
-                  return (
-                    <SidebarShowRow
-                      key={show.id}
-                      show={show}
-                      ppv={ppv ?? null}
-                      dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      onShowClick={setActiveModal}
-                    />
-                  )
-                })
-              )}
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 0, borderTop: '1px solid var(--border)' }}>
+          <div style={{ padding: '2rem 3rem', borderRight: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+              {MONTHS.map((_, monthIdx) => (
+                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+              ))}
             </div>
-          )}
+          </div>
+          <div style={{ padding: '2rem' }}>{sharedSidebar}</div>
         </div>
+      </div>
+
+      {/* ── MOBILE: month/year pickers + single month + shows ── */}
+      <div className="schedule-mobile" style={{ padding: '1rem clamp(1.25rem,4vw,2rem) 2rem' }}>
+        {/* Pickers */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))} style={selectStyle}>
+            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
+          <select value={year} onChange={e => setYear(Number(e.target.value))} style={selectStyle}>
+            {[...YEARS].reverse().map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+
+        {/* Single month calendar */}
+        <MonthGrid year={year} month={viewMonth} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+
+        {/* Upcoming / recent below calendar */}
+        <div style={{ marginTop: '1.5rem' }}>{sharedSidebar}</div>
       </div>
 
       {/* Show modal */}

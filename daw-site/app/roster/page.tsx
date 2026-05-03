@@ -46,7 +46,7 @@ export default async function RosterPage() {
   return (
     <>
       {/* ── Top Hero section ─────────────────────── */}
-      <section style={{ padding: '4rem 3rem 1.5rem' }}>
+      <section style={{ padding: 'clamp(1.75rem,5vw,4rem) clamp(1.25rem,4vw,3rem) 1.5rem' }}>
         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ width: 30, height: 1, background: 'var(--purple-hot)' }} />
           ACTIVE ROSTER
@@ -55,7 +55,7 @@ export default async function RosterPage() {
           DAW WAREHOUSE<br/>ROSTER
         </h1>
 
-        <div style={{ display: 'flex', gap: '3rem' }}>
+        <div style={{ display: 'flex', gap: 'clamp(1.25rem,4vw,3rem)', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'white', lineHeight: 1 }}>{wrestlers.length}</div>
             <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>ACTIVE</div>
@@ -75,7 +75,7 @@ export default async function RosterPage() {
         </div>
       </section>
 
-      <div style={{ padding: '0 3rem' }}>
+      <div style={{ padding: '0 clamp(1.25rem,4vw,3rem)' }}>
         {/* Current Champions */}
         {champions.length > 0 && (
           <div style={{ marginBottom: '2.5rem' }}>

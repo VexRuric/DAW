@@ -470,6 +470,13 @@ a, button { cursor: none; }
   gap: 1rem;
 }
 
+/* Login page layout */
+.login-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+
+/* Schedule desktop/mobile toggle */
+.schedule-desktop { display: block; }
+.schedule-mobile  { display: none; }
+
 /* ============================================================
    TABLET (≤1024px)
    ============================================================ */
@@ -501,6 +508,14 @@ a, button { cursor: none; }
 
   /* Title History side-tab — hide on mobile */
   .title-history-tab-wrapper { display: none !important; }
+
+  /* Login page — single column, hide brand panel */
+  .login-grid        { grid-template-columns: 1fr; }
+  .login-brand-panel { display: none !important; }
+
+  /* Schedule — swap desktop/mobile views */
+  .schedule-desktop { display: none; }
+  .schedule-mobile  { display: block; }
 }
 
 

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { Metadata } from 'next'
+import ArchiveShowList, { ArchiveShow } from '@/components/ArchiveShowList'
 
 export const metadata: Metadata = {
   title: 'Match Archive',
@@ -45,14 +46,6 @@ async function getData(page: number, showType: string, year: string) {
   }
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
 
 export default async function ArchivePage({ searchParams }: PageProps) {
   const sp = await searchParams
@@ -84,194 +77,35 @@ export default async function ArchivePage({ searchParams }: PageProps) {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem', alignItems: 'center' }}>
         {/* Type */}
         <div className="tab-group">
           {[['all', 'All Shows'], ['weekly', 'Weekly'], ['ppv', 'PPV']].map(([val, label]) => (
-            <a
-              key={val}
-              href={buildUrl({ type: val, page: '1' })}
-              className={`tab${showType === val ? ' active' : ''}`}
-            >
+            <a key={val} href={buildUrl({ type: val, page: '1' })} className={`tab${showType === val ? ' active' : ''}`}>
               {label}
             </a>
           ))}
         </div>
 
-        {/* Year */}
-        <div className="tab-group">
-          {YEARS.map((y) => (
-            <a
-              key={y}
-              href={buildUrl({ year: y, page: '1' })}
-              className={`tab${year === y ? ' active' : ''}`}
-            >
-              {y === 'all' ? 'All Years' : y}
-            </a>
-          ))}
+        {/* Year — scrollable on mobile */}
+        <div style={{ overflowX: 'auto', scrollbarWidth: 'none', maxWidth: '100%' }}>
+          <div className="tab-group" style={{ whiteSpace: 'nowrap' }}>
+            {YEARS.map((y) => (
+              <a key={y} href={buildUrl({ year: y, page: '1' })} className={`tab${year === y ? ' active' : ''}`}>
+                {y === 'all' ? 'All' : y}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Show list */}
+      {/* Show list — collapsible rows */}
       {shows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', letterSpacing: '0.15em' }}>
           No shows found for the selected filters.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {shows.map((show: any) => {
-            const isPPV = show.show_type === 'ppv'
-            const sortedMatches = [...(show.matches ?? [])].sort(
-              (a: { match_number: number }, b: { match_number: number }) => a.match_number - b.match_number
-            )
-
-            return (
-              <div
-                key={show.id}
-                style={{
-                  border: isPPV ? '2px solid var(--gold)' : '1px solid var(--border)',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* Show header */}
-                <div
-                  style={{
-                    padding: '1.25rem 1.5rem',
-                    background: isPPV
-                      ? 'linear-gradient(90deg, rgba(255,201,51,0.12) 0%, var(--surface) 100%)'
-                      : 'var(--surface)',
-                    borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
-                    {isPPV && (
-                      <span className="pill pill-gold" style={{ fontSize: '0.55rem' }}>★ PPV</span>
-                    )}
-                    <h2
-                      style={{
-                        fontFamily: 'var(--font-display)',
-                        fontSize: '1.5rem',
-                        color: isPPV ? 'var(--gold)' : 'var(--text-strong)',
-                        textTransform: 'uppercase',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {show.ppv_name ?? show.name}
-                    </h2>
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-meta)',
-                      fontSize: '0.7rem',
-                      color: 'var(--text-dim)',
-                      letterSpacing: '0.15em',
-                    }}
-                  >
-                    {formatDate(show.show_date)} · {sortedMatches.length} matches
-                  </span>
-                </div>
-
-                {/* Matches */}
-                <div style={{ background: 'var(--bg-mid)' }}>
-                  {sortedMatches.map((match: {
-                    id: string
-                    match_number: number
-                    match_type: string
-                    stipulation: string | null
-                    is_title_match: boolean
-                    is_draw: boolean
-                    rating: number | null
-                    titles: { name: string } | null
-                    match_participants: {
-                      result: string
-                      wrestlers: { id: string; name: string } | null
-                      teams: { id: string; name: string } | null
-                    }[]
-                  }) => {
-                    const winner = match.match_participants.find((p) => p.result === 'winner')
-                    const losers = match.match_participants.filter((p) => p.result !== 'winner')
-                    const winnerName = winner?.wrestlers?.name ?? winner?.teams?.name ?? '?'
-                    const loserNames = losers
-                      .map((p) => p.wrestlers?.name ?? p.teams?.name)
-                      .filter(Boolean)
-                      .join(', ')
-
-                    return (
-                      <div
-                        key={match.id}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '40px 1fr auto',
-                          gap: '1rem',
-                          alignItems: 'center',
-                          padding: '0.75rem 1.5rem',
-                          borderBottom: '1px solid rgba(42,42,51,0.5)',
-                        }}
-                      >
-                        {/* Match # */}
-                        <span
-                          style={{
-                            fontFamily: 'var(--font-meta)',
-                            fontSize: '0.65rem',
-                            color: 'var(--text-dim)',
-                            letterSpacing: '0.1em',
-                            fontWeight: 700,
-                          }}
-                        >
-                          #{match.match_number}
-                        </span>
-
-                        {/* Result */}
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <span
-                              style={{
-                                fontFamily: 'var(--font-display)',
-                                fontSize: '1rem',
-                                color: 'var(--text-strong)',
-                                textTransform: 'uppercase',
-                              }}
-                            >
-                              {winnerName}
-                            </span>
-                            {loserNames && (
-                              <>
-                                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
-                                  def.
-                                </span>
-                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                                  {loserNames}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.15rem' }}>
-                            {match.match_type}
-                            {match.stipulation ? ` · ${match.stipulation}` : ''}
-                            {match.is_title_match && match.titles ? ` · ${match.titles.name}` : ''}
-                          </p>
-                        </div>
-
-                        {/* Rating */}
-                        {match.rating && (
-                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                            ★ {match.rating}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <ArchiveShowList shows={shows as ArchiveShow[]} />
       )}
 
       {/* Pagination */}
