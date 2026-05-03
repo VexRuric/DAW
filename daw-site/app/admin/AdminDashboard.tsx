@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'story' | 'accounts' | 'settings' | 'legends'
+type Section = 'approvals' | 'booker' | 'results' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'accounts' | 'settings' | 'legends'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -41,6 +41,7 @@ interface TitleRow { id: string; name: string; category: string; display_order: 
 interface ChampRow { title_id: string; title_name: string; holder_name: string; holder_wrestler_id: string | null; holder_team_id: string | null; won_date: string; days_held: number }
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
 interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean }
+interface FactionRow { id: string; name: string; brand: string | null; division: string | null; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -1479,6 +1480,111 @@ function RosterEdits() {
   )
 }
 
+/* ── Faction Edits ────────────────────────────────────── */
+
+function FactionEdits() {
+  const [search, setSearch]           = useState('')
+  const [filterBrand, setFilterBrand] = useState('')
+  const [rows, setRows]               = useState<FactionRow[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [saving, setSaving]           = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('teams').select('id, name, brand, division, status').order('name')
+      setRows((data ?? []).map((r: any) => ({ ...r, saved: false })))
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  function update(id: string, key: keyof FactionRow, value: any) {
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, [key]: value, saved: false } : r))
+  }
+
+  async function save(id: string) {
+    setSaving(id)
+    const row = rows.find((r) => r.id === id)
+    if (!row) { setSaving(null); return }
+    await supabase.from('teams').update({
+      name: row.name,
+      brand: row.brand,
+      division: row.division,
+      status: row.status,
+      active: row.status === 'hired',
+    }).eq('id', id)
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, saved: true } : r))
+    setSaving(null)
+  }
+
+  async function dissolve(id: string) {
+    await supabase.from('teams').update({ status: 'disbanded', active: false }).eq('id', id)
+    setRows((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  const filtered = rows.filter((r) => {
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (filterBrand && r.brand !== filterBrand) return false
+    return true
+  })
+
+  const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
+    padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
+    letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
+    background: active ? `rgba(128,0,218,0.15)` : 'transparent',
+    color: active ? color : 'var(--text-dim)',
+  })
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
+        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Faction Edits</h2>
+        <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ display:'flex', gap:'1.5rem', alignItems:'center', flexWrap:'wrap', marginBottom:'1.25rem', padding:'0.75rem 1rem', background:'var(--surface)', border:'1px solid var(--border)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>BRAND</span>
+          {['DAW','Free Agent'].map(b => <button key={b} style={chipStyle(filterBrand === b)} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}>{b}</button>)}
+        </div>
+        <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
+      </div>
+
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 120px 80px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+            {['Faction','Brand','Division','Status','',''].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+          </div>
+          <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
+            {filtered.map((row) => (
+              <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 130px 130px 120px 80px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
+                <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['DAW','Free Agent'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <select className="form-input form-select" value={row.division ?? ''} onChange={(e) => update(row.id, 'division', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['Mens','Womens','Mixed'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <select className="form-input form-select" value={row.status ?? ''} onChange={(e) => update(row.id, 'status', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
+                  <option value="">—</option>
+                  {['hired','released','disbanded'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Story Development ───────────────────────────────── */
 
 function StoryDevelopment({ notes, addNote }: { notes: StoryNote[]; addNote: (n: StoryNote) => void }) {
@@ -2041,19 +2147,29 @@ export default function AdminDashboard() {
 
   function addNote(n: StoryNote) { setNotes((prev) => [n, ...prev]) }
 
-  const SECTIONS: { id: Section; label: string; badge?: number }[] = [
-    { id: 'approvals', label: 'Pending Approvals', badge: approvalCount },
-    { id: 'booker',    label: 'Show Booker' },
-    { id: 'results',   label: 'Results Entry' },
-    { id: 'champions', label: 'Champions' },
-    { id: 'ownership', label: 'Assign Ownership' },
-    { id: 'images',      label: 'Roster Images' },
-    { id: 'titleimages', label: 'Title Images' },
-    { id: 'edits',       label: 'Roster Edits' },
-    { id: 'legends',   label: 'Legends' },
-    { id: 'story',     label: 'Story Development' },
-    ...(isAdmin ? [{ id: 'accounts' as Section, label: 'Account Management' }] : []),
-    ...(isAdmin ? [{ id: 'settings' as Section, label: 'Site Settings' }] : []),
+  interface NavGroup { label?: string; items: { id: Section; label: string; badge?: number }[] }
+  const NAV_GROUPS: NavGroup[] = [
+    { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }] },
+    { label: 'Show Management', items: [
+      { id: 'booker',    label: 'Show Booker' },
+      { id: 'results',   label: 'Results Entry' },
+      { id: 'champions', label: 'Champions' },
+    ]},
+    { label: 'Roster & Factions', items: [
+      { id: 'edits',     label: 'Roster Edits' },
+      { id: 'factions',  label: 'Faction Edits' },
+      { id: 'legends',   label: 'Legends' },
+      { id: 'ownership', label: 'Assign Ownership' },
+    ]},
+    { label: 'Images', items: [
+      { id: 'images',      label: 'Roster Images' },
+      { id: 'titleimages', label: 'Title Images' },
+    ]},
+    { label: 'Creative', items: [
+      { id: 'story', label: 'Story Development' },
+    ]},
+    ...(isAdmin ? [{ label: 'Administration', items: [{ id: 'accounts' as Section, label: 'Account Management' }] }] : []),
+    ...(isAdmin ? [{ items: [{ id: 'settings' as Section, label: 'Site Settings' }] }] : []),
   ]
 
   return (
@@ -2064,11 +2180,20 @@ export default function AdminDashboard() {
             <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing:'0.25em', fontWeight:700 }}>{isAdmin ? 'ADMIN PANEL' : 'CREATIVE TEAM'}</p>
             <p style={{ fontFamily:'var(--font-display)', fontSize:'1.5rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1, marginTop:'0.25rem' }}>Dashboard</p>
           </div>
-          {SECTIONS.map((s) => (
-            <button key={s.id} onClick={() => setSection(s.id)} className={`admin-nav-item${section === s.id ? ' active' : ''}`}>
-              {s.label}
-              {s.badge !== undefined && s.badge > 0 && <span className="admin-badge">{s.badge}</span>}
-            </button>
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={gi}>
+              {group.label && (
+                <div style={{ padding: gi === 0 ? '0.5rem 1.5rem 0.2rem' : '0.75rem 1.5rem 0.2rem', fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.2em', fontWeight:700, borderTop: gi > 0 ? '1px solid var(--border)' : 'none' }}>
+                  {group.label}
+                </div>
+              )}
+              {group.items.map((s) => (
+                <button key={s.id} onClick={() => setSection(s.id)} className={`admin-nav-item${section === s.id ? ' active' : ''}`}>
+                  {s.label}
+                  {s.badge !== undefined && s.badge > 0 && <span className="admin-badge">{s.badge}</span>}
+                </button>
+              ))}
+            </div>
           ))}
           <div style={{ marginTop:'auto', padding:'1rem 1.5rem', borderTop:'1px solid var(--border)' }}>
             <button onClick={() => setShowNotes(!showNotes)} style={{ width:'100%', padding:'0.65rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer' }}>📋 Story Notes</button>
@@ -2084,6 +2209,7 @@ export default function AdminDashboard() {
           {section === 'images'      && <RosterImages />}
           {section === 'titleimages' && <TitleImages />}
           {section === 'edits'       && <RosterEdits />}
+          {section === 'factions'    && <FactionEdits />}
           {section === 'legends'    && <LegendsSection />}
           {section === 'story'      && <StoryDevelopment notes={notes} addNote={addNote} />}
           {section === 'accounts'   && isAdmin && <AccountManagement />}
