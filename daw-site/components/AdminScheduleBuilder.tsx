@@ -20,6 +20,7 @@ interface BookerFaction { id: string; name: string; members: { id: string; name:
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
 interface BookerSlot {
   id: number; matchType: string; matchSize: number
+  scheme: 'Match' | 'Promo' | 'Write-In'
   hasStipulation: boolean; stipTags: string[]; stipText: string
   isTitleMatch: boolean; titleId: string
   participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[]
@@ -84,6 +85,7 @@ function emptyParticipant(): BookerParticipant { return { type: 'roster', wrestl
 function makeBookerSlots(count: number): BookerSlot[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1, matchType: 'Singles', matchSize: 8,
+    scheme: 'Match' as const,
     hasStipulation: false, stipTags: [], stipText: '',
     isTitleMatch: false, titleId: '',
     participants: [emptyParticipant(), emptyParticipant()],
@@ -132,8 +134,9 @@ function BookerModal({
   onClose: () => void
   onSaved: (showId: string, matchCount: number) => void
 }) {
-  const slotCount = show.show_type === 'ppv' ? 12 : 9
-  const [slots, setSlots]                   = useState<BookerSlot[]>(makeBookerSlots(slotCount))
+  const initialSlotCount = show.show_type === 'ppv' ? 12 : 9
+  const [slotCount, setSlotCount]           = useState(initialSlotCount)
+  const [slots, setSlots]                   = useState<BookerSlot[]>(makeBookerSlots(initialSlotCount))
   const [selectedSlot, setSelectedSlot]     = useState<number | null>(null)
   const [sidebarTab, setSidebarTab]         = useState<'roster' | 'factions'>('roster')
   const [search, setSearch]                 = useState('')
@@ -152,12 +155,13 @@ function BookerModal({
     async function load() {
       const { data } = await supabase
         .from('matches')
-        .select('id, match_number, match_type, stipulation, is_title_match, title_id, match_participants(wrestler_id, write_in_name, wrestlers(name))')
+        .select('id, match_number, match_type, scheme, stipulation, is_title_match, title_id, match_participants(wrestler_id, write_in_name, wrestlers(name))')
         .eq('show_id', show.id)
         .order('match_number')
 
       if (data && data.length > 0) {
-        const maxNum = Math.max(...data.map((m: any) => m.match_number))
+        const maxNum    = Math.max(...data.map((m: any) => m.match_number))
+        const finalCount = Math.min(20, Math.max(data.length, initialSlotCount))
         const loaded: BookerSlot[] = data.map((m: any) => {
           const rawSize = (m.match_participants ?? []).length
           const ms = m.match_type === 'Battle Royal'
@@ -175,6 +179,7 @@ function BookerModal({
           const stip = parseStipulation(m.stipulation)
           return {
             id: m.match_number, matchType: m.match_type,
+            scheme: (m.scheme ?? 'Match') as 'Match' | 'Promo' | 'Write-In',
             matchSize: ms || defaultMatchSize(m.match_type) || 8,
             hasStipulation: stip.hasStipulation, stipTags: stip.stipTags, stipText: stip.stipText,
             isTitleMatch: m.is_title_match, titleId: m.title_id ?? '',
@@ -183,11 +188,12 @@ function BookerModal({
           }
         })
         const padded = [...loaded]
-        while (padded.length < slotCount) {
+        while (padded.length < finalCount) {
           const next = padded.length + 1
-          padded.push({ id: next, matchType: 'Singles', matchSize: 8, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: next === slotCount, sideNames: ['', ''] })
+          padded.push({ id: next, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''] })
         }
         padded[padded.length - 1].isMainEvent = true
+        setSlotCount(finalCount)
         setSlots(padded)
       }
       setLoading(false)
@@ -196,7 +202,7 @@ function BookerModal({
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [show.id, slotCount, onClose])
+  }, [show.id, initialSlotCount, onClose])
 
   function assignRosterWrestler(entry: BookerRosterEntry) {
     if (selectedSlot === null) return
@@ -292,6 +298,19 @@ function BookerModal({
     }))
   }
 
+  function changeSlotCount(n: number) {
+    setSlotCount(n)
+    setSlots(prev => {
+      const next = prev.slice(0, n)
+      while (next.length < n) {
+        const id = next.length + 1
+        next.push({ id, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''] })
+      }
+      next.forEach((s, i) => { s.isMainEvent = i === n - 1 })
+      return next
+    })
+  }
+
   async function saveMatchcard() {
     setSaving(true); setSaveError(null); setSaveDone(false)
     try {
@@ -310,6 +329,7 @@ function BookerModal({
           .from('matches')
           .insert({
             show_id: show.id, match_number: slot.id, match_type: slot.matchType,
+            scheme: slot.scheme,
             stipulation: stipStr,
             is_title_match: slot.isTitleMatch,
             title_id: slot.isTitleMatch && slot.titleId ? slot.titleId : null,
@@ -346,15 +366,17 @@ function BookerModal({
     const lines = [
       header, `📅 ${formatShowDate(show.show_date)}`, '```',
       ...slots.map(s => {
+        const prefix = s.isMainEvent ? '★ MAIN EVENT — ' : `Match ${s.id} — `
+        if (s.scheme === 'Promo') return `${prefix}PROMO SEGMENT`
+        if (s.scheme === 'Write-In') return `${prefix}TBA`
         const names = buildSideGroups(s.participants, s.matchType, s.matchSize)
           .map(({ side }, sideIdx) => {
             const faction = s.sideNames[sideIdx]?.trim()
             return faction || side.filter(p => p.name).map(p => p.name).join(' & ')
           }).join(' vs ')
-        const label   = s.isMainEvent ? '★ MAIN EVENT — ' : `Match ${s.id} — `
         const stipStr = buildStipulationString(s)
         const extra   = [s.matchType !== 'Singles' ? s.matchType : '', stipStr ?? '', s.isTitleMatch ? 'TITLE' : ''].filter(Boolean).join(' · ')
-        return `${label}${names || 'TBA'}${extra ? ` (${extra})` : ''}`
+        return `${prefix}${names || 'TBA'}${extra ? ` (${extra})` : ''}`
       }),
       '```',
     ]
@@ -392,9 +414,18 @@ function BookerModal({
               onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
             >← Back to Schedule</button>
             <div>
-              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: show.show_type === 'ppv' ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.2rem' }}>
-                {show.show_type === 'ppv' ? '★ PPV' : 'WEEKLY'} · {slotCount} MATCHES
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: show.show_type === 'ppv' ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700 }}>
+                  {show.show_type === 'ppv' ? '★ PPV' : 'WEEKLY'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.12em' }}>SLOTS</span>
+                  <input type="range" min={9} max={20} value={slotCount}
+                    onChange={e => changeSlotCount(Number(e.target.value))}
+                    style={{ width: 70, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 18 }}>{slotCount}</span>
+                </div>
+              </div>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                 {show.ppv_name ?? show.name}
               </h2>
@@ -554,6 +585,12 @@ function BookerModal({
                         {slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}
                       </span>
                       <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto', accentColor: slot.scheme === 'Promo' ? 'var(--gold)' : slot.scheme === 'Write-In' ? 'var(--accent-red)' : undefined, color: slot.scheme === 'Promo' ? 'var(--gold)' : slot.scheme === 'Write-In' ? 'var(--accent-red)' : undefined }}
+                          value={slot.scheme} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'scheme', e.target.value) }} onClick={e => e.stopPropagation()}>
+                          <option value="Match">Match</option>
+                          <option value="Promo">Promo</option>
+                          <option value="Write-In">Write-In</option>
+                        </select>
                         <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto' }}
                           value={slot.matchType} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={e => e.stopPropagation()}>
                           {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}

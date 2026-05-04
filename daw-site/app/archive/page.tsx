@@ -19,7 +19,7 @@ async function getData(page: number, showType: string, year: string) {
     let query = supabase
       .from('shows')
       .select(`
-        id, name, show_date, show_type, ppv_name,
+        id, name, show_date, show_type, ppv_name, stream_url,
         matches(
           id, match_number, match_type, stipulation, is_title_match, is_draw, rating,
           titles(name),

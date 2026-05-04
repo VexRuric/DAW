@@ -12,6 +12,7 @@ export interface CompactMatch {
   titleImageUrl: string | null
   hashtag: 'ANDNEW' | 'ANDSTILL' | 'WINNER' | null
   sides: { name: string; image_url: string | null }[]
+  scheme: 'Match' | 'Promo' | 'Write-In' | null
 }
 
 export interface StreamShowInfo {
@@ -277,6 +278,9 @@ const NAME_LIMIT = 4
 
 function MatchRow({ match }: { match: CompactMatch }) {
   const sides = match.sides
+  const isPromo   = match.scheme === 'Promo'
+  const isWriteIn = match.scheme === 'Write-In'
+  const isSpecial = isPromo || isWriteIn
   const isMassMatch = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
   const stipParts = match.stipulation
     ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean)
@@ -308,7 +312,11 @@ function MatchRow({ match }: { match: CompactMatch }) {
           {String(match.matchNumber).padStart(2, '0')}
         </span>
 
-        {isMassMatch ? (
+        {isSpecial ? (
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1 }}>
+            {isPromo ? 'Promo' : 'Other'}
+          </span>
+        ) : isMassMatch ? (
           <div style={{ flex: 1, minWidth: 0 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block' }}>
               {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
@@ -371,8 +379,8 @@ function MatchRow({ match }: { match: CompactMatch }) {
         )}
       </div>
 
-      {/* Badges row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', paddingLeft: 36, flexWrap: 'wrap' }}>
+      {/* Badges row — hidden for Promo/Write-In segments */}
+      {!isSpecial && <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', paddingLeft: 36, flexWrap: 'wrap' }}>
         {match.isTitleMatch && (
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.1rem 0.35rem', letterSpacing: '0.1em', fontWeight: 700 }}>
             {match.titleImageUrl && (
@@ -406,7 +414,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
             {match.matchType}
           </span>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

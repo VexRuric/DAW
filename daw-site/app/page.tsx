@@ -188,6 +188,7 @@ export default async function HomePage() {
       titleImageUrl: m.titles?.image_url ?? null,
       hashtag: streamIsCompleted ? deriveHashtag(m, andNewIds) : null,
       sides: buildSides(m.match_participants ?? [], m.match_type),
+      scheme: (m.scheme ?? null) as 'Match' | 'Promo' | 'Write-In' | null,
     }))
 
     // News grid: from last completed show only

@@ -658,6 +658,8 @@ type RosterAddEntry = { id: string; name: string; kind: 'wrestler' | 'team' }
 function ResultsEntry() {
   const [shows, setShows]               = useState<ShowStub[]>([])
   const [loadingShows, setLoadingShows] = useState(true)
+  const [yearFilter, setYearFilter]     = useState('all')
+  const [showSearch, setShowSearch]     = useState('')
   const [selectedShow, setSelectedShow] = useState<ShowStub | null>(null)
   const [matches, setMatches]           = useState<MatchCard[]>([])
   const [loadingMatches, setLoadingMatches] = useState(false)
@@ -675,10 +677,11 @@ function ResultsEntry() {
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
   const [addingEntry, setAddingEntry]     = useState(false)
+  const [editingMatch, setEditingMatch]   = useState<string | null>(null)
 
   useEffect(() => {
     async function loadShows() {
-      const { data } = await supabase.from('shows').select('id, name, show_date, status, stream_url').in('status', ['committed', 'completed']).order('show_date', { ascending: false }).limit(20)
+      const { data } = await supabase.from('shows').select('id, name, show_date, status, stream_url').in('status', ['committed', 'completed']).order('show_date', { ascending: false }).limit(500)
       setShows(data ?? [])
       setLoadingShows(false)
     }
@@ -714,6 +717,21 @@ function ResultsEntry() {
     const newP: Participant = { mp_id: data.id, name: entry?.name ?? writeInName ?? 'Unknown', result: 'loser', wrestler_id: entry?.kind === 'wrestler' ? entry.id : null, team_id: entry?.kind === 'team' ? entry.id : null }
     setMatches(prev => prev.map(m => m.id === matchId ? { ...m, participants: [...m.participants, newP] } : m))
     setAddingTo(null); setAddSearch(''); setAddWriteIn('')
+  }
+
+  async function removeParticipant(matchId: string, mpId: string) {
+    await supabase.from('match_participants').delete().eq('id', mpId)
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, participants: m.participants.filter(p => p.mp_id !== mpId) } : m))
+    setForms(prev => {
+      const form = prev[matchId]
+      if (!form) return prev
+      return { ...prev, [matchId]: { ...form, winner_mp_id: form.winner_mp_id === mpId ? '' : form.winner_mp_id } }
+    })
+  }
+
+  async function updateMatchType(matchId: string, newType: string) {
+    await supabase.from('matches').update({ match_type: newType }).eq('id', matchId)
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, match_type: newType } : m))
   }
 
   async function saveStreamUrl() {
@@ -791,6 +809,12 @@ function ResultsEntry() {
   }
 
   if (!selectedShow) {
+    const allYears  = [...new Set(shows.map(s => s.show_date.slice(0, 4)))].sort().reverse()
+    const filtered  = shows.filter(s => {
+      const matchesYear   = yearFilter === 'all' || s.show_date.startsWith(yearFilter)
+      const matchesSearch = !showSearch || s.name.toLowerCase().includes(showSearch.toLowerCase())
+      return matchesYear && matchesSearch
+    })
     return (
       <div>
         <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.5rem' }}>Results Entry</h2>
@@ -799,20 +823,35 @@ function ResultsEntry() {
         ) : shows.length === 0 ? (
           <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No committed shows found. Book and commit a show first.</p>
         ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-            {shows.map((s) => (
-              <button key={s.id} onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
-              >
-                <div>
-                  <p style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{s.name}</p>
-                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.2rem' }}>{new Date(s.show_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                </div>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.2rem 0.6rem', background: s.status === 'committed' ? 'rgba(128,0,218,0.15)' : 'rgba(0,200,100,0.12)', color: s.status === 'committed' ? 'var(--purple-hot)' : '#00c864', border: `1px solid ${s.status === 'committed' ? 'var(--purple)' : '#00c864'}` }}>{s.status.toUpperCase()}</span>
-              </button>
-            ))}
-          </div>
+          <>
+            <div style={{ display:'flex', gap:'0.75rem', marginBottom:'1rem', flexWrap:'wrap', alignItems:'center' }}>
+              <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
+                {['all', ...allYears].map(y => (
+                  <button key={y} onClick={() => setYearFilter(y)}
+                    style={{ padding:'0.3rem 0.75rem', background: yearFilter === y ? 'rgba(128,0,218,0.2)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                    {y === 'all' ? 'All' : y}
+                  </button>
+                ))}
+              </div>
+              <input className="form-input" placeholder="Search shows…" value={showSearch} onChange={e => setShowSearch(e.target.value)}
+                style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+              {filtered.map((s) => (
+                <button key={s.id} onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                >
+                  <div>
+                    <p style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{s.name}</p>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.2rem' }}>{new Date(s.show_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  </div>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.2rem 0.6rem', background: s.status === 'committed' ? 'rgba(128,0,218,0.15)' : 'rgba(0,200,100,0.12)', color: s.status === 'committed' ? 'var(--purple-hot)' : '#00c864', border: `1px solid ${s.status === 'committed' ? 'var(--purple)' : '#00c864'}` }}>{s.status.toUpperCase()}</span>
+                </button>
+              ))}
+              {filtered.length === 0 && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No shows match your filters.</p>}
+            </div>
+          </>
         )}
       </div>
     )
@@ -848,10 +887,20 @@ function ResultsEntry() {
             const isMainEvent = idx === matches.length - 1
             return (
               <div key={match.id} style={{ background:'var(--surface)', border:`2px solid ${isMainEvent ? 'var(--gold)' : 'var(--border)'}`, padding:'1.25rem' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'0.5rem' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
                     <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color: isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform:'uppercase' }}>{isMainEvent ? '★ Main Event' : `Match ${match.match_number}`}</span>
-                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.12em' }}>{match.match_type}{match.stipulation ? ` · ${match.stipulation}` : ''}{match.is_title_match ? ' · 🏆 Title' : ''}</span>
+                    {editingMatch === match.id ? (
+                      <select className="form-input form-select" value={match.match_type} onChange={e => updateMatchType(match.id, e.target.value)} style={{ padding:'0.25rem 1.8rem 0.25rem 0.5rem', fontSize:'0.62rem', width:'auto' }}>
+                        {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    ) : (
+                      <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.12em' }}>{match.match_type}{match.stipulation ? ` · ${match.stipulation}` : ''}{match.is_title_match ? ' · 🏆 Title' : ''}</span>
+                    )}
+                    <button onClick={() => setEditingMatch(editingMatch === match.id ? null : match.id)}
+                      style={{ padding:'0.2rem 0.6rem', background: editingMatch === match.id ? 'rgba(255,201,51,0.15)' : 'transparent', border:`1px solid ${editingMatch === match.id ? 'var(--gold)' : 'var(--border)'}`, color: editingMatch === match.id ? 'var(--gold)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                      {editingMatch === match.id ? 'Done' : 'Edit'}
+                    </button>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>RATING</span>
@@ -864,11 +913,20 @@ function ResultsEntry() {
                   <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem' }}>
                     {match.participants.map((p) => {
                       const selected = form.winner_mp_id === p.mp_id
-                      return (
+                      return editingMatch === match.id ? (
+                        <div key={p.mp_id} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', background:'var(--surface-2)', border:'1px solid var(--border)' }}>
+                          <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{p.name}</span>
+                          <button type="button" onClick={() => removeParticipant(match.id, p.mp_id)}
+                            style={{ background:'none', border:'none', color:'var(--accent-red)', fontSize:'0.75rem', cursor:'pointer', padding:'0 2px', lineHeight:1, flexShrink:0 }}
+                            title="Remove participant">✕</button>
+                        </div>
+                      ) : (
                         <button key={p.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: p.mp_id })} style={{ padding:'0.5rem 1rem', background: selected ? 'rgba(0,200,100,0.15)' : 'var(--surface-2)', border:`1px solid ${selected ? '#00c864' : 'var(--border)'}`, color: selected ? '#00c864' : 'var(--text-muted)', fontFamily:'var(--font-display)', fontSize:'0.85rem', textTransform:'uppercase', cursor:'pointer' }}>{selected && '✓ '}{p.name}</button>
                       )
                     })}
-                    <button type="button" onClick={() => updateForm(match.id, { winner_mp_id: '' })} style={{ padding:'0.5rem 1rem', background: form.winner_mp_id === '' ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)', border:`1px solid ${form.winner_mp_id === '' ? '#f59e0b' : 'var(--border)'}`, color: form.winner_mp_id === '' ? '#f59e0b' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', letterSpacing:'0.1em', cursor:'pointer' }}>Draw / No Contest</button>
+                    {editingMatch !== match.id && (
+                      <button type="button" onClick={() => updateForm(match.id, { winner_mp_id: '' })} style={{ padding:'0.5rem 1rem', background: form.winner_mp_id === '' ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)', border:`1px solid ${form.winner_mp_id === '' ? '#f59e0b' : 'var(--border)'}`, color: form.winner_mp_id === '' ? '#f59e0b' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', letterSpacing:'0.1em', cursor:'pointer' }}>Draw / No Contest</button>
+                    )}
                   </div>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:'1rem', alignItems:'start' }}>
