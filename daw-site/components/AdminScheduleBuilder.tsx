@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 interface ScheduledShow {
   id: string; name: string; show_date: string; show_type: string
   ppv_name: string | null; status: string; match_count: number
+  stream_url: string | null
 }
 
 interface BookerRosterEntry {
@@ -132,7 +133,7 @@ function BookerModal({
   titles: BookerTitle[]
   factions: BookerFaction[]
   onClose: () => void
-  onSaved: (showId: string, matchCount: number) => void
+  onSaved: (showId: string, matchCount: number, newStatus: string) => void
 }) {
   const initialSlotCount = show.show_type === 'ppv' ? 12 : 9
   const [slotCount, setSlotCount]           = useState(initialSlotCount)
@@ -350,8 +351,12 @@ function BookerModal({
         }
         if (filled.length > 0) savedCount++
       }
+      const newStatus = savedCount > 0 ? 'booked' : show.status
+      if (savedCount > 0 && show.status !== 'booked') {
+        await supabase.from('shows').update({ status: 'booked' }).eq('id', show.id)
+      }
       setSaveDone(true)
-      onSaved(show.id, savedCount)
+      onSaved(show.id, savedCount, newStatus)
     } catch (e: any) {
       setSaveError(e?.message ?? 'Save failed')
     } finally {
@@ -706,19 +711,23 @@ export default function AdminScheduleBuilder() {
   const [loadingShows, setLoadingShows] = useState(true)
   const [selectedShow, setSelectedShow] = useState<ScheduledShow | null>(null)
 
-  const [addingPPV, setAddingPPV]       = useState(false)
-  const [ppvDate, setPpvDate]           = useState('')
-  const [ppvNameInput, setPpvNameInput] = useState('')
-  const [ppvSaving, setPpvSaving]       = useState(false)
-  const [skipSaving, setSkipSaving]     = useState(false)
+  const [addingPPV, setAddingPPV]           = useState(false)
+  const [ppvDate, setPpvDate]               = useState('')
+  const [ppvNameInput, setPpvNameInput]     = useState('')
+  const [ppvSaving, setPpvSaving]           = useState(false)
+  const [skipSaving, setSkipSaving]         = useState(false)
 
-  const [editNames, setEditNames]       = useState<Record<string, string>>({})
-  const [editPPVNames, setEditPPVNames] = useState<Record<string, string>>({})
+  const [editNames, setEditNames]           = useState<Record<string, string>>({})
+  const [editPPVNames, setEditPPVNames]     = useState<Record<string, string>>({})
+  const [editingShowId, setEditingShowId]   = useState<string | null>(null)
+  const [editStreamUrls, setEditStreamUrls] = useState<Record<string, string>>({})
+  const [savingStreamId, setSavingStreamId] = useState<string | null>(null)
+  const [savedStreamId, setSavedStreamId]   = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       const [showRes, rosterRes, champRes, titleRes, factionRes, memberRes] = await Promise.all([
-        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status, matches(id)').eq('status', 'committed').order('show_date', { ascending: true }),
+        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status, stream_url, matches(id)').in('status', ['committed', 'booked']).order('show_date', { ascending: true }),
         supabase.from('wrestlers').select('id, name, role, injured, brand, gender, division').eq('active', true).order('name'),
         supabase.from('current_champions').select('holder_wrestler_id, title_name'),
         supabase.from('titles').select('id, name').eq('active', true).order('display_order'),
@@ -749,16 +758,19 @@ export default function AdminScheduleBuilder() {
 
       const loadedShows: ScheduledShow[] = (showRes.data ?? []).map((s: any) => ({
         id: s.id, name: s.name, show_date: s.show_date, show_type: s.show_type, ppv_name: s.ppv_name, status: s.status,
+        stream_url: s.stream_url ?? null,
         match_count: (s.matches ?? []).length,
       }))
 
-      const nameInit: Record<string, string> = {}
-      const ppvInit:  Record<string, string> = {}
-      loadedShows.forEach(s => { nameInit[s.id] = s.name; ppvInit[s.id] = s.ppv_name ?? '' })
+      const nameInit:   Record<string, string> = {}
+      const ppvInit:    Record<string, string> = {}
+      const streamInit: Record<string, string> = {}
+      loadedShows.forEach(s => { nameInit[s.id] = s.name; ppvInit[s.id] = s.ppv_name ?? ''; streamInit[s.id] = s.stream_url ?? '' })
 
       setShows(loadedShows)
       setEditNames(nameInit)
       setEditPPVNames(ppvInit)
+      setEditStreamUrls(streamInit)
       setRoster(rosterEntries)
       setTitles((titleRes.data ?? []) as BookerTitle[])
       setFactions(loadedFactions)
@@ -782,10 +794,11 @@ export default function AdminScheduleBuilder() {
       .insert({ name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed', match_count: 0 }
+      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed', match_count: 0, stream_url: null }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: showName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
+      setEditStreamUrls(prev => ({ ...prev, [data.id]: '' }))
     }
   }
 
@@ -800,10 +813,11 @@ export default function AdminScheduleBuilder() {
       .insert({ name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed', match_count: 0 }
+      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed', match_count: 0, stream_url: null }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: showName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
+      setEditStreamUrls(prev => ({ ...prev, [data.id]: '' }))
     }
     setSkipSaving(false)
   }
@@ -817,10 +831,11 @@ export default function AdminScheduleBuilder() {
       .insert({ name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed', match_count: 0 }
+      const s: ScheduledShow = { id: data.id, name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed', match_count: 0, stream_url: null }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: fullName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: ppvNameInput.trim() }))
+      setEditStreamUrls(prev => ({ ...prev, [data.id]: ppvNameInput.trim() }))
       setAddingPPV(false); setPpvDate(''); setPpvNameInput('')
     }
     setPpvSaving(false)
@@ -858,8 +873,17 @@ export default function AdminScheduleBuilder() {
     setShows(prev => prev.filter(s => s.id !== showId))
   }
 
-  function handleSaved(showId: string, matchCount: number) {
-    setShows(prev => prev.map(s => s.id === showId ? { ...s, match_count: matchCount } : s))
+  function handleSaved(showId: string, matchCount: number, newStatus: string) {
+    setShows(prev => prev.map(s => s.id === showId ? { ...s, match_count: matchCount, status: newStatus } : s))
+  }
+
+  async function saveStreamUrl(showId: string) {
+    setSavingStreamId(showId); setSavedStreamId(null)
+    const url = editStreamUrls[showId]?.trim() || null
+    await supabase.from('shows').update({ stream_url: url }).eq('id', showId)
+    setShows(prev => prev.map(s => s.id === showId ? { ...s, stream_url: url } : s))
+    setSavingStreamId(null); setSavedStreamId(showId)
+    setTimeout(() => setSavedStreamId(null), 3000)
   }
 
   return (
@@ -910,56 +934,101 @@ export default function AdminScheduleBuilder() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {shows.map(show => {
-            const isSkip   = show.show_type === 'skip'
-            const isPPV    = show.show_type === 'ppv'
+            const isSkip    = show.show_type === 'skip'
+            const isPPV     = show.show_type === 'ppv'
+            const isBooked  = show.status === 'booked'
             const slotCount = isPPV ? 12 : 9
             const pct       = isSkip ? 0 : show.match_count / slotCount
             const isBuilt   = !isSkip && pct >= 1
             const isPartial = !isSkip && pct > 0 && pct < 1
+            const isEditing = editingShowId === show.id
+
+            // Status colors: committed=purple, booked=blue
+            const statusColor  = isBooked ? '#3b82f6' : 'var(--purple)'
+            const statusBorder = isPPV ? 'rgba(255,201,51,0.35)' : isSkip ? 'rgba(255,255,255,0.07)' : isBooked ? 'rgba(59,130,246,0.4)' : 'var(--border)'
 
             return (
-              <div key={show.id}
-                style={{ background: isSkip ? 'rgba(255,255,255,0.02)' : 'var(--surface)', border: `1px solid ${isPPV ? 'rgba(255,201,51,0.35)' : isSkip ? 'rgba(255,255,255,0.07)' : 'var(--border)'}`, padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', opacity: isSkip ? 0.65 : 1 }}
-              >
-                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.18rem 0.5rem', background: isPPV ? 'var(--gold)' : isSkip ? 'rgba(255,255,255,0.07)' : 'rgba(128,0,218,0.15)', color: isPPV ? '#0a0a0c' : isSkip ? 'var(--text-dim)' : 'var(--purple-hot)', border: isPPV ? 'none' : `1px solid ${isSkip ? 'rgba(255,255,255,0.1)' : 'var(--purple)'}`, flexShrink: 0 }}>
-                  {isPPV ? '★ PPV' : isSkip ? 'BREAK' : 'WEEKLY'}
-                </span>
-                <input type="date" value={show.show_date} onChange={e => updateDate(show.id, e.target.value)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'pointer', flexShrink: 0 }} />
-                <input type="text" value={editNames[show.id] ?? show.name}
-                  onChange={e => setEditNames(prev => ({ ...prev, [show.id]: e.target.value }))}
-                  onBlur={() => updateName(show.id)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-muted)', background: 'transparent', border: '1px solid transparent', borderBottom: `1px solid ${isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'}`, padding: '0.3rem 0.4rem', flex: 1, minWidth: 180, letterSpacing: '0.05em', outline: 'none' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = isSkip ? 'rgba(255,255,255,0.15)' : 'var(--purple)' }}
-                  onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)' }}
-                />
-                {isPPV && (
-                  <input type="text" value={editPPVNames[show.id] ?? ''} placeholder="PPV name…"
-                    onChange={e => setEditPPVNames(prev => ({ ...prev, [show.id]: e.target.value }))}
-                    onBlur={() => updatePPVName(show.id)}
-                    style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--gold)', background: 'transparent', border: '1px solid transparent', borderBottom: '1px solid rgba(255,201,51,0.25)', padding: '0.3rem 0.4rem', minWidth: 140, letterSpacing: '0.05em', outline: 'none' }}
-                    onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold)' }}
-                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = 'rgba(255,201,51,0.25)' }}
-                  />
-                )}
-                {isSkip ? (
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>no show</span>
-                ) : (
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isBuilt ? '#00c864' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
-                    {isBuilt ? '✓ ' : ''}{show.match_count}/{slotCount} matches
+              <div key={show.id} style={{ border: `1px solid ${statusBorder}`, overflow: 'hidden', opacity: isSkip ? 0.65 : 1 }}>
+                {/* Main show row */}
+                <div style={{ background: isSkip ? 'rgba(255,255,255,0.02)' : 'var(--surface)', padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+                  {/* Type badge */}
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.18rem 0.5rem', background: isPPV ? 'var(--gold)' : isSkip ? 'rgba(255,255,255,0.07)' : 'rgba(128,0,218,0.15)', color: isPPV ? '#0a0a0c' : isSkip ? 'var(--text-dim)' : 'var(--purple-hot)', border: isPPV ? 'none' : `1px solid ${isSkip ? 'rgba(255,255,255,0.1)' : 'var(--purple)'}`, flexShrink: 0 }}>
+                    {isPPV ? '★ PPV' : isSkip ? 'BREAK' : 'WEEKLY'}
                   </span>
+                  {/* Status badge */}
+                  {!isSkip && (
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.15rem 0.45rem', background: isBooked ? 'rgba(59,130,246,0.15)' : 'rgba(128,0,218,0.08)', color: isBooked ? '#3b82f6' : 'var(--purple-hot)', border: `1px solid ${statusColor}`, flexShrink: 0 }}>
+                      {isBooked ? 'BOOKED' : 'SCHEDULED'}
+                    </span>
+                  )}
+                  <input type="date" value={show.show_date} onChange={e => updateDate(show.id, e.target.value)}
+                    style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'pointer', flexShrink: 0 }} />
+                  <input type="text" value={editNames[show.id] ?? show.name}
+                    onChange={e => setEditNames(prev => ({ ...prev, [show.id]: e.target.value }))}
+                    onBlur={() => updateName(show.id)}
+                    style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-muted)', background: 'transparent', border: '1px solid transparent', borderBottom: `1px solid ${isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'}`, padding: '0.3rem 0.4rem', flex: 1, minWidth: 180, letterSpacing: '0.05em', outline: 'none' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = isSkip ? 'rgba(255,255,255,0.15)' : 'var(--purple)' }}
+                    onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = isSkip ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)' }}
+                  />
+                  {isPPV && (
+                    <input type="text" value={editPPVNames[show.id] ?? ''} placeholder="PPV name…"
+                      onChange={e => setEditPPVNames(prev => ({ ...prev, [show.id]: e.target.value }))}
+                      onBlur={() => updatePPVName(show.id)}
+                      style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--gold)', background: 'transparent', border: '1px solid transparent', borderBottom: '1px solid rgba(255,201,51,0.25)', padding: '0.3rem 0.4rem', minWidth: 140, letterSpacing: '0.05em', outline: 'none' }}
+                      onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold)' }}
+                      onBlurCapture={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.borderBottomColor = 'rgba(255,201,51,0.25)' }}
+                    />
+                  )}
+                  {isSkip ? (
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>no show</span>
+                  ) : (
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isBooked ? '#3b82f6' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
+                      {isBooked ? '✓ ' : ''}{show.match_count}/{slotCount} matches
+                    </span>
+                  )}
+                  {/* Edit show button */}
+                  {!isSkip && (
+                    <button onClick={() => setEditingShowId(isEditing ? null : show.id)}
+                      style={{ padding: '0.38rem 0.7rem', background: isEditing ? 'rgba(59,130,246,0.15)' : 'transparent', border: `1px solid ${isEditing ? '#3b82f6' : 'var(--border)'}`, color: isEditing ? '#3b82f6' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', flexShrink: 0 }}>
+                      {isEditing ? '✕ Close' : '✎ Edit'}
+                    </button>
+                  )}
+                  {!isSkip && (
+                    <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
+                      style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isBooked ? 'transparent' : undefined, border: isBooked ? `1px solid ${statusColor}` : undefined, color: isBooked ? '#3b82f6' : undefined }}>
+                      {show.match_count === 0 ? 'Build Card ▶' : isBooked ? 'Edit Card ▶' : 'Continue ▶'}
+                    </button>
+                  )}
+                  <button onClick={() => deleteShow(show.id)}
+                    style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.75rem', flexShrink: 0 }}
+                    onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
+                    onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
+                    title={isSkip ? 'Remove break week' : 'Delete show'}>✕</button>
+                </div>
+
+                {/* Inline edit panel — slides down below the row */}
+                {isEditing && (
+                  <div style={{ padding: '0.85rem 1rem', background: 'rgba(59,130,246,0.04)', borderTop: `1px solid rgba(59,130,246,0.25)`, display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: '#3b82f6', letterSpacing: '0.18em', fontWeight: 700, flexShrink: 0 }}>▶ STREAM URL</span>
+                    <input
+                      className="form-input"
+                      placeholder="https://www.youtube.com/watch?v=…"
+                      value={editStreamUrls[show.id] ?? ''}
+                      onChange={e => setEditStreamUrls(prev => ({ ...prev, [show.id]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveStreamUrl(show.id) }}
+                      style={{ fontSize: '0.72rem', flex: 1, minWidth: 220 }}
+                    />
+                    <button
+                      onClick={() => saveStreamUrl(show.id)}
+                      disabled={savingStreamId === show.id}
+                      style={{ padding: '0.4rem 0.85rem', background: savedStreamId === show.id ? 'rgba(0,200,100,0.15)' : 'rgba(59,130,246,0.15)', border: `1px solid ${savedStreamId === show.id ? '#00c864' : '#3b82f6'}`, color: savedStreamId === show.id ? '#00c864' : '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', flexShrink: 0 }}>
+                      {savingStreamId === show.id ? 'Saving…' : savedStreamId === show.id ? '✓ Saved' : 'Save URL'}
+                    </button>
+                    {show.stream_url && (
+                      <a href={show.stream_url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--accent-red)', letterSpacing: '0.08em', textDecoration: 'none', flexShrink: 0 }}>▶ Preview</a>
+                    )}
+                  </div>
                 )}
-                {!isSkip && (
-                  <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
-                    style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isBuilt ? 'transparent' : undefined, border: isBuilt ? '1px solid var(--purple)' : undefined, color: isBuilt ? 'var(--purple-hot)' : undefined }}>
-                    {show.match_count === 0 ? 'Build Card ▶' : isBuilt ? 'Edit Card ▶' : 'Continue ▶'}
-                  </button>
-                )}
-                <button onClick={() => deleteShow(show.id)}
-                  style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.75rem', flexShrink: 0 }}
-                  onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
-                  onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
-                  title={isSkip ? 'Remove break week' : 'Delete show'}>✕</button>
               </div>
             )
           })}
@@ -974,7 +1043,7 @@ export default function AdminScheduleBuilder() {
           titles={titles}
           factions={factions}
           onClose={() => setSelectedShow(null)}
-          onSaved={(id, count) => { handleSaved(id, count); setSelectedShow(null) }}
+          onSaved={(id, count, newStatus) => { handleSaved(id, count, newStatus); setSelectedShow(null) }}
         />
       )}
     </div>

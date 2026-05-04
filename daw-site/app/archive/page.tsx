@@ -30,6 +30,7 @@ async function getData(page: number, showType: string, year: string) {
           )
         )
       `, { count: 'exact' })
+      .in('status', ['booked', 'completed'])
       .order('show_date', { ascending: false })
       .order('match_number', { ascending: true, referencedTable: 'matches' })
       .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
