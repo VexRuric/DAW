@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support'
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -3089,7 +3089,7 @@ export default function AdminDashboard() {
 
   interface NavGroup { label?: string; items: { id: Section; label: string; badge?: number }[] }
   const NAV_GROUPS: NavGroup[] = [
-    { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }] },
+    { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }, { id: 'support', label: 'Support Tickets' }] },
     { label: 'Show Management', items: [
       { id: 'booker',    label: 'Show Booker' },
       { id: 'results',   label: 'Results Entry' },
@@ -3158,9 +3158,84 @@ export default function AdminDashboard() {
           {section === 'suggestions' && <StorySuggestions />}
           {section === 'accounts'    && isAdmin && <AccountManagement />}
           {section === 'settings'    && isAdmin && <SiteSettings />}
+          {section === 'support'     && <SupportTickets />}
         </main>
       </div>
       {showNotes && <StoryNotesWindow onClose={() => setShowNotes(false)} />}
     </>
+  )
+}
+
+/* ── Support Tickets ─────────────────────────────────────────── */
+
+interface TicketRow {
+  id: string
+  display_name: string | null
+  subject: string
+  message: string
+  status: string
+  created_at: string
+}
+
+function SupportTickets() {
+  const [tickets, setTickets]     = useState<TicketRow[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [tab, setTab]             = useState<'open' | 'dismissed'>('open')
+  const [dismissing, setDismissing] = useState<string | null>(null)
+
+  useEffect(() => { load() }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase.from('support_tickets').select('id,display_name,subject,message,status,created_at').eq('status', tab).order('created_at', { ascending: false })
+    setTickets((data ?? []) as TicketRow[])
+    setLoading(false)
+  }
+
+  async function dismiss(id: string) {
+    setDismissing(id)
+    await supabase.from('support_tickets').update({ status: 'dismissed' }).eq('id', id)
+    setTickets(prev => prev.filter(t => t.id !== id))
+    setDismissing(null)
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1rem' }}>Support Tickets</h2>
+
+      <div className="tab-group" style={{ marginBottom:'1.25rem' }}>
+        <button className={`tab${tab === 'open' ? ' active' : ''}`} onClick={() => setTab('open')}>Open</button>
+        <button className={`tab${tab === 'dismissed' ? ' active' : ''}`} onClick={() => setTab('dismissed')}>Dismissed</button>
+      </div>
+
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : tickets.length === 0 ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em', padding:'2rem 0' }}>
+          No {tab} tickets.
+        </p>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+          {tickets.map(t => (
+            <div key={t.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', padding:'1.1rem 1.25rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.5rem' }}>
+                <div>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--purple-hot)', textTransform:'uppercase' }}>{t.subject}</span>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginLeft:'0.75rem' }}>
+                    {t.display_name ?? 'Anonymous'} · {new Date(t.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
+                  </span>
+                </div>
+                {tab === 'open' && (
+                  <button onClick={() => dismiss(t.id)} disabled={dismissing === t.id} style={{ padding:'0.25rem 0.65rem', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                    {dismissing === t.id ? '…' : 'Dismiss'}
+                  </button>
+                )}
+              </div>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-muted)', letterSpacing:'0.05em', lineHeight:1.7, whiteSpace:'pre-wrap' }}>{t.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

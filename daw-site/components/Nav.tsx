@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import NotificationBell from '@/components/NotificationBell'
 
 const BASE_NAV = [
   { href: '/',         label: 'Home' },
@@ -78,6 +79,7 @@ export default function Nav() {
         <div className="nav-right-desktop" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
           {user ? (
             <>
+              <NotificationBell />
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0.9rem', background: isAdmin ? 'rgba(255,201,51,0.1)' : 'rgba(168,77,255,0.1)', border: `1px solid ${isAdmin ? 'var(--gold)' : 'var(--purple)'}` }}>
                 <span style={{ fontSize: '0.85rem' }}>{isAdmin ? '⚙️' : '👤'}</span>
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)' }}>{user.name}</span>

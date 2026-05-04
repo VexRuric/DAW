@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import type { UserIdentity } from '@supabase/supabase-js'
 
-type SettingsSection = 'connections' | 'alerts' | 'retire' | 'support'
+type SettingsSection = 'profile' | 'connections' | 'alerts' | 'retire' | 'support'
 
 /* ── Provider metadata ──────────────────────────────── */
 
@@ -51,10 +51,18 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   email:   <span style={{ fontSize: '1.1rem' }}>✉</span>,
 }
 
-/* ── Alert options ──────────────────────────────────── */
+/* ── Alert option definitions ───────────────────────── */
 
-const ALERT_OPTIONS = [
-  { id: 'results',   label: 'New match results posted',        desc: 'Get notified when show results are posted to Discord' },
+const DISCORD_ALERT_OPTIONS = [
+  { id: 'results',   label: 'New match results posted',        desc: 'Get notified when show results are posted' },
+  { id: 'reminder',  label: 'Upcoming show reminders',         desc: '1 hour before every DAW Weekly and PPV' },
+  { id: 'booked',    label: 'My wrestler booked in a match',   desc: 'When your character is added to the upcoming card' },
+  { id: 'title_win', label: 'My wrestler wins a title',        desc: 'Championship change notifications involving your character' },
+  { id: 'fed_news',  label: 'Federation announcements',        desc: 'Major news from Daware about the federation' },
+]
+
+const SITE_ALERT_OPTIONS = [
+  { id: 'results',   label: 'New match results posted',        desc: 'Notification when show results are posted' },
   { id: 'reminder',  label: 'Upcoming show reminders',         desc: '1 hour before every DAW Weekly and PPV' },
   { id: 'booked',    label: 'My wrestler booked in a match',   desc: 'When your character is added to the upcoming card' },
   { id: 'title_win', label: 'My wrestler wins a title',        desc: 'Championship change notifications involving your character' },
@@ -63,42 +71,115 @@ const ALERT_OPTIONS = [
 
 const SUPPORT_SUBJECTS = ['Bug Report', 'Suggestion', 'Character Appeal', 'Other']
 
+const DEFAULT_DISCORD_PREFS: Record<string, boolean> = {
+  discord_results: true, discord_reminder: false, discord_booked: false,
+  discord_title_win: false, discord_fed_news: true,
+}
+const DEFAULT_SITE_PREFS: Record<string, boolean> = {
+  site_results: true, site_reminder: false, site_booked: true,
+  site_title_win: true, site_fed_news: true, site_muted: false,
+}
+
 /* ── Page ───────────────────────────────────────────── */
 
 export default function SettingsPage() {
   const { isFan, user, logout, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  const [section, setSection]               = useState<SettingsSection>('connections')
+  const [section, setSection]               = useState<SettingsSection>('profile')
   const [identities, setIdentities]         = useState<UserIdentity[]>([])
   const [identitiesLoading, setIdentitiesLoading] = useState(true)
   const [connectingId, setConnectingId]     = useState<string | null>(null)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
   const [connError, setConnError]           = useState<string | null>(null)
 
-  const [alerts, setAlerts] = useState<Record<string, boolean>>(
-    Object.fromEntries(ALERT_OPTIONS.map((a) => [a.id, a.id === 'results' || a.id === 'fed_news']))
-  )
+  // Profile
+  const [nickname, setNickname]             = useState('')
+  const [avatarUrl, setAvatarUrl]           = useState('')
+  const [profileSaving, setProfileSaving]   = useState(false)
+  const [profileSaved, setProfileSaved]     = useState(false)
+  const profileTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Alerts
+  const [alertPrefs, setAlertPrefs]         = useState<Record<string, boolean>>({
+    ...DEFAULT_DISCORD_PREFS, ...DEFAULT_SITE_PREFS,
+  })
+  const [alertsLoading, setAlertsLoading]   = useState(true)
+  const alertSaveTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Support
   const [supportSubject, setSupportSubject] = useState(SUPPORT_SUBJECTS[0])
   const [supportMsg, setSupportMsg]         = useState('')
   const [supportSent, setSupportSent]       = useState(false)
+  const [supportSending, setSupportSending] = useState(false)
+  const [supportError, setSupportError]     = useState<string | null>(null)
+
+  // Retire
   const [retireConfirm, setRetireConfirm]   = useState(false)
 
-  /* Redirect when not logged in — wait for auth to resolve first */
   useEffect(() => {
     if (!authLoading && !isFan) router.push('/login')
   }, [isFan, authLoading, router])
 
-  /* Load actual linked identities from Supabase */
+  // Load identities, profile, and alert prefs
   useEffect(() => {
-    if (!isFan) return
+    if (!isFan || !user) return
+
     supabase.auth.getUser().then(({ data: { user: u } }) => {
-      setIdentities(u?.identities ?? [])
+      const ids = u?.identities ?? []
+      setIdentities(ids)
       setIdentitiesLoading(false)
+
+      // Sync discord_id to user_profiles if Discord is connected
+      const discordId = ids.find(i => i.provider === 'discord')
+      if (discordId) {
+        const discordUsername =
+          discordId.identity_data?.custom_claims?.global_name ??
+          discordId.identity_data?.preferred_username ?? null
+        supabase.from('user_profiles').upsert({
+          id: user.id,
+          discord_id: discordId.id,
+          discord_username: discordUsername,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+      }
     })
-  }, [isFan])
+
+    // Load profile
+    supabase.from('user_profiles').select('nickname, avatar_url').eq('id', user.id).single()
+      .then(({ data }) => {
+        if (data) {
+          setNickname(data.nickname ?? '')
+          setAvatarUrl(data.avatar_url ?? '')
+        }
+      })
+
+    // Load alert prefs
+    supabase.from('user_alert_prefs').select('*').eq('id', user.id).single()
+      .then(({ data }) => {
+        if (data) {
+          setAlertPrefs({
+            discord_results:   data.discord_results  ?? true,
+            discord_reminder:  data.discord_reminder ?? false,
+            discord_booked:    data.discord_booked   ?? false,
+            discord_title_win: data.discord_title_win ?? false,
+            discord_fed_news:  data.discord_fed_news ?? true,
+            site_results:      data.site_results  ?? true,
+            site_reminder:     data.site_reminder ?? false,
+            site_booked:       data.site_booked   ?? true,
+            site_title_win:    data.site_title_win ?? true,
+            site_fed_news:     data.site_fed_news ?? true,
+            site_muted:        data.site_muted    ?? false,
+          })
+        }
+        setAlertsLoading(false)
+      })
+  }, [isFan, user])
 
   if (authLoading || !isFan || !user) return null
+
+  const discordConnected = identities.some(i => i.provider === 'discord')
+  const displayName      = nickname.trim() || user.name
 
   /* ── Helpers ── */
 
@@ -114,51 +195,88 @@ export default function SettingsPage() {
       provider: provider as 'twitch' | 'discord' | 'google',
       options: { redirectTo },
     })
-    if (error) {
-      setConnError(error.message)
-      setConnectingId(null)
-    }
-    // On success, browser redirects — no further code runs
+    if (error) { setConnError(error.message); setConnectingId(null) }
   }
 
   async function disconnectProvider(provider: string) {
     setConnError(null)
     const identity = getIdentity(provider)
     if (!identity) return
-
-    // Require at least one remaining identity
     if (identities.length <= 1) {
       setConnError("Can't disconnect your only sign-in method. Connect another account first.")
       return
     }
-
     setDisconnectingId(provider)
     const { error } = await supabase.auth.unlinkIdentity(identity)
     if (error) {
       setConnError(error.message)
     } else {
       setIdentities((prev) => prev.filter((i) => i.provider !== provider))
+      // Clear discord_id from profile if disconnected
+      if (provider === 'discord') {
+        await supabase.from('user_profiles').update({ discord_id: null, discord_username: null }).eq('id', user!.id)
+      }
     }
     setDisconnectingId(null)
   }
 
-  function handleLogout() {
-    logout()
-    router.push('/')
+  async function saveProfile() {
+    if (!user) return
+    setProfileSaving(true)
+    await supabase.from('user_profiles').upsert({
+      id: user.id,
+      nickname: nickname.trim() || null,
+      avatar_url: avatarUrl.trim() || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+    setProfileSaving(false)
+    setProfileSaved(true)
+    if (profileTimer.current) clearTimeout(profileTimer.current)
+    profileTimer.current = setTimeout(() => setProfileSaved(false), 2500)
   }
+
+  async function toggleAlert(key: string, value: boolean) {
+    const next = { ...alertPrefs, [key]: value }
+    setAlertPrefs(next)
+    if (alertSaveTimer.current) clearTimeout(alertSaveTimer.current)
+    alertSaveTimer.current = setTimeout(async () => {
+      await supabase.from('user_alert_prefs').upsert({
+        id: user!.id,
+        ...next,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+    }, 600)
+  }
+
+  async function sendSupport() {
+    if (!supportMsg.trim()) return
+    setSupportSending(true)
+    setSupportError(null)
+    const { error } = await supabase.from('support_tickets').insert({
+      user_id: user!.id,
+      display_name: displayName,
+      subject: supportSubject,
+      message: supportMsg.trim(),
+    })
+    setSupportSending(false)
+    if (error) { setSupportError('Failed to send. Please try again.'); return }
+    setSupportSent(true)
+  }
+
+  function handleLogout() { logout(); router.push('/') }
 
   /* ── Sidebar nav ── */
 
   const NAV_SECTIONS: { id: SettingsSection; label: string; icon: string }[] = [
+    { id: 'profile',     label: 'Profile',        icon: '👤' },
     { id: 'connections', label: 'Connections',    icon: '🔗' },
-    { id: 'alerts',      label: 'Discord Alerts', icon: '🔔' },
+    { id: 'alerts',      label: 'Alerts',         icon: '🔔' },
     { id: 'retire',      label: 'Retire Account', icon: '🗑️' },
     { id: 'support',     label: 'Support',        icon: '💬' },
   ]
 
   return (
     <div>
-      {/* Page header */}
       <div className="section-sm" style={{ borderTop: 'none', paddingBottom: '1.5rem' }}>
         <p className="section-label">Account</p>
         <h1 className="section-title">Settings</h1>
@@ -169,14 +287,25 @@ export default function SettingsPage() {
         {/* Sidebar */}
         <aside style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)', padding: '1.5rem 0', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '0 1.5rem 1.5rem', borderBottom: '1px solid var(--border)', marginBottom: '0.75rem' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--purple)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', marginBottom: '0.75rem' }}>
-              👤
+            {/* Avatar */}
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: avatarUrl ? 'transparent' : 'var(--purple)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.4rem', marginBottom: '0.75rem', overflow: 'hidden',
+              border: '1px solid var(--border)',
+            }}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : '👤'}
             </div>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-              {user.name}
+            {/* Nickname (not email) */}
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
+              {displayName}
             </p>
-            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.2rem' }}>
-              {user.email}
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginTop: '0.2rem' }}>
+              {user.role?.toUpperCase() ?? 'FAN'}
             </p>
           </div>
 
@@ -196,7 +325,7 @@ export default function SettingsPage() {
           <div style={{ marginTop: 'auto', padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
             <button
               onClick={handleLogout}
-              style={{ width: '100%', padding: '0.7rem', background: 'rgba(255,51,85,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'none', transition: 'background 0.15s' }}
+              style={{ width: '100%', padding: '0.7rem', background: 'rgba(255,51,85,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 0.15s' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,85,0.2)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,85,0.1)' }}
             >
@@ -207,6 +336,79 @@ export default function SettingsPage() {
 
         {/* Content */}
         <main style={{ padding: '2.5rem 3rem' }}>
+
+          {/* ── Profile ── */}
+          {section === 'profile' && (
+            <div style={{ maxWidth: 480 }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                Profile
+              </h2>
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: '2rem', lineHeight: 1.8 }}>
+                Set a nickname and avatar that appear across your DAW profile.
+              </p>
+
+              {/* Avatar preview */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.75rem' }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  background: avatarUrl ? 'transparent' : 'var(--purple)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '2rem', overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  flexShrink: 0,
+                }}>
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : '👤'}
+                </div>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>
+                    {nickname.trim() || user.name}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
+                    {user.role?.toUpperCase() ?? 'FAN'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-field">
+                <label className="form-label">Nickname</label>
+                <input
+                  className="form-input"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder={user.name}
+                  maxLength={32}
+                />
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.35rem' }}>
+                  Displayed instead of your sign-in name.
+                </p>
+              </div>
+
+              <div className="form-field">
+                <label className="form-label">Avatar URL</label>
+                <input
+                  className="form-input"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/avatar.png"
+                />
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.35rem' }}>
+                  Link to a publicly hosted image (.png, .jpg, .gif).
+                </p>
+              </div>
+
+              <button
+                className="btn btn-primary"
+                style={{ opacity: profileSaving ? 0.6 : 1 }}
+                disabled={profileSaving}
+                onClick={saveProfile}
+              >
+                {profileSaving ? 'Saving…' : profileSaved ? '✓ Saved' : 'Save Profile'}
+              </button>
+            </div>
+          )}
 
           {/* ── Connections ── */}
           {section === 'connections' && (
@@ -225,59 +427,31 @@ export default function SettingsPage() {
               )}
 
               {identitiesLoading ? (
-                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', letterSpacing: '0.15em', padding: '2rem 0' }}>
-                  Loading…
-                </div>
+                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', letterSpacing: '0.15em', padding: '2rem 0' }}>Loading…</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {PROVIDERS.map((prov) => {
-                    const identity   = getIdentity(prov.id)
-                    const connected  = !!identity
-                    const handle     = identity ? prov.getHandle(identity) : null
-                    const isWorking  = connectingId === prov.id || disconnectingId === prov.id
-
+                    const identity  = getIdentity(prov.id)
+                    const connected = !!identity
+                    const handle    = identity ? prov.getHandle(identity) : null
+                    const isWorking = connectingId === prov.id || disconnectingId === prov.id
                     return (
-                      <div
-                        key={prov.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '1.25rem 1.5rem',
-                          background: 'var(--surface)',
-                          border: `1px solid ${connected ? prov.color + '44' : 'var(--border)'}`,
-                          transition: 'border-color 0.2s',
-                        }}
-                      >
+                      <div key={prov.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', background: 'var(--surface)', border: `1px solid ${connected ? prov.color + '44' : 'var(--border)'}`, transition: 'border-color 0.2s' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                            {PROVIDER_ICONS[prov.id]}
-                          </span>
+                          <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{PROVIDER_ICONS[prov.id]}</span>
                           <div>
-                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-                              {prov.label}
-                            </p>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>{prov.label}</p>
                             <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', letterSpacing: '0.1em', marginTop: '0.2rem', color: connected ? prov.color : 'var(--text-dim)' }}>
                               {connected ? `✓ Connected${handle ? ` as ${handle}` : ''}` : 'Not connected'}
                             </p>
                           </div>
                         </div>
-
                         {connected ? (
-                          <button
-                            className="btn btn-ghost"
-                            style={{ fontSize: '0.65rem', padding: '0.45rem 0.9rem', opacity: isWorking ? 0.5 : 1 }}
-                            disabled={isWorking}
-                            onClick={() => disconnectProvider(prov.id)}
-                          >
+                          <button className="btn btn-ghost" style={{ fontSize: '0.65rem', padding: '0.45rem 0.9rem', opacity: isWorking ? 0.5 : 1 }} disabled={isWorking} onClick={() => disconnectProvider(prov.id)}>
                             {disconnectingId === prov.id ? 'Disconnecting…' : 'Disconnect'}
                           </button>
                         ) : (
-                          <button
-                            style={{ padding: '0.5rem 1.1rem', background: prov.color + '22', border: `1px solid ${prov.color}`, color: prov.color, fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'none', transition: 'background 0.15s', opacity: isWorking ? 0.5 : 1 }}
-                            disabled={isWorking}
-                            onClick={() => connectProvider(prov.id)}
-                          >
+                          <button style={{ padding: '0.5rem 1.1rem', background: prov.color + '22', border: `1px solid ${prov.color}`, color: prov.color, fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', transition: 'background 0.15s', opacity: isWorking ? 0.5 : 1 }} disabled={isWorking} onClick={() => connectProvider(prov.id)}>
                             {connectingId === prov.id ? 'Redirecting…' : 'Connect'}
                           </button>
                         )}
@@ -285,24 +459,11 @@ export default function SettingsPage() {
                     )
                   })}
 
-                  {/* Email identity — read-only display */}
                   {getIdentity('email') && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        padding: '1.25rem 1.5rem',
-                        background: 'var(--surface)',
-                        border: '1px solid rgba(120,120,140,0.35)',
-                        opacity: 0.8,
-                      }}
-                    >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.5rem', background: 'var(--surface)', border: '1px solid rgba(120,120,140,0.35)', opacity: 0.8 }}>
                       <span style={{ display: 'flex', alignItems: 'center' }}>{PROVIDER_ICONS['email']}</span>
                       <div>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>
-                          Email / Password
-                        </p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1 }}>Email / Password</p>
                         <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: '0.2rem' }}>
                           ✓ {getIdentity('email')?.identity_data?.email ?? user.email}
                         </p>
@@ -322,29 +483,92 @@ export default function SettingsPage() {
           {section === 'alerts' && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                Discord Alerts
+                Alerts
               </h2>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: '2rem', lineHeight: 1.8 }}>
-                Control which notifications are sent to your Discord DMs. Requires Discord to be connected.
+                Manage your Discord DM alerts and site notification preferences.
               </p>
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                {ALERT_OPTIONS.map((opt) => (
-                  <div key={opt.id} className="toggle-row">
-                    <div className="toggle-info">
-                      <span className="toggle-title">{opt.label}</span>
-                      <span className="toggle-desc">{opt.desc}</span>
+
+              {alertsLoading ? (
+                <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>Loading…</div>
+              ) : (
+                <>
+                  {/* Site Notifications */}
+                  <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--purple-hot)' }}>
+                        🔔 SITE NOTIFICATIONS
+                      </p>
                     </div>
-                    <label className="toggle">
-                      <input
-                        type="checkbox"
-                        checked={alerts[opt.id]}
-                        onChange={(e) => setAlerts({ ...alerts, [opt.id]: e.target.checked })}
-                      />
-                      <span className="toggle-track" />
-                    </label>
+
+                    {/* Mute all toggle */}
+                    <div className="toggle-row" style={{ background: alertPrefs.site_muted ? 'rgba(255,51,85,0.05)' : 'var(--surface)', border: `1px solid ${alertPrefs.site_muted ? 'rgba(255,51,85,0.3)' : 'var(--border)'}`, marginBottom: '0.5rem' }}>
+                      <div className="toggle-info">
+                        <span className="toggle-title">Mute all site notifications</span>
+                        <span className="toggle-desc">Hides the notification bell badge — notifications still accumulate</span>
+                      </div>
+                      <label className="toggle">
+                        <input type="checkbox" checked={alertPrefs.site_muted} onChange={(e) => toggleAlert('site_muted', e.target.checked)} />
+                        <span className="toggle-track" />
+                      </label>
+                    </div>
+
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', opacity: alertPrefs.site_muted ? 0.45 : 1, pointerEvents: alertPrefs.site_muted ? 'none' : 'auto' }}>
+                      {SITE_ALERT_OPTIONS.map((opt) => (
+                        <div key={opt.id} className="toggle-row">
+                          <div className="toggle-info">
+                            <span className="toggle-title">{opt.label}</span>
+                            <span className="toggle-desc">{opt.desc}</span>
+                          </div>
+                          <label className="toggle">
+                            <input type="checkbox" checked={alertPrefs[`site_${opt.id}`] ?? false} onChange={(e) => toggleAlert(`site_${opt.id}`, e.target.checked)} />
+                            <span className="toggle-track" />
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Discord Alerts */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', color: '#7289da' }}>
+                        <DiscordIconSmall /> DISCORD ALERTS
+                      </p>
+                    </div>
+
+                    {!discordConnected ? (
+                      <div style={{ padding: '1.25rem 1.5rem', background: 'rgba(114,137,218,0.08)', border: '1px solid rgba(114,137,218,0.3)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <DiscordIcon />
+                        <div>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>Discord not connected</p>
+                          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.2rem' }}>
+                            Connect your Discord account to enable DM alerts.{' '}
+                            <button onClick={() => setSection('connections')} style={{ background: 'none', border: 'none', color: '#7289da', cursor: 'pointer', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, padding: 0, letterSpacing: '0.08em' }}>
+                              Go to Connections →
+                            </button>
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        {DISCORD_ALERT_OPTIONS.map((opt) => (
+                          <div key={opt.id} className="toggle-row">
+                            <div className="toggle-info">
+                              <span className="toggle-title">{opt.label}</span>
+                              <span className="toggle-desc">{opt.desc}</span>
+                            </div>
+                            <label className="toggle">
+                              <input type="checkbox" checked={alertPrefs[`discord_${opt.id}`] ?? false} onChange={(e) => toggleAlert(`discord_${opt.id}`, e.target.checked)} />
+                              <span className="toggle-track" />
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -358,12 +582,8 @@ export default function SettingsPage() {
                 Permanently remove your account from DAW Warehouse LIVE.
               </p>
               <div style={{ padding: '2rem', background: 'rgba(255,51,85,0.06)', border: '1px solid var(--accent-red)' }}>
-                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--accent-red)', letterSpacing: '0.2em', fontWeight: 700, marginBottom: '1rem' }}>
-                  ⚠️ DANGER ZONE
-                </p>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '1rem' }}>
-                  Begin Account Retirement
-                </h3>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--accent-red)', letterSpacing: '0.2em', fontWeight: 700, marginBottom: '1rem' }}>⚠️ DANGER ZONE</p>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '1rem' }}>Begin Account Retirement</h3>
                 <ul style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.08em', lineHeight: 2, marginBottom: '1.5rem', paddingLeft: '1.25rem' }}>
                   <li>A confirmation email will be sent to your address</li>
                   <li>Your account data is preserved for <strong style={{ color: 'var(--text-strong)' }}>5 days</strong></li>
@@ -372,14 +592,10 @@ export default function SettingsPage() {
                   <li>This action cannot be undone after the 5-day window</li>
                 </ul>
                 {!retireConfirm ? (
-                  <button className="btn btn-red" onClick={() => setRetireConfirm(true)}>
-                    Begin Retirement Process
-                  </button>
+                  <button className="btn btn-red" onClick={() => setRetireConfirm(true)}>Begin Retirement Process</button>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-strong)', letterSpacing: '0.1em' }}>
-                      Are you absolutely sure? This starts the 5-day countdown.
-                    </p>
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-strong)', letterSpacing: '0.1em' }}>Are you absolutely sure? This starts the 5-day countdown.</p>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                       <button className="btn btn-red" onClick={handleLogout}>Yes, Send Confirmation Email</button>
                       <button className="btn btn-ghost" onClick={() => setRetireConfirm(false)}>Cancel</button>
@@ -397,18 +613,26 @@ export default function SettingsPage() {
                 Contact Support
               </h2>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: '2rem', lineHeight: 1.8 }}>
-                Got a bug, suggestion, or appeal? Reach Daware's team directly. You can also open a ticket in the Discord server.
+                Submit a help ticket to Daware&apos;s team. Tickets are reviewed when available.
               </p>
               {supportSent ? (
                 <div style={{ padding: '2rem', background: 'rgba(0,200,100,0.08)', border: '1px solid #00c864', textAlign: 'center' }}>
                   <p style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>✓</p>
-                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: '#00c864', textTransform: 'uppercase' }}>Message Sent</p>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: '#00c864', textTransform: 'uppercase' }}>Ticket Submitted</p>
                   <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: '0.5rem' }}>
-                    We'll get back to you within 48 hours.
+                    Your ticket has been received. No reply is guaranteed.
                   </p>
+                  <button className="btn btn-ghost" style={{ marginTop: '1.25rem', fontSize: '0.65rem' }} onClick={() => { setSupportSent(false); setSupportMsg('') }}>
+                    Submit Another
+                  </button>
                 </div>
               ) : (
                 <div style={{ maxWidth: 540 }}>
+                  {supportError && (
+                    <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--accent-red)', padding: '0.65rem 1rem', background: 'rgba(255,51,85,0.08)', border: '1px solid rgba(255,51,85,0.25)', marginBottom: '1rem' }}>
+                      {supportError}
+                    </div>
+                  )}
                   <div className="form-field">
                     <label className="form-label">Subject</label>
                     <select className="form-input form-select" value={supportSubject} onChange={(e) => setSupportSubject(e.target.value)}>
@@ -425,12 +649,8 @@ export default function SettingsPage() {
                       onChange={(e) => setSupportMsg(e.target.value)}
                     />
                   </div>
-                  <button
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
-                    onClick={() => { if (supportMsg.trim()) setSupportSent(true) }}
-                  >
-                    Send Message
+                  <button className="btn btn-primary" style={{ width: '100%', opacity: supportSending ? 0.6 : 1 }} disabled={supportSending || !supportMsg.trim()} onClick={sendSupport}>
+                    {supportSending ? 'Sending…' : 'Submit Ticket'}
                   </button>
                 </div>
               )}
@@ -456,6 +676,14 @@ function TwitchIcon() {
 function DiscordIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="#7289da" aria-hidden>
+      <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z" />
+    </svg>
+  )
+}
+
+function DiscordIconSmall() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="#7289da" aria-hidden style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5 }}>
       <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z" />
     </svg>
   )
