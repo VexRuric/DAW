@@ -703,6 +703,7 @@ export default function PortalPage() {
   const [editingFaction,  setEditingFaction]  = useState<Creation | null>(null)
   const [creations, setCreations]             = useState<Creation[]>([])
   const [loadingCreations, setLoadingCreations] = useState(true)
+  const [deletingId, setDeletingId]           = useState<string | null>(null)
 
   // Story suggestions state
   const [suggestions, setSuggestions]         = useState<{ id: string; body: string; created_at: string }[]>([])
@@ -787,6 +788,26 @@ export default function PortalPage() {
   }, [user])
 
   useEffect(() => { fetchCreations() }, [fetchCreations])
+
+  async function deleteCreation(id: string, type: 'wrestler' | 'faction') {
+    if (!confirm('Delete this creation permanently? This cannot be undone, but your slot will reopen.')) return
+    setDeletingId(id)
+    try {
+      const res = await fetch('/api/portal/delete-creation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json()
+        alert(error ?? 'Failed to delete')
+        return
+      }
+      setCreations((prev) => prev.filter((c) => c.id !== id))
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const fetchSuggestions = useCallback(async () => {
     if (!user) return
@@ -917,6 +938,14 @@ export default function PortalPage() {
                       <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
                         ✎ EDIT PENDING
                       </div>
+                    ) : c.status === 'rejected' ? (
+                      <button
+                        onClick={() => deleteCreation(c.id, c.type)}
+                        disabled={deletingId === c.id}
+                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid rgba(255,60,60,0.4)', color: '#ff4444', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'pointer', textTransform: 'uppercase', opacity: deletingId === c.id ? 0.5 : 1 }}
+                      >
+                        {deletingId === c.id ? '…' : '✕ Delete'}
+                      </button>
                     ) : (
                       <button
                         onClick={() => { if (c.type === 'wrestler') setEditingWrestler(c); else setEditingFaction(c) }}
