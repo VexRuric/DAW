@@ -1197,8 +1197,8 @@ function OwnershipSection() {
   const loadItems = useCallback(async () => {
     setLoading(true); setExpandedId(null); setProfileQuery(''); setProfileResults([])
     const table = tab === 'wrestlers' ? 'wrestlers' : 'teams'
-    const { data } = await supabase.from(table).select('id, name, status, submitted_by, profiles:submitted_by(display_name, twitch_handle)').order('name')
-    setItems((data ?? []).map((row: any) => ({ id: row.id, name: row.name, status: row.status, submitted_by: row.submitted_by, owner: row.profiles ?? null })))
+    const { data } = await supabase.from(table).select('id, name, status, submitted_by').order('name')
+    setItems((data ?? []).map((row: any) => ({ id: row.id, name: row.name, status: row.status, submitted_by: row.submitted_by, owner: null })))
     setLoading(false)
   }, [tab])
 
@@ -1254,7 +1254,7 @@ function OwnershipSection() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 200px 120px', gap:'0.75rem', padding:'0.65rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{item.name}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', color: STATUS_COLOR[item.status] ?? 'var(--text-dim)' }}>{item.status.toUpperCase()}</span>
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: item.owner ? 'var(--text-muted)' : 'var(--text-dim)', letterSpacing:'0.05em' }}>{item.owner ? (item.owner.display_name ?? item.owner.twitch_handle ?? 'Unknown user') : <span style={{ color:'var(--text-dim)', fontStyle:'italic' }}>Unassigned</span>}</span>
+                {(() => { const u = item.submitted_by ? allUsers.find(a => a.id === item.submitted_by) : null; return <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: u ? 'var(--text-muted)' : 'var(--text-dim)', letterSpacing:'0.05em' }}>{u ? u.name : <span style={{ color:'var(--text-dim)', fontStyle:'italic' }}>Unassigned</span>}</span> })()}
                 <button onClick={() => { setExpandedId(expandedId === item.id ? null : item.id); setProfileQuery(''); setProfileResults([]) }} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{expandedId === item.id ? '✕ Cancel' : 'Assign Owner'}</button>
               </div>
               {expandedId === item.id && (
