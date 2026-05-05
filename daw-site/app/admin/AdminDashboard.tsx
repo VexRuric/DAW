@@ -6,7 +6,27 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions'
+
+const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'booker', 'results', 'schedule', 'story', 'suggestions']
+const ADMIN_ONLY_SECTIONS = new Set<Section>(['accounts', 'settings', 'permissions'])
+
+const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
+  { id: 'approvals',   label: 'Pending Approvals', group: 'General' },
+  { id: 'support',     label: 'Support Tickets',   group: 'General' },
+  { id: 'booker',      label: 'Show Booker',        group: 'Show Management' },
+  { id: 'results',     label: 'Results Entry',      group: 'Show Management' },
+  { id: 'schedule',    label: 'Schedule Editor',    group: 'Show Management' },
+  { id: 'edits',       label: 'Roster Edits',       group: 'Roster & Factions' },
+  { id: 'factions',    label: 'Faction Edits',      group: 'Roster & Factions' },
+  { id: 'champions',   label: 'Champions',          group: 'Roster & Factions' },
+  { id: 'legends',     label: 'Legends',            group: 'Roster & Factions' },
+  { id: 'ownership',   label: 'Assign Ownership',   group: 'Roster & Factions' },
+  { id: 'images',      label: 'Roster Images',      group: 'Images' },
+  { id: 'titleimages', label: 'Title Images',       group: 'Images' },
+  { id: 'story',       label: 'Story Development',  group: 'Creative' },
+  { id: 'suggestions', label: 'Fan Suggestions',    group: 'Creative' },
+]
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
 const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
@@ -177,7 +197,7 @@ function SubmissionDetails({ item }: { item: PendingItem }) {
                 <DetailField label="From"          value={country} />
                 <DetailField label="Weight Class"  value={bioData.weightClass as string} />
                 <DetailField label="Height"        value={bioData.height as string} />
-                <DetailField label="Fighting Style" value={(bioData.style as string[])?.join(', ')} />
+                <DetailField label="Fighting Style" value={Array.isArray(bioData.style) ? (bioData.style as string[]).join(', ') : (bioData.style as string | null | undefined)} />
                 <DetailField label="Finisher"      value={bioData.finisher as string} />
                 <DetailField label="Hair"          value={bioData.hair as string} />
                 <DetailField label="Eyes"          value={bioData.eyes as string} />
@@ -2546,9 +2566,16 @@ function StorySuggestions() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  async function updateSuggestionStatus(id: string, status: string) {
+    await fetch('/api/admin/update-suggestion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+  }
+
   const approve = useCallback(async (s: SuggestionRow) => {
     setActing(s.id)
-    // Optimistic: remove from pending, add to dumpster immediately
     setPending((prev) => prev.filter((x) => x.id !== s.id))
     setDumpster((prev) => [{ ...s, status: 'approved' }, ...prev])
     const subjectName = s.wrestler_name ?? s.team_name ?? 'Unknown'
@@ -2560,25 +2587,23 @@ function StorySuggestions() {
       team_ids: s.team_id ? [s.team_id] : [],
       priority: 'normal',
     })
-    await supabase.from('story_suggestions').update({ status: 'approved' }).eq('id', s.id)
+    await updateSuggestionStatus(s.id, 'approved')
     setActing(null)
   }, [])
 
   const reject = useCallback(async (s: SuggestionRow) => {
     setActing(s.id)
-    // Optimistic: remove from pending, add to dumpster immediately
     setPending((prev) => prev.filter((x) => x.id !== s.id))
     setDumpster((prev) => [{ ...s, status: 'rejected' }, ...prev])
-    await supabase.from('story_suggestions').update({ status: 'rejected' }).eq('id', s.id)
+    await updateSuggestionStatus(s.id, 'rejected')
     setActing(null)
   }, [])
 
   const recall = useCallback(async (s: SuggestionRow) => {
     setActing(s.id)
-    // Optimistic: remove from dumpster, put back in pending
     setDumpster((prev) => prev.filter((x) => x.id !== s.id))
     setPending((prev) => [...prev, { ...s, status: 'pending' }])
-    await supabase.from('story_suggestions').update({ status: 'pending' }).eq('id', s.id)
+    await updateSuggestionStatus(s.id, 'pending')
     setActing(null)
   }, [])
 
@@ -3120,13 +3145,157 @@ function SiteSettings() {
   )
 }
 
+/* ── Role Permissions ────────────────────────────────── */
+
+function RolePermissions() {
+  const [creativeSections, setCreativeSections] = useState<Section[]>(DEFAULT_CREATIVE_SECTIONS)
+  const [fanMaxWrestlers, setFanMaxWrestlers]   = useState(1)
+  const [fanMaxFactions,  setFanMaxFactions]    = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
+  const [saved,   setSaved]   = useState(false)
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'role_permissions').single().then(({ data }) => {
+      if (data?.value) {
+        try {
+          const p = JSON.parse(data.value)
+          if (Array.isArray(p.creative_sections)) setCreativeSections(p.creative_sections)
+          if (p.fan_max_wrestlers != null) setFanMaxWrestlers(p.fan_max_wrestlers)
+          if (p.fan_max_factions  != null) setFanMaxFactions(p.fan_max_factions)
+        } catch { /* use defaults */ }
+      }
+      setLoading(false)
+    })
+  }, [])
+
+  function toggle(id: Section) {
+    setCreativeSections((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  }
+
+  async function save() {
+    setSaving(true); setSaved(false)
+    const value = JSON.stringify({ creative_sections: creativeSections, fan_max_wrestlers: fanMaxWrestlers, fan_max_factions: fanMaxFactions })
+    await supabase.from('site_settings').upsert({ key: 'role_permissions', value })
+    setSaving(false); setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const groups = [...new Set(PERMISSION_SECTIONS.map((s) => s.group))]
+  const metaLabel: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-dim)', display: 'block', marginBottom: '0.35rem' }
+
+  const colHead = (label: string, color: string) => (
+    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.15em', color, fontWeight: 700, textAlign: 'center' as const, display: 'block' }}>{label}</span>
+  )
+  const check = (color: string) => <div style={{ display: 'flex', justifyContent: 'center' }}><span style={{ color, fontSize: '0.9rem' }}>✓</span></div>
+  const dash  = () => <div style={{ display: 'flex', justifyContent: 'center' }}><span style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>—</span></div>
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-strong)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Role Permissions</h2>
+      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: '1.75rem', lineHeight: 1.7, maxWidth: 560 }}>
+        Toggle which admin panel sections Creative Team can access. Admins always have full access. Fan accounts have no admin panel access.
+      </p>
+
+      {loading ? (
+        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>Loading…</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+          {/* Permissions grid */}
+          <div style={{ border: '1px solid var(--border)', overflow: 'hidden', maxWidth: 620 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 60px', padding: '0.6rem 1rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.2em', color: 'var(--text-dim)', fontWeight: 700 }}>SECTION</span>
+              {colHead('ADMIN', 'var(--gold)')}
+              {colHead('CREATIVE', 'var(--purple-hot)')}
+              {colHead('FAN', 'var(--text-dim)')}
+            </div>
+
+            {groups.map((group) => (
+              <div key={group}>
+                <div style={{ padding: '0.35rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.2em', fontWeight: 700 }}>{group.toUpperCase()}</span>
+                </div>
+                {PERMISSION_SECTIONS.filter((s) => s.group === group).map((sec, i, arr) => (
+                  <div key={sec.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 60px', padding: '0.55rem 1rem', alignItems: 'center', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : '1px solid var(--border)' }}>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-strong)', letterSpacing: '0.06em' }}>{sec.label}</span>
+                    {check('var(--gold)')}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <input type="checkbox" checked={creativeSections.includes(sec.id)} onChange={() => toggle(sec.id)} style={{ width: 16, height: 16, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+                    </div>
+                    {dash()}
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {/* Admin-only rows */}
+            <div>
+              <div style={{ padding: '0.35rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.2em', fontWeight: 700 }}>ADMINISTRATION</span>
+              </div>
+              {(['Account Management', 'Site Settings', 'Role Permissions'] as const).map((lbl, i, arr) => (
+                <div key={lbl} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 60px', padding: '0.55rem 1rem', alignItems: 'center', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', opacity: 0.55 }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
+                    {lbl} <span style={{ fontSize: '0.48rem', letterSpacing: '0.15em', color: 'var(--gold)' }}>ADMIN ONLY</span>
+                  </span>
+                  {check('var(--gold)')}
+                  {dash()}
+                  {dash()}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Creation limits */}
+          <div style={{ maxWidth: 400 }}>
+            <span style={metaLabel}>Fan Creation Limits</span>
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.06em', lineHeight: 1.7, marginBottom: '1rem' }}>
+              Max wrestlers and factions a fan can have active (pending + hired). Deleting a rejected creation frees a slot.
+            </p>
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <div>
+                <span style={metaLabel}>Max Wrestlers</span>
+                <input type="number" min={0} max={20} value={fanMaxWrestlers} onChange={(e) => setFanMaxWrestlers(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
+              </div>
+              <div>
+                <span style={metaLabel}>Max Factions</span>
+                <input type="number" min={0} max={10} value={fanMaxFactions} onChange={(e) => setFanMaxFactions(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Save */}
+          <div>
+            <button onClick={save} disabled={saving} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border: `1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor: 'pointer', transition: 'all 0.2s' }}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Permissions'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Admin Page ──────────────────────────────────────── */
 
 export default function AdminDashboard() {
   const { isAdmin, isCreative, loading } = useAuth()
-  const [section, setSection]    = useState<Section>('approvals')
-  const [showNotes, setShowNotes] = useState(false)
+  const [section, setSection]           = useState<Section>('approvals')
+  const [showNotes, setShowNotes]       = useState(false)
   const [approvalCount, setApprovalCount] = useState(0)
+  const [creativeSections, setCreativeSections] = useState<Section[]>(DEFAULT_CREATIVE_SECTIONS)
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'role_permissions').single().then(({ data }) => {
+      if (data?.value) {
+        try {
+          const p = JSON.parse(data.value)
+          if (Array.isArray(p.creative_sections)) setCreativeSections(p.creative_sections)
+        } catch { /* use defaults */ }
+      }
+    })
+  }, [])
 
   if (loading) {
     return (
@@ -3146,7 +3315,14 @@ export default function AdminDashboard() {
   }
 
   interface NavGroup { label?: string; items: { id: Section; label: string; badge?: number }[] }
-  const NAV_GROUPS: NavGroup[] = [
+
+  function canAccess(s: Section): boolean {
+    if (isAdmin) return true
+    if (ADMIN_ONLY_SECTIONS.has(s)) return false
+    return creativeSections.includes(s)
+  }
+
+  const ALL_NAV: NavGroup[] = [
     { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }, { id: 'support', label: 'Support Tickets' }] },
     { label: 'Show Management', items: [
       { id: 'booker',    label: 'Show Booker' },
@@ -3168,9 +3344,16 @@ export default function AdminDashboard() {
       { id: 'story',       label: 'Story Development' },
       { id: 'suggestions', label: 'Fan Suggestions' },
     ]},
-    ...(isAdmin ? [{ label: 'Administration', items: [{ id: 'accounts' as Section, label: 'Account Management' }] }] : []),
-    ...(isAdmin ? [{ items: [{ id: 'settings' as Section, label: 'Site Settings' }] }] : []),
+    { label: 'Administration', items: [
+      { id: 'accounts',    label: 'Account Management' },
+      { id: 'settings',    label: 'Site Settings' },
+      { id: 'permissions', label: 'Role Permissions' },
+    ]},
   ]
+
+  const NAV_GROUPS: NavGroup[] = ALL_NAV
+    .map((g) => ({ ...g, items: g.items.filter((s) => canAccess(s.id)) }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <>
@@ -3201,22 +3384,23 @@ export default function AdminDashboard() {
           </div>
         </aside>
         <main className="admin-content">
-          {section === 'approvals'  && <PendingApprovals onCountChange={setApprovalCount} />}
-          {section === 'booker'      && <ShowBooker />}
-          {section === 'results'     && <ResultsEntry />}
-          {section === 'schedule'    && <ScheduleEditor />}
-          {section === 'champions'   && <ChampionsSection />}
-          {section === 'ownership'   && <OwnershipSection />}
-          {section === 'images'      && <RosterImages />}
-          {section === 'titleimages' && <TitleImages />}
-          {section === 'edits'       && <RosterEdits />}
-          {section === 'factions'    && <FactionEdits />}
-          {section === 'legends'     && <LegendsSection />}
-          {section === 'story'       && <StoryDevelopment />}
-          {section === 'suggestions' && <StorySuggestions />}
+          {section === 'approvals'  && canAccess('approvals')  && <PendingApprovals onCountChange={setApprovalCount} />}
+          {section === 'booker'      && canAccess('booker')      && <ShowBooker />}
+          {section === 'results'     && canAccess('results')     && <ResultsEntry />}
+          {section === 'schedule'    && canAccess('schedule')    && <ScheduleEditor />}
+          {section === 'champions'   && canAccess('champions')   && <ChampionsSection />}
+          {section === 'ownership'   && canAccess('ownership')   && <OwnershipSection />}
+          {section === 'images'      && canAccess('images')      && <RosterImages />}
+          {section === 'titleimages' && canAccess('titleimages') && <TitleImages />}
+          {section === 'edits'       && canAccess('edits')       && <RosterEdits />}
+          {section === 'factions'    && canAccess('factions')    && <FactionEdits />}
+          {section === 'legends'     && canAccess('legends')     && <LegendsSection />}
+          {section === 'story'       && canAccess('story')       && <StoryDevelopment />}
+          {section === 'suggestions' && canAccess('suggestions') && <StorySuggestions />}
+          {section === 'support'     && canAccess('support')     && <SupportTickets />}
           {section === 'accounts'    && isAdmin && <AccountManagement />}
           {section === 'settings'    && isAdmin && <SiteSettings />}
-          {section === 'support'     && <SupportTickets />}
+          {section === 'permissions' && isAdmin && <RolePermissions />}
         </main>
       </div>
       {showNotes && <StoryNotesWindow onClose={() => setShowNotes(false)} />}

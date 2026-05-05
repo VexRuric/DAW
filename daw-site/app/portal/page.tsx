@@ -704,6 +704,8 @@ export default function PortalPage() {
   const [creations, setCreations]             = useState<Creation[]>([])
   const [loadingCreations, setLoadingCreations] = useState(true)
   const [deletingId, setDeletingId]           = useState<string | null>(null)
+  const [fanMaxWrestlers, setFanMaxWrestlers] = useState(Infinity)
+  const [fanMaxFactions,  setFanMaxFactions]  = useState(Infinity)
 
   // Story suggestions state
   const [suggestions, setSuggestions]         = useState<{ id: string; body: string; created_at: string }[]>([])
@@ -788,6 +790,18 @@ export default function PortalPage() {
   }, [user])
 
   useEffect(() => { fetchCreations() }, [fetchCreations])
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'role_permissions').single().then(({ data }) => {
+      if (data?.value) {
+        try {
+          const p = JSON.parse(data.value)
+          if (p.fan_max_wrestlers != null) setFanMaxWrestlers(p.fan_max_wrestlers)
+          if (p.fan_max_factions  != null) setFanMaxFactions(p.fan_max_factions)
+        } catch { /* use defaults */ }
+      }
+    })
+  }, [])
 
   async function deleteCreation(id: string, type: 'wrestler' | 'faction') {
     if (!confirm('Delete this creation permanently? This cannot be undone, but your slot will reopen.')) return
@@ -960,21 +974,25 @@ export default function PortalPage() {
             })
           )}
 
-          {/* New Wrestler card */}
-          <NewCard
-            icon="⚡"
-            label="New Wrestler"
-            sub="Submit a character"
-            onClick={() => setOpenNewWrestler(true)}
-          />
+          {/* New Wrestler card — hidden when at limit */}
+          {(() => {
+            const activeWrestlers = creations.filter((c) => c.type === 'wrestler' && c.status !== 'rejected' && !c.twitchLinked).length
+            return activeWrestlers < fanMaxWrestlers ? (
+              <NewCard icon="⚡" label="New Wrestler" sub="Submit a character" onClick={() => setOpenNewWrestler(true)} />
+            ) : (
+              <NewCard icon="⚡" label="New Wrestler" sub={`Slot full (${activeWrestlers}/${fanMaxWrestlers})`} onClick={() => {}} disabled />
+            )
+          })()}
 
-          {/* New Faction card */}
-          <NewCard
-            icon="🤝"
-            label="New Faction"
-            sub="Build a stable"
-            onClick={() => setOpenNewFaction(true)}
-          />
+          {/* New Faction card — hidden when at limit */}
+          {(() => {
+            const activeFactions = creations.filter((c) => c.type === 'faction' && c.status !== 'rejected').length
+            return activeFactions < fanMaxFactions ? (
+              <NewCard icon="🤝" label="New Faction" sub="Build a stable" onClick={() => setOpenNewFaction(true)} />
+            ) : (
+              <NewCard icon="🤝" label="New Faction" sub={`Slot full (${activeFactions}/${fanMaxFactions})`} onClick={() => {}} disabled />
+            )
+          })()}
         </div>
 
         {/* Status legend */}
@@ -1098,17 +1116,18 @@ export default function PortalPage() {
   )
 }
 
-function NewCard({ icon, label, sub, onClick }: { icon: string; label: string; sub: string; onClick: () => void }) {
+function NewCard({ icon, label, sub, onClick, disabled }: { icon: string; label: string; sub: string; onClick: () => void; disabled?: boolean }) {
   const [hover, setHover] = useState(false)
   return (
     <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
+      onClick={disabled ? undefined : onClick}
+      onMouseEnter={() => !disabled && setHover(true)}
       onMouseLeave={() => setHover(false)}
+      disabled={disabled}
       style={{
-        background: hover ? 'rgba(128,0,218,0.08)' : 'transparent',
-        border: `2px dashed ${hover ? 'var(--purple-hot)' : 'var(--border-hot)'}`,
-        cursor: 'none',
+        background: disabled ? 'transparent' : hover ? 'rgba(128,0,218,0.08)' : 'transparent',
+        border: `2px dashed ${disabled ? 'rgba(255,255,255,0.08)' : hover ? 'var(--purple-hot)' : 'var(--border-hot)'}`,
+        cursor: disabled ? 'default' : 'none',
         aspectRatio: '3/4',
         display: 'flex',
         flexDirection: 'column',
@@ -1116,13 +1135,14 @@ function NewCard({ icon, label, sub, onClick }: { icon: string; label: string; s
         justifyContent: 'center',
         gap: '0.75rem',
         transition: 'all 0.2s',
+        opacity: disabled ? 0.4 : 1,
       }}
     >
-      <span style={{ fontSize: '2.5rem', opacity: hover ? 1 : 0.4 }}>{icon}</span>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: hover ? 'var(--purple-hot)' : 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
-        + {label}
+      <span style={{ fontSize: '2.5rem', opacity: disabled ? 0.3 : hover ? 1 : 0.4 }}>{icon}</span>
+      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: disabled ? 'var(--text-dim)' : hover ? 'var(--purple-hot)' : 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
+        {disabled ? label : `+ ${label}`}
       </p>
-      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
+      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: disabled ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing: '0.15em' }}>
         {sub}
       </p>
     </button>
