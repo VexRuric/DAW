@@ -151,6 +151,18 @@ function BookerModal({
   const [saveError, setSaveError]           = useState<string | null>(null)
   const [saveDone, setSaveDone]             = useState(false)
   const [copied, setCopied]                 = useState(false)
+  const [factionPickerOpen, setFactionPickerOpen] = useState<string | null>(null)
+  const [checkedMemberIds, setCheckedMemberIds]   = useState<Set<string>>(new Set())
+
+  // Auto-switch sidebar to Factions when a tag-type slot is selected; reset picker on change
+  useEffect(() => {
+    setFactionPickerOpen(null)
+    setCheckedMemberIds(new Set())
+    if (selectedSlot === null) return
+    const slot = slots.find(s => s.id === selectedSlot)
+    if (slot && ['Tag Team', 'Handicap'].includes(slot.matchType)) setSidebarTab('factions')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlot])
 
   useEffect(() => {
     async function load() {
@@ -247,6 +259,27 @@ function BookerModal({
       return { ...s, participants: parts }
     }))
     setWriteInName('')
+  }
+
+  function addCheckedFactionMembers() {
+    if (selectedSlot === null) return
+    const allMembers = factions.flatMap(f => f.members)
+    setSlots(prev => prev.map(s => {
+      if (s.id !== selectedSlot) return s
+      const count = participantCount(s.matchType, s.matchSize)
+      const parts = [...s.participants]
+      for (const memberId of checkedMemberIds) {
+        if (parts.some(p => p.type === 'roster' && p.wrestlerId === memberId)) continue
+        const emptyIdx = parts.slice(0, count).findIndex(p => !p.name)
+        if (emptyIdx === -1) break
+        const member = allMembers.find(m => m.id === memberId)
+        if (!member) continue
+        parts[emptyIdx] = { type: 'roster', wrestlerId: member.id, name: member.name }
+      }
+      return { ...s, participants: parts }
+    }))
+    setCheckedMemberIds(new Set())
+    setFactionPickerOpen(null)
   }
 
   function removeParticipant(slotId: number, idx: number) {
@@ -419,18 +452,9 @@ function BookerModal({
               onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
             >← Back to Schedule</button>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
-                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: show.show_type === 'ppv' ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700 }}>
-                  {show.show_type === 'ppv' ? '★ PPV' : 'WEEKLY'}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.12em' }}>SLOTS</span>
-                  <input type="range" min={9} max={20} value={slotCount}
-                    onChange={e => changeSlotCount(Number(e.target.value))}
-                    style={{ width: 70, accentColor: 'var(--purple)', cursor: 'pointer' }} />
-                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 18 }}>{slotCount}</span>
-                </div>
-              </div>
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: show.show_type === 'ppv' ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.2rem' }}>
+                {show.show_type === 'ppv' ? '★ PPV' : 'WEEKLY'}
+              </p>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                 {show.ppv_name ?? show.name}
               </h2>
@@ -443,6 +467,14 @@ function BookerModal({
             <button onClick={exportToDiscord} className="btn" style={{ padding: '0.55rem 1rem', fontSize: '0.65rem' }}>
               {copied ? '✓ Copied!' : '📋 Discord'}
             </button>
+            {/* Slot count slider — near Save for easy access */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
+              <input type="range" min={9} max={20} value={slotCount}
+                onChange={e => changeSlotCount(Number(e.target.value))}
+                style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
+            </div>
             <button onClick={saveMatchcard} disabled={saving || saveDone} className="btn btn-primary" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
               {saving ? 'Saving…' : saveDone ? '✓ Saved!' : 'Save Matchcard'}
             </button>
@@ -532,39 +564,118 @@ function BookerModal({
                 </>
               ) : (
                 /* Factions tab */
-                <div style={{ overflowY: 'auto', flex: 1 }}>
-                  {factions.length === 0 ? (
-                    <div style={{ padding: '1.5rem', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No factions on record.</div>
-                  ) : factions.map(faction => (
-                    <div key={faction.id} style={{ borderBottom: '1px solid rgba(42,42,51,0.5)' }}>
-                      <button
-                        onClick={() => assignFactionMembers(faction)}
-                        style={{ width: '100%', textAlign: 'left', padding: '0.65rem 0.85rem', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-                      >
-                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.08em', fontWeight: 700 }}>{faction.name}</span>
-                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.08em', flexShrink: 0 }}>{faction.members.length}m ▶</span>
-                      </button>
-                      <div style={{ paddingLeft: '0.85rem', paddingBottom: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                        {faction.members.map(m => (
-                          <button key={m.id}
-                            onClick={() => {
-                              const entry = roster.find(r => r.id === m.id)
-                              if (entry) assignRosterWrestler(entry)
-                              else assignRosterWrestler({ id: m.id, name: m.name, isChamp: false, champTitle: null, role: null, injured: false, brand: null, gender: null, division: null })
-                            }}
-                            style={{ textAlign: 'left', padding: '0.2rem 0.55rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', cursor: 'pointer', letterSpacing: '0.05em' }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-strong)' }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
-                          >
-                            {m.name}
-                          </button>
-                        ))}
+                <>
+                  {(() => {
+                    const selSlot = selectedSlot !== null ? slots.find(s => s.id === selectedSlot) : null
+                    const isTagMode = selSlot ? ['Tag Team', 'Handicap'].includes(selSlot.matchType) : false
+                    return (
+                      <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {isTagMode && (
+                          <div style={{ padding: '0.45rem 0.85rem', background: 'rgba(128,0,218,0.08)', borderBottom: '1px solid rgba(128,0,218,0.2)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', letterSpacing: '0.1em' }}>
+                            Select members to add — check names then click Add
+                          </div>
+                        )}
+                        {factions.length === 0 ? (
+                          <div style={{ padding: '1.5rem', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No factions on record.</div>
+                        ) : factions.map(faction => {
+                          const isOpen = factionPickerOpen === faction.id
+                          return (
+                            <div key={faction.id} style={{ borderBottom: '1px solid rgba(42,42,51,0.5)' }}>
+                              {/* Faction header */}
+                              <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <button
+                                  onClick={() => {
+                                    if (isTagMode) {
+                                      setFactionPickerOpen(isOpen ? null : faction.id)
+                                      if (!isOpen) setCheckedMemberIds(new Set())
+                                    } else {
+                                      assignFactionMembers(faction)
+                                    }
+                                  }}
+                                  style={{ flex: 1, textAlign: 'left', padding: '0.65rem 0.85rem', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
+                                >
+                                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.08em', fontWeight: 700 }}>{faction.name}</span>
+                                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.08em', flexShrink: 0 }}>
+                                    {faction.members.length}m {isTagMode ? (isOpen ? '▲' : '▼') : '▶'}
+                                  </span>
+                                </button>
+                                {/* Quick "Add All" button in tag mode */}
+                                {isTagMode && (
+                                  <button
+                                    onClick={() => assignFactionMembers(faction)}
+                                    title="Add all members"
+                                    style={{ padding: '0.3rem 0.5rem', background: 'none', border: 'none', borderLeft: '1px solid rgba(42,42,51,0.5)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', cursor: 'pointer', letterSpacing: '0.06em', flexShrink: 0, whiteSpace: 'nowrap' }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--gold)' }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)' }}
+                                  >All ▶</button>
+                                )}
+                              </div>
+
+                              {/* Tag mode: checkbox member picker */}
+                              {isTagMode && isOpen && (
+                                <div style={{ paddingBottom: '0.5rem', background: 'rgba(0,0,0,0.15)', borderTop: '1px solid rgba(42,42,51,0.5)' }}>
+                                  {faction.members.map(m => {
+                                    const isChecked = checkedMemberIds.has(m.id)
+                                    return (
+                                      <label key={m.id}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.85rem 0.3rem 1rem', cursor: 'pointer' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
+                                      >
+                                        <input
+                                          type="checkbox" checked={isChecked}
+                                          onChange={() => {
+                                            const next = new Set(checkedMemberIds)
+                                            isChecked ? next.delete(m.id) : next.add(m.id)
+                                            setCheckedMemberIds(next)
+                                          }}
+                                          style={{ accentColor: 'var(--purple-hot)', cursor: 'pointer', flexShrink: 0 }}
+                                        />
+                                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: isChecked ? 'var(--text-strong)' : 'var(--text-muted)', letterSpacing: '0.05em' }}>{m.name}</span>
+                                      </label>
+                                    )
+                                  })}
+                                  {checkedMemberIds.size > 0 && (
+                                    <div style={{ padding: '0.4rem 0.85rem 0 1rem' }}>
+                                      <button
+                                        onClick={addCheckedFactionMembers}
+                                        style={{ width: '100%', padding: '0.38rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}
+                                      >
+                                        + Add {checkedMemberIds.size} Selected
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Non-tag mode: always-visible individual member buttons */}
+                              {!isTagMode && (
+                                <div style={{ paddingLeft: '0.85rem', paddingBottom: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                                  {faction.members.map(m => (
+                                    <button key={m.id}
+                                      onClick={() => {
+                                        const entry = roster.find(r => r.id === m.id)
+                                        if (entry) assignRosterWrestler(entry)
+                                        else assignRosterWrestler({ id: m.id, name: m.name, isChamp: false, champTitle: null, role: null, injured: false, brand: null, gender: null, division: null })
+                                      }}
+                                      style={{ textAlign: 'left', padding: '0.2rem 0.55rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', cursor: 'pointer', letterSpacing: '0.05em' }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-strong)' }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
+                                    >
+                                      {m.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    )
+                  })()}
+                </>
               )}
 
               {selectedSlot !== null && (
