@@ -716,6 +716,7 @@ export default function PortalPage() {
   const [suggWrestlerId, setSuggWrestlerId]   = useState('')
   const [suggTeamId, setSuggTeamId]           = useState('')
   const [suggImageFile, setSuggImageFile]     = useState<File | null>(null)
+  const [suggDragOver, setSuggDragOver]       = useState(false)
   const [suggSubmitting, setSuggSubmitting]   = useState(false)
   const [suggError, setSuggError]             = useState<string | null>(null)
   const [suggToast, setSuggToast]             = useState(false)
@@ -1094,18 +1095,45 @@ export default function PortalPage() {
             </div>
             <div className="form-field" style={{ marginBottom: '1rem' }}>
               <label className="form-label">Attach Image <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setSuggImageFile(e.target.files?.[0] ?? null)}
-                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.06em', width: '100%' }}
-              />
-              {suggImageFile && (
-                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <img src={URL.createObjectURL(suggImageFile)} alt="Preview" style={{ maxHeight: 80, maxWidth: 120, objectFit: 'cover', border: '1px solid var(--border)' }} />
-                  <button onClick={() => setSuggImageFile(null)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', letterSpacing: '0.08em' }}>✕ remove</button>
-                </div>
-              )}
+              <label
+                onDragOver={(e) => { e.preventDefault(); setSuggDragOver(true) }}
+                onDragLeave={() => setSuggDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault(); setSuggDragOver(false)
+                  const file = e.dataTransfer.files?.[0]
+                  if (file && file.type.startsWith('image/')) setSuggImageFile(file)
+                }}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: '0.4rem', padding: '1.25rem', cursor: 'pointer',
+                  border: `2px dashed ${suggDragOver ? 'var(--purple-hot)' : suggImageFile ? '#00c864' : 'var(--border)'}`,
+                  background: suggDragOver ? 'rgba(128,0,218,0.06)' : 'transparent',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setSuggImageFile(e.target.files?.[0] ?? null)} />
+                {suggImageFile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <img src={URL.createObjectURL(suggImageFile)} alt="Preview" style={{ maxHeight: 72, maxWidth: 100, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }} />
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>✓ {suggImageFile.name}</p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setSuggImageFile(null) }}
+                        style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', letterSpacing: '0.08em', padding: 0 }}
+                      >✕ remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span style={{ fontSize: '1.4rem', opacity: 0.5 }}>🖼</span>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.1em', textAlign: 'center' }}>
+                      Drag & drop an image here, or click to browse
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.08em', opacity: 0.6 }}>PNG, JPG, GIF up to 5 MB</span>
+                  </>
+                )}
+              </label>
             </div>
             {suggError && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--accent-red)', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{suggError}</p>}
             {suggToast && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>✓ Suggestion submitted!</p>}
@@ -1117,25 +1145,18 @@ export default function PortalPage() {
             <div>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.75rem' }}>PAST SUBMISSIONS</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {suggestions.map((s) => {
-                  const isPending  = s.status === 'pending'
-                  const isApproved = s.status === 'approved'
-                  const leftColor  = isApproved ? '#00c864' : isPending ? 'var(--gold)' : 'var(--purple)'
-                  const statusLabel = isApproved ? '✓ APPROVED' : isPending ? 'PENDING' : '✕ REJECTED'
-                  const statusColor = isApproved ? '#00c864' : isPending ? 'var(--gold)' : 'var(--purple-hot)'
-                  return (
-                    <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftColor}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', flexWrap: 'wrap', gap: '0.35rem' }}>
-                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: statusColor, fontWeight: 700, letterSpacing: '0.14em' }}>{statusLabel}</span>
-                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      </div>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : 0, textDecoration: s.status === 'rejected' ? 'line-through' : 'none' }}>{s.body}</p>
-                      {s.image_url && (
-                        <img src={s.image_url} alt="Attachment" style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'cover', border: '1px solid var(--border)', display: 'block', marginTop: '0.4rem' }} />
-                      )}
+                {suggestions.map((s) => (
+                  <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--purple)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.14em' }}>SUBMITTED</span>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
-                  )
-                })}
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : 0 }}>{s.body}</p>
+                    {s.image_url && (
+                      <img src={s.image_url} alt="Attachment" style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'cover', border: '1px solid var(--border)', display: 'block', marginTop: '0.4rem' }} />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
