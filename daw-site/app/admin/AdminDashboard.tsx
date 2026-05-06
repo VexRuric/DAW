@@ -78,9 +78,9 @@ function participantCount(matchType: string): number {
   }
 }
 
-function getParticipantsPerSide(matchType: string): number[] {
+function getParticipantsPerSide(matchType: string, wrestlerCount?: number): number[] {
   switch (matchType) {
-    case 'Tag Team':      return [2, 2]
+    case 'Tag Team':      return wrestlerCount === 6 ? [3, 3] : [2, 2]
     case 'Triple Threat': return [1, 1, 1]
     case 'Fatal 4-Way':   return [1, 1, 1, 1]
     case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
@@ -692,7 +692,8 @@ function ResultsEntry() {
   const [streamUrl, setStreamUrl]       = useState('')
   const [savingStream, setSavingStream] = useState(false)
   const [streamSaved, setStreamSaved]   = useState(false)
-  const [rosterEntries, setRosterEntries] = useState<RosterAddEntry[]>([])
+  const [rosterEntries, setRosterEntries]   = useState<RosterAddEntry[]>([])
+  const [teamMemberships, setTeamMemberships] = useState<{ teamId: string; wrestlerId: string }[]>([])
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -710,13 +711,15 @@ function ResultsEntry() {
 
   useEffect(() => {
     async function loadRoster() {
-      const [wRes, tRes] = await Promise.all([
+      const [wRes, tRes, mRes] = await Promise.all([
         supabase.from('wrestlers').select('id, name').eq('active', true).order('name'),
         supabase.from('teams').select('id, name').eq('active', true).order('name'),
+        supabase.from('team_memberships').select('team_id, wrestler_id'),
       ])
       const wrestlers = (wRes.data ?? []).map((w: any) => ({ id: w.id, name: w.name, kind: 'wrestler' as const }))
       const teams     = (tRes.data ?? []).map((t: any) => ({ id: t.id, name: t.name, kind: 'team' as const }))
       setRosterEntries([...wrestlers, ...teams])
+      setTeamMemberships((mRes.data ?? []).map((m: any) => ({ teamId: m.team_id, wrestlerId: m.wrestler_id })))
     }
     loadRoster()
   }, [])
@@ -786,9 +789,30 @@ function ResultsEntry() {
     if (!match || !form) return
     setSavingMatch(matchId); setSavedMatch(null)
     try {
-      for (const p of match.participants) {
+      const wrestlerParts = match.participants.filter(p => !p.team_id)
+      const factionParts  = match.participants.filter(p => !!p.team_id)
+      for (const p of wrestlerParts) {
         const newResult = form.winner_mp_id === '' ? 'draw' : p.mp_id === form.winner_mp_id ? 'winner' : 'loser'
         await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+      }
+      if (factionParts.length > 0) {
+        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+        const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+        let winningSide = -1
+        if (winnerIdx >= 0) {
+          let cum = 0
+          for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+        }
+        for (const fp of factionParts) {
+          const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
+          let factionSide = -1; let wIdx = 0
+          for (let s = 0; s < perSide.length; s++) {
+            if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
+            wIdx += perSide[s]
+          }
+          const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+          await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
+        }
       }
       await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', matchId)
       setSavedMatch(matchId)
@@ -805,10 +829,32 @@ function ResultsEntry() {
       for (const match of matches) {
         const form = forms[match.id]
         if (!form) continue
-        for (const p of match.participants) {
+        const wrestlerParts = match.participants.filter(p => !p.team_id)
+        const factionParts  = match.participants.filter(p => !!p.team_id)
+        for (const p of wrestlerParts) {
           const newResult = form.winner_mp_id === '' ? 'draw' : p.mp_id === form.winner_mp_id ? 'winner' : 'loser'
           const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
           if (error) throw error
+        }
+        if (factionParts.length > 0) {
+          const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+          const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+          let winningSide = -1
+          if (winnerIdx >= 0) {
+            let cum = 0
+            for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+          }
+          for (const fp of factionParts) {
+            const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
+            let factionSide = -1; let wIdx = 0
+            for (let s = 0; s < perSide.length; s++) {
+              if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
+              wIdx += perSide[s]
+            }
+            const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+            const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
+            if (error) throw error
+          }
         }
         const { error: matchErr } = await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', match.id)
         if (matchErr) throw matchErr
@@ -931,7 +977,7 @@ function ResultsEntry() {
                 <div style={{ marginBottom:'1rem' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.5rem' }}>WINNER</p>
                   <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem' }}>
-                    {match.participants.map((p) => {
+                    {match.participants.filter(p => !p.team_id).map((p) => {
                       const selected = form.winner_mp_id === p.mp_id
                       return editingMatch === match.id ? (
                         <div key={p.mp_id} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', background:'var(--surface-2)', border:'1px solid var(--border)' }}>
@@ -948,6 +994,39 @@ function ResultsEntry() {
                       <button type="button" onClick={() => updateForm(match.id, { winner_mp_id: '' })} style={{ padding:'0.5rem 1rem', background: form.winner_mp_id === '' ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)', border:`1px solid ${form.winner_mp_id === '' ? '#f59e0b' : 'var(--border)'}`, color: form.winner_mp_id === '' ? '#f59e0b' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', letterSpacing:'0.1em', cursor:'pointer' }}>Draw / No Contest</button>
                     )}
                   </div>
+                  {(() => {
+                    const factionParts = match.participants.filter(p => !!p.team_id)
+                    if (factionParts.length === 0) return null
+                    const wrestlerParts = match.participants.filter(p => !p.team_id)
+                    const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+                    const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+                    let winningSide = -1
+                    if (winnerIdx >= 0) {
+                      let cum = 0
+                      for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+                    }
+                    return (
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem', marginTop:'0.5rem', alignItems:'center' }}>
+                        <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>FACTION</span>
+                        {factionParts.map(fp => {
+                          const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
+                          let factionSide = -1; let wIdx = 0
+                          for (let s = 0; s < perSide.length; s++) {
+                            if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
+                            wIdx += perSide[s]
+                          }
+                          const computedResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+                          const isWin = computedResult === 'winner'; const isDraw = computedResult === 'draw'
+                          return (
+                            <div key={fp.mp_id} style={{ padding:'0.35rem 0.75rem', background: isWin ? 'rgba(0,200,100,0.1)' : isDraw ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)', border:`1px solid ${isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--border)'}`, display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', fontWeight:700, letterSpacing:'0.08em', padding:'1px 4px', background:'rgba(128,0,218,0.2)', color:'var(--purple-hot)' }}>FACTION</span>
+                              <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color: isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--text-muted)', textTransform:'uppercase' }}>{isWin ? '✓ ' : ''}{fp.name}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'160px 1fr', gap:'1rem', alignItems:'start' }}>
                   <div>

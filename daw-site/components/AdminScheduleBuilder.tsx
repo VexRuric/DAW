@@ -24,7 +24,7 @@ interface BookerSlot {
   scheme: 'Match' | 'Promo' | 'Write-In'
   hasStipulation: boolean; stipTags: string[]; stipText: string
   isTitleMatch: boolean; titleId: string
-  participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[]
+  participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[]; sideFactionIds: (string | null)[]
 }
 
 /* ── Constants ──────────────────────────────────────── */
@@ -44,6 +44,7 @@ const STIP_COLORS: Record<string, string> = {
 /* ── Helpers ─────────────────────────────────────────── */
 
 function defaultMatchSize(matchType: string): number {
+  if (matchType === 'Tag Team') return 4
   if (matchType === 'Battle Royal') return 8
   if (matchType === 'Royal Rumble') return 30
   return 0
@@ -51,7 +52,7 @@ function defaultMatchSize(matchType: string): number {
 
 function participantCount(matchType: string, matchSize?: number): number {
   switch (matchType) {
-    case 'Tag Team':      return 4
+    case 'Tag Team':      return matchSize === 6 ? 6 : 4
     case 'Triple Threat': return 3
     case 'Fatal 4-Way':   return 4
     case 'Gauntlet':      return 6
@@ -64,7 +65,7 @@ function participantCount(matchType: string, matchSize?: number): number {
 
 function getParticipantsPerSide(matchType: string, matchSize?: number): number[] {
   switch (matchType) {
-    case 'Tag Team':      return [2, 2]
+    case 'Tag Team':      return matchSize === 6 ? [3, 3] : [2, 2]
     case 'Triple Threat': return [1, 1, 1]
     case 'Fatal 4-Way':   return [1, 1, 1, 1]
     case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
@@ -90,7 +91,7 @@ function makeBookerSlots(count: number): BookerSlot[] {
     hasStipulation: false, stipTags: [], stipText: '',
     isTitleMatch: false, titleId: '',
     participants: [emptyParticipant(), emptyParticipant()],
-    isMainEvent: i === count - 1, sideNames: ['', ''],
+    isMainEvent: i === count - 1, sideNames: ['', ''], sideFactionIds: [null, null],
   }))
 }
 
@@ -168,7 +169,7 @@ function BookerModal({
     async function load() {
       const { data } = await supabase
         .from('matches')
-        .select('id, match_number, match_type, scheme, stipulation, is_title_match, title_id, match_participants(wrestler_id, write_in_name, wrestlers(name))')
+        .select('id, match_number, match_type, scheme, stipulation, is_title_match, title_id, match_participants(wrestler_id, team_id, write_in_name, wrestlers(name))')
         .eq('show_id', show.id)
         .order('match_number')
 
@@ -176,19 +177,39 @@ function BookerModal({
         const maxNum    = Math.max(...data.map((m: any) => m.match_number))
         const finalCount = Math.min(20, Math.max(data.length, initialSlotCount))
         const loaded: BookerSlot[] = data.map((m: any) => {
-          const rawSize = (m.match_participants ?? []).length
+          const allMPs      = m.match_participants ?? []
+          const wrestlerMPs = allMPs.filter((mp: any) => mp.wrestler_id || mp.write_in_name)
+          const factionMPs  = allMPs.filter((mp: any) => mp.team_id && !mp.wrestler_id && !mp.write_in_name)
+          const rawSize = wrestlerMPs.length
           const ms = m.match_type === 'Battle Royal'
             ? Math.max(8, rawSize)
             : m.match_type === 'Royal Rumble'
             ? Math.max(30, rawSize)
+            : m.match_type === 'Tag Team'
+            ? (rawSize === 6 ? 6 : 4)
             : 0
           const count   = participantCount(m.match_type, ms || undefined)
-          const filled: BookerParticipant[] = (m.match_participants ?? []).map((mp: any) => ({
+          const filled: BookerParticipant[] = wrestlerMPs.map((mp: any) => ({
             type: mp.wrestler_id ? 'roster' as const : 'writein' as const,
             wrestlerId: mp.wrestler_id ?? null,
             name: mp.wrestlers?.name ?? mp.write_in_name ?? '',
           }))
           while (filled.length < count) filled.push(emptyParticipant())
+          const perSide = getParticipantsPerSide(m.match_type, ms || undefined)
+          const sideFactionIds: (string | null)[] = Array(perSide.length).fill(null)
+          if (factionMPs.length > 0) {
+            const groups = buildSideGroups(filled, m.match_type, ms || undefined)
+            for (const fmp of factionMPs) {
+              const faction = factions.find(f => f.id === fmp.team_id)
+              if (!faction) continue
+              const memberIds = new Set(faction.members.map((mem: { id: string }) => mem.id))
+              for (let si = 0; si < groups.length; si++) {
+                if (groups[si].side.some(p => p.wrestlerId && memberIds.has(p.wrestlerId))) {
+                  sideFactionIds[si] = fmp.team_id; break
+                }
+              }
+            }
+          }
           const stip = parseStipulation(m.stipulation)
           return {
             id: m.match_number, matchType: m.match_type,
@@ -197,13 +218,17 @@ function BookerModal({
             hasStipulation: stip.hasStipulation, stipTags: stip.stipTags, stipText: stip.stipText,
             isTitleMatch: m.is_title_match, titleId: m.title_id ?? '',
             isMainEvent: m.match_number === maxNum, participants: filled,
-            sideNames: getParticipantsPerSide(m.match_type, ms || undefined).map(() => ''),
+            sideNames: perSide.map((_, sideIdx) => {
+              const fid = sideFactionIds[sideIdx]
+              return fid ? (factions.find(f => f.id === fid)?.name ?? '') : ''
+            }),
+            sideFactionIds,
           }
         })
         const padded = [...loaded]
         while (padded.length < finalCount) {
           const next = padded.length + 1
-          padded.push({ id: next, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''] })
+          padded.push({ id: next, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
         }
         padded[padded.length - 1].isMainEvent = true
         setSlotCount(finalCount)
@@ -300,6 +325,17 @@ function BookerModal({
     }))
   }
 
+  function updateSideFaction(slotId: number, sideIdx: number, factionId: string | null) {
+    setSlots(prev => prev.map(s => {
+      if (s.id !== slotId) return s
+      const sideFactionIds = [...(s.sideFactionIds ?? [])]
+      sideFactionIds[sideIdx] = factionId
+      const sideNames = [...s.sideNames]
+      sideNames[sideIdx] = factionId ? (factions.find(f => f.id === factionId)?.name ?? '') : ''
+      return { ...s, sideFactionIds, sideNames }
+    }))
+  }
+
   function updateSlotField(id: number, key: keyof BookerSlot, value: unknown) {
     setSlots(prev => prev.map(s => {
       if (s.id !== id) return s
@@ -308,17 +344,21 @@ function BookerModal({
         const newSize = defaultMatchSize(value as string) || 8
         updated.matchSize = newSize
         const count = participantCount(value as string, newSize)
+        const perSide = getParticipantsPerSide(value as string, newSize)
         const existing = s.participants.slice(0, count)
         while (existing.length < count) existing.push(emptyParticipant())
         updated.participants = existing
-        updated.sideNames = Array(getParticipantsPerSide(value as string, newSize).length).fill('')
+        updated.sideNames = Array(perSide.length).fill('')
+        updated.sideFactionIds = Array(perSide.length).fill(null)
       }
       if (key === 'matchSize') {
         const count = participantCount(s.matchType, value as number)
+        const perSide = getParticipantsPerSide(s.matchType, value as number)
         const existing = s.participants.slice(0, count)
         while (existing.length < count) existing.push(emptyParticipant())
         updated.participants = existing
-        updated.sideNames = Array(count).fill('')
+        updated.sideNames = Array(perSide.length).fill('')
+        updated.sideFactionIds = Array(perSide.length).fill(null)
       }
       return updated
     }))
@@ -338,7 +378,7 @@ function BookerModal({
       const next = prev.slice(0, n)
       while (next.length < n) {
         const id = next.length + 1
-        next.push({ id, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''] })
+        next.push({ id, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
       }
       next.forEach((s, i) => { s.isMainEvent = i === n - 1 })
       return next
@@ -381,6 +421,15 @@ function BookerModal({
             result: 'loser',
           })
           if (mpErr) throw mpErr
+        }
+        const perSide = getParticipantsPerSide(slot.matchType, slot.matchSize)
+        for (let si = 0; si < perSide.length; si++) {
+          const factionId = slot.sideFactionIds?.[si]
+          if (!factionId) continue
+          const { error: fpErr } = await supabase.from('match_participants').insert({
+            match_id: matchId, wrestler_id: null, team_id: factionId, write_in_name: null, result: 'loser',
+          })
+          if (fpErr) throw fpErr
         }
         if (filled.length > 0) savedCount++
       }
@@ -711,6 +760,17 @@ function BookerModal({
                           value={slot.matchType} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={e => e.stopPropagation()}>
                           {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}
                         </select>
+                        {/* Tag Team 2v2/3v3 toggle */}
+                        {slot.matchType === 'Tag Team' && (
+                          <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
+                            {([4, 6] as const).map(n => (
+                              <button key={n} onClick={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchSize', n) }}
+                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>
+                                {n === 4 ? '2v2' : '3v3'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {/* Battle Royal size picker */}
                         {slot.matchType === 'Battle Royal' && (
                           <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
@@ -793,8 +853,15 @@ function BookerModal({
                               </div>
                             ))}
                             {!isMass && (
-                              <input type="text" placeholder="Faction name…" value={slot.sideNames[sideIdx] ?? ''} onChange={e => { e.stopPropagation(); updateSideName(slot.id, sideIdx, e.target.value) }} onClick={e => e.stopPropagation()}
-                                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', padding: '0.12rem 0.45rem', background: 'transparent', border: '1px dashed rgba(128,0,218,0.3)', color: 'var(--purple-hot)', outline: 'none', width: '100%', minWidth: 80, letterSpacing: '0.05em' }} />
+                              <select
+                                value={slot.sideFactionIds?.[sideIdx] ?? ''}
+                                onChange={e => { e.stopPropagation(); updateSideFaction(slot.id, sideIdx, e.target.value || null) }}
+                                onClick={e => e.stopPropagation()}
+                                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', padding: '0.12rem 0.45rem', background: slot.sideFactionIds?.[sideIdx] ? 'rgba(128,0,218,0.1)' : 'transparent', border: '1px dashed rgba(128,0,218,0.3)', color: slot.sideFactionIds?.[sideIdx] ? 'var(--purple-hot)' : 'var(--text-dim)', outline: 'none', width: '100%', minWidth: 80, letterSpacing: '0.05em' }}
+                              >
+                                <option value="">— None —</option>
+                                {factions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                              </select>
                             )}
                           </div>
                         </div>
