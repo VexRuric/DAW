@@ -277,144 +277,132 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
 const NAME_LIMIT = 4
 
 function MatchRow({ match }: { match: CompactMatch }) {
-  const sides = match.sides
-  const isPromo   = match.scheme === 'Promo'
-  const isWriteIn = match.scheme === 'Write-In'
-  const isSpecial = isPromo || isWriteIn
+  const sides       = match.sides
+  const isPromo     = match.scheme === 'Promo'
   const isMassMatch = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
-  const stipParts = match.stipulation
-    ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean)
-    : []
-
+  const stipParts   = match.stipulation ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean) : []
   const hiddenCount = Math.max(0, sides.length - NAME_LIMIT)
   const [expanded, setExpanded] = useState(false)
 
-  const toggleStyle: React.CSSProperties = {
-    fontFamily: 'var(--font-meta)',
-    fontSize: '0.44rem',
-    color: 'var(--purple-hot)',
-    letterSpacing: '0.1em',
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    display: 'block',
-    marginTop: '0.15rem',
-    textTransform: 'uppercase',
-    textAlign: 'left',
-  }
+  const numColor  = match.isTitleMatch ? 'var(--gold)' : 'var(--purple-hot)'
+  const rowBorder = match.isTitleMatch
+    ? '2px solid rgba(255,201,51,0.35)'
+    : isPromo
+    ? '2px solid rgba(128,0,218,0.25)'
+    : '1px solid var(--border)'
 
   return (
-    <div className="match-row" style={{ background: 'var(--surface)', border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
-      {/* Participants row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', lineHeight: 1, color: 'var(--purple-hot)', flexShrink: 0, width: 28 }}>
+    <div style={{ display: 'flex', alignItems: 'stretch', background: 'var(--surface)', borderBottom: rowBorder, flexShrink: 0, overflow: 'hidden' }}>
+
+      {/* Number column */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, flexShrink: 0, background: 'rgba(0,0,0,0.25)', borderRight: '1px solid var(--border)' }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', lineHeight: 1, color: numColor, opacity: 0.9 }}>
           {String(match.matchNumber).padStart(2, '0')}
         </span>
-
-        {isSpecial ? (
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1 }}>
-            {isPromo ? 'Promo' : 'Other'}
-          </span>
-        ) : isMassMatch ? (
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, display: 'block' }}>
-              {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
-            </span>
-            {sides.length > 0 && (
-              <>
-                <span style={{
-                  fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)',
-                  letterSpacing: '0.05em', display: 'block',
-                  ...(expanded
-                    ? { whiteSpace: 'normal', wordBreak: 'break-word' }
-                    : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-                }}>
-                  {expanded
-                    ? sides.map(s => s.name).join(' · ')
-                    : sides.slice(0, NAME_LIMIT).map(s => s.name).join(' · ')}
-                </span>
-                {hiddenCount > 0 && (
-                  <button style={toggleStyle} onClick={() => setExpanded(e => !e)}>
-                    {expanded ? '▲ show less' : `+${hiddenCount} more`}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        ) : sides.length <= 2 ? (
-          <>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {sides[0]?.name ?? 'TBA'}
-            </span>
-            {sides.length >= 2 && (
-              <>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--purple-hot)', flexShrink: 0 }}>VS</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                  {sides[1]?.name ?? 'TBA'}
-                </span>
-              </>
-            )}
-          </>
-        ) : (
-          /* Triple Threat / Fatal 4-Way / etc. — up to 4 names, expandable */
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{
-              fontFamily: 'var(--font-display)', fontSize: '0.78rem', color: 'var(--text-strong)',
-              textTransform: 'uppercase', lineHeight: 1.3, display: 'block',
-              ...(expanded
-                ? { whiteSpace: 'normal', wordBreak: 'break-word' }
-                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-            }}>
-              {expanded
-                ? sides.map(s => s.name).join(' vs ')
-                : sides.slice(0, NAME_LIMIT).map(s => s.name).join(' vs ')}
-            </span>
-            {hiddenCount > 0 && (
-              <button style={toggleStyle} onClick={() => setExpanded(e => !e)}>
-                {expanded ? '▲ show less' : `+${hiddenCount} more`}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Badges row — hidden for Promo/Write-In segments */}
-      {!isSpecial && <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', paddingLeft: 36, flexWrap: 'wrap' }}>
-        {match.isTitleMatch && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', background: 'rgba(255,201,51,0.1)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.1rem 0.35rem', letterSpacing: '0.1em', fontWeight: 700 }}>
-            {match.titleImageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={match.titleImageUrl} alt="" style={{ height: 18, maxWidth: 44, objectFit: 'contain', display: 'block' }} />
+      {/* Content column */}
+      <div style={{ flex: 1, minWidth: 0, padding: '0.4rem 0.6rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.2rem' }}>
+
+        {/* --- PROMO --- */}
+        {isPromo ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.14em', color: 'var(--purple-hot)', background: 'rgba(128,0,218,0.12)', border: '1px solid rgba(128,0,218,0.3)', padding: '0.12rem 0.4rem', flexShrink: 0 }}>
+              PROMO
+            </span>
+            {sides.length > 0 ? (
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {sides.map(s => s.name).join(' & ')}
+              </span>
+            ) : (
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
+                TBA
+              </span>
             )}
-            TITLE
-          </span>
+          </div>
+
+        /* --- BATTLE ROYAL / RUMBLE --- */
+        ) : isMassMatch ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.82rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
+                {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
+              </span>
+              {stipParts.map(tag => (
+                <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.05rem 0.25rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
+              ))}
+            </div>
+            {sides.length > 0 && (
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap', wordBreak: 'break-word' }}>
+                {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map(s => s.name).join(' · ')}
+                {hiddenCount > 0 && !expanded && (
+                  <button onClick={() => setExpanded(true)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', background: 'none', border: 'none', padding: '0 0.25rem', cursor: 'pointer' }}>+{hiddenCount} more</button>
+                )}
+              </span>
+            )}
+          </>
+
+        /* --- STANDARD 2-SIDE --- */
+        ) : sides.length <= 2 ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {sides[0]?.name ?? 'TBA'}
+              </span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.55rem', color: 'var(--purple-hot)', flexShrink: 0, opacity: 0.8 }}>VS</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                {sides[1]?.name ?? 'TBA'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {match.matchType}
+              </span>
+              {stipParts.map(tag => (
+                <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.04rem 0.22rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
+              ))}
+              {match.isTitleMatch && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontFamily: 'var(--font-meta)', fontSize: '0.44rem', background: 'rgba(255,201,51,0.12)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.04rem 0.28rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+                  {match.titleImageUrl && <img src={match.titleImageUrl} alt="" style={{ height: 14, maxWidth: 36, objectFit: 'contain', display: 'block' }} />}
+                  {match.hashtag ? `#${match.hashtag}` : 'TITLE ON THE LINE'}
+                </span>
+              )}
+              {match.titleName && (
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{match.titleName}</span>
+              )}
+              {match.hashtag && !match.isTitleMatch && (
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: HASHTAG_COLOR[match.hashtag], letterSpacing: '0.1em', fontWeight: 700 }}>#{match.hashtag}</span>
+              )}
+            </div>
+          </>
+
+        /* --- MULTI-PERSON (3+) --- */
+        ) : (
+          <>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.78rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap', wordBreak: 'break-word' }}>
+              {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map(s => s.name).join(' vs ')}
+              {hiddenCount > 0 && !expanded && (
+                <button onClick={() => setExpanded(true)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', background: 'none', border: 'none', padding: '0 0.25rem', cursor: 'pointer' }}>+{hiddenCount} more</button>
+              )}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{match.matchType}</span>
+              {stipParts.map(tag => (
+                <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.04rem 0.22rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
+              ))}
+              {match.isTitleMatch && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontFamily: 'var(--font-meta)', fontSize: '0.44rem', background: 'rgba(255,201,51,0.12)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.04rem 0.28rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+                  {match.titleImageUrl && <img src={match.titleImageUrl} alt="" style={{ height: 14, maxWidth: 36, objectFit: 'contain', display: 'block' }} />}
+                  {match.hashtag ? `#${match.hashtag}` : 'TITLE ON THE LINE'}
+                </span>
+              )}
+              {match.titleName && (
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{match.titleName}</span>
+              )}
+            </div>
+          </>
         )}
-        {match.hashtag ? (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: HASHTAG_COLOR[match.hashtag], letterSpacing: '0.1em', fontWeight: 700 }}>
-            #{match.hashtag}
-          </span>
-        ) : match.isTitleMatch ? (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            ON THE LINE
-          </span>
-        ) : null}
-        {match.titleName && (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            {match.titleName}
-          </span>
-        )}
-        {stipParts.map(tag => (
-          <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.08rem 0.3rem', letterSpacing: '0.08em', fontWeight: 700 }}>
-            {tag}
-          </span>
-        ))}
-        {!match.isTitleMatch && stipParts.length === 0 && (
-          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            {match.matchType}
-          </span>
-        )}
-      </div>}
+      </div>
     </div>
   )
 }
