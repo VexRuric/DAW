@@ -2651,8 +2651,8 @@ function StorySuggestions() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   async function updateSuggestionStatus(id: string, status: string): Promise<boolean> {
-    const { data, error } = await supabase.from('story_suggestions').update({ status }).eq('id', id).select('id')
-    return !error && Array.isArray(data) && data.length > 0
+    const { error } = await supabase.from('story_suggestions').update({ status }).eq('id', id)
+    return !error
   }
 
   const approve = useCallback(async (s: SuggestionRow) => {
