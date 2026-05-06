@@ -2651,7 +2651,7 @@ function StorySuggestions() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   async function updateSuggestionStatus(id: string, status: string): Promise<boolean> {
-    const { error } = await supabase.from('story_suggestions').update({ status }).eq('id', id)
+    const { error } = await supabase.rpc('update_suggestion_status', { p_id: id, p_status: status })
     return !error
   }
 
