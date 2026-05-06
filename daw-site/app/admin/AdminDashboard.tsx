@@ -2554,7 +2554,7 @@ function StoryDevelopment() {
 
 /* ── Story Suggestions (Admin) ───────────────────────── */
 
-interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
+interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; image_url?: string | null; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
 
 const suggMetaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
 const suggDimStyle: React.CSSProperties  = { ...suggMetaStyle, color: 'var(--text-dim)' }
@@ -2586,7 +2586,12 @@ function SuggestionCard({ s, inDumpster, acting, onApprove, onReject, onRecall }
         </div>
         <span style={suggDimStyle}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
       </div>
-      <p style={{ fontSize: '0.85rem', color: bodyColor, lineHeight: 1.6, marginBottom: '0.75rem', textDecoration: inDumpster && isRejected ? 'line-through' : 'none' }}>{s.body}</p>
+      <p style={{ fontSize: '0.85rem', color: bodyColor, lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : '0.75rem', textDecoration: inDumpster && isRejected ? 'line-through' : 'none' }}>{s.body}</p>
+      {s.image_url && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <img src={s.image_url} alt="Suggestion attachment" style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }} />
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         {!inDumpster && (<>
           <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => onApprove(s)}>Approve → Story Board</button>
@@ -2645,12 +2650,9 @@ function StorySuggestions() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  async function updateSuggestionStatus(id: string, status: string) {
-    await fetch('/api/admin/update-suggestion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
-    })
+  async function updateSuggestionStatus(id: string, status: string): Promise<boolean> {
+    const { error } = await supabase.from('story_suggestions').update({ status }).eq('id', id)
+    return !error
   }
 
   const approve = useCallback(async (s: SuggestionRow) => {
@@ -2666,7 +2668,8 @@ function StorySuggestions() {
       team_ids: s.team_id ? [s.team_id] : [],
       priority: 'normal',
     })
-    await updateSuggestionStatus(s.id, 'approved')
+    const ok = await updateSuggestionStatus(s.id, 'approved')
+    if (!ok) { setPending((prev) => [...prev, s]); setDumpster((prev) => prev.filter((x) => x.id !== s.id)) }
     setActing(null)
   }, [])
 
@@ -2674,7 +2677,8 @@ function StorySuggestions() {
     setActing(s.id)
     setPending((prev) => prev.filter((x) => x.id !== s.id))
     setDumpster((prev) => [{ ...s, status: 'rejected' }, ...prev])
-    await updateSuggestionStatus(s.id, 'rejected')
+    const ok = await updateSuggestionStatus(s.id, 'rejected')
+    if (!ok) { setDumpster((prev) => prev.filter((x) => x.id !== s.id)); setPending((prev) => [...prev, s]) }
     setActing(null)
   }, [])
 
@@ -2682,7 +2686,8 @@ function StorySuggestions() {
     setActing(s.id)
     setDumpster((prev) => prev.filter((x) => x.id !== s.id))
     setPending((prev) => [...prev, { ...s, status: 'pending' }])
-    await updateSuggestionStatus(s.id, 'pending')
+    const ok = await updateSuggestionStatus(s.id, 'pending')
+    if (!ok) { setPending((prev) => prev.filter((x) => x.id !== s.id)); setDumpster((prev) => [...prev, s]) }
     setActing(null)
   }, [])
 
@@ -2814,6 +2819,8 @@ function AccountManagement() {
   const [combineSearch, setCombineSearch] = useState('')
   const [combining, setCombining]   = useState(false)
   const [acctFeedback, setAcctFeedback] = useState<string | null>(null)
+  const [tierMap, setTierMap]       = useState<Record<string, string>>({})
+  const [savingTier, setSavingTier] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -2825,6 +2832,22 @@ function AccountManagement() {
       .catch(() => setError('Failed to load users'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (users.length === 0) return
+    supabase.from('profiles').select('id, subscription_tier').then(({ data }) => {
+      const map: Record<string, string> = {}
+      for (const p of data ?? []) map[p.id] = p.subscription_tier ?? 'fan'
+      setTierMap(map)
+    })
+  }, [users])
+
+  async function changeTier(userId: string, tier: string) {
+    setSavingTier(userId)
+    await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', userId)
+    setTierMap((prev) => ({ ...prev, [userId]: tier }))
+    setSavingTier(null)
+  }
 
   async function changeRole(userId: string, newRole: string) {
     setSaving(userId)
@@ -2942,7 +2965,21 @@ function AccountManagement() {
                 >
                   {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-                <div style={{ display:'flex', gap:'0.35rem' }}>
+                <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
+                  {u.role === 'fan' && (() => {
+                    const tier = tierMap[u.id] ?? 'fan'
+                    const isSub = tier === 'subscriber'
+                    return (
+                      <button
+                        onClick={() => changeTier(u.id, isSub ? 'fan' : 'subscriber')}
+                        disabled={savingTier === u.id}
+                        style={{ padding:'0.3rem 0.55rem', background: isSub ? 'rgba(0,200,100,0.15)' : 'rgba(0,0,0,0.15)', border:`1px solid ${isSub ? '#00c864' : 'var(--border)'}`, color: isSub ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.52rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: savingTier === u.id ? 0.5 : 1, whiteSpace:'nowrap' }}
+                        title={isSub ? 'Click to remove subscriber status' : 'Click to grant subscriber perks'}
+                      >
+                        {isSub ? '★ Sub' : '☆ Fan'}
+                      </button>
+                    )
+                  })()}
                   <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch('') }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
                   <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
                 </div>
@@ -3230,6 +3267,8 @@ function RolePermissions() {
   const [creativeSections, setCreativeSections] = useState<Section[]>(DEFAULT_CREATIVE_SECTIONS)
   const [fanMaxWrestlers, setFanMaxWrestlers]   = useState(1)
   const [fanMaxFactions,  setFanMaxFactions]    = useState(1)
+  const [subMaxWrestlers, setSubMaxWrestlers]   = useState(3)
+  const [subMaxFactions,  setSubMaxFactions]    = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving,  setSaving]  = useState(false)
   const [saved,   setSaved]   = useState(false)
@@ -3242,6 +3281,8 @@ function RolePermissions() {
           if (Array.isArray(p.creative_sections)) setCreativeSections(p.creative_sections)
           if (p.fan_max_wrestlers != null) setFanMaxWrestlers(p.fan_max_wrestlers)
           if (p.fan_max_factions  != null) setFanMaxFactions(p.fan_max_factions)
+          if (p.sub_max_wrestlers != null) setSubMaxWrestlers(p.sub_max_wrestlers)
+          if (p.sub_max_factions  != null) setSubMaxFactions(p.sub_max_factions)
         } catch { /* use defaults */ }
       }
       setLoading(false)
@@ -3254,7 +3295,7 @@ function RolePermissions() {
 
   async function save() {
     setSaving(true); setSaved(false)
-    const value = JSON.stringify({ creative_sections: creativeSections, fan_max_wrestlers: fanMaxWrestlers, fan_max_factions: fanMaxFactions })
+    const value = JSON.stringify({ creative_sections: creativeSections, fan_max_wrestlers: fanMaxWrestlers, fan_max_factions: fanMaxFactions, sub_max_wrestlers: subMaxWrestlers, sub_max_factions: subMaxFactions })
     await supabase.from('site_settings').upsert({ key: 'role_permissions', value })
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -3327,21 +3368,32 @@ function RolePermissions() {
           </div>
 
           {/* Creation limits */}
-          <div style={{ maxWidth: 400 }}>
+          <div style={{ maxWidth: 500 }}>
             <span style={metaLabel}>Fan Creation Limits</span>
             <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.06em', lineHeight: 1.7, marginBottom: '1rem' }}>
               Max wrestlers and factions a fan can have active (pending + hired). Deleting a rejected creation frees a slot.
             </p>
-            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', maxWidth: 420 }}>
               <div>
-                <span style={metaLabel}>Max Wrestlers</span>
+                <span style={metaLabel}>Fan — Max Wrestlers</span>
                 <input type="number" min={0} max={20} value={fanMaxWrestlers} onChange={(e) => setFanMaxWrestlers(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
               </div>
               <div>
-                <span style={metaLabel}>Max Factions</span>
+                <span style={metaLabel}>Fan — Max Factions</span>
                 <input type="number" min={0} max={10} value={fanMaxFactions} onChange={(e) => setFanMaxFactions(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
               </div>
+              <div>
+                <span style={{ ...metaLabel, color: '#00c864' }}>Subscriber — Max Wrestlers</span>
+                <input type="number" min={0} max={20} value={subMaxWrestlers} onChange={(e) => setSubMaxWrestlers(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
+              </div>
+              <div>
+                <span style={{ ...metaLabel, color: '#00c864' }}>Subscriber — Max Factions</span>
+                <input type="number" min={0} max={10} value={subMaxFactions} onChange={(e) => setSubMaxFactions(Math.max(0, Math.min(10, parseInt(e.target.value) || 0)))} className="form-input" style={{ width: 80 }} />
+              </div>
             </div>
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: '#00c864', letterSpacing: '0.06em', lineHeight: 1.7, marginTop: '0.75rem', opacity: 0.7 }}>
+              ★ Subscriber limits apply to fans marked as Discord Boosters or Twitch Subscribers in Account Management.
+            </p>
           </div>
 
           {/* Save */}

@@ -706,12 +706,16 @@ export default function PortalPage() {
   const [deletingId, setDeletingId]           = useState<string | null>(null)
   const [fanMaxWrestlers, setFanMaxWrestlers] = useState(Infinity)
   const [fanMaxFactions,  setFanMaxFactions]  = useState(Infinity)
+  const [subMaxWrestlers, setSubMaxWrestlers] = useState(Infinity)
+  const [subMaxFactions,  setSubMaxFactions]  = useState(Infinity)
+  const [subscriptionTier, setSubscriptionTier] = useState<'fan' | 'subscriber'>('fan')
 
   // Story suggestions state
-  const [suggestions, setSuggestions]         = useState<{ id: string; body: string; created_at: string }[]>([])
+  const [suggestions, setSuggestions]         = useState<{ id: string; body: string; status: string; created_at: string; image_url?: string | null }[]>([])
   const [suggBody, setSuggBody]               = useState('')
   const [suggWrestlerId, setSuggWrestlerId]   = useState('')
   const [suggTeamId, setSuggTeamId]           = useState('')
+  const [suggImageFile, setSuggImageFile]     = useState<File | null>(null)
   const [suggSubmitting, setSuggSubmitting]   = useState(false)
   const [suggError, setSuggError]             = useState<string | null>(null)
   const [suggToast, setSuggToast]             = useState(false)
@@ -798,10 +802,19 @@ export default function PortalPage() {
           const p = JSON.parse(data.value)
           if (p.fan_max_wrestlers != null) setFanMaxWrestlers(p.fan_max_wrestlers)
           if (p.fan_max_factions  != null) setFanMaxFactions(p.fan_max_factions)
+          if (p.sub_max_wrestlers != null) setSubMaxWrestlers(p.sub_max_wrestlers)
+          if (p.sub_max_factions  != null) setSubMaxFactions(p.sub_max_factions)
         } catch { /* use defaults */ }
       }
     })
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('profiles').select('subscription_tier').eq('id', user.id).single().then(({ data }) => {
+      if (data?.subscription_tier === 'subscriber') setSubscriptionTier('subscriber')
+    })
+  }, [user])
 
   async function deleteCreation(id: string, type: 'wrestler' | 'faction') {
     if (!confirm('Delete this creation permanently? This cannot be undone, but your slot will reopen.')) return
@@ -827,9 +840,8 @@ export default function PortalPage() {
     if (!user) return
     const { data } = await supabase
       .from('story_suggestions')
-      .select('id, body, created_at')
+      .select('id, body, status, created_at, image_url')
       .eq('submitted_by', user.id)
-      .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setSuggestions(data ?? [])
   }, [user])
@@ -840,17 +852,29 @@ export default function PortalPage() {
     if (!suggBody.trim()) { setSuggError('Please describe your story idea.'); return }
     if (!suggWrestlerId && !suggTeamId) { setSuggError('Select a wrestler or faction this is about.'); return }
     setSuggSubmitting(true); setSuggError(null)
+
+    let image_url: string | null = null
+    if (suggImageFile) {
+      const ext = suggImageFile.name.split('.').pop() ?? 'jpg'
+      const path = `${user!.id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('suggestion-images').upload(path, suggImageFile, { upsert: false })
+      if (upErr) { setSuggSubmitting(false); setSuggError('Image upload failed — please try a smaller file or different format.'); return }
+      const { data: urlData } = supabase.storage.from('suggestion-images').getPublicUrl(path)
+      image_url = urlData.publicUrl
+    }
+
     const { error } = await supabase.from('story_suggestions').insert({
       submitted_by: user!.id,
       wrestler_id: suggWrestlerId || null,
       team_id: suggTeamId || null,
       body: suggBody.trim(),
+      image_url,
     })
     setSuggSubmitting(false)
     if (error) { setSuggError('Submission failed — please try again.'); return }
     setSuggToast(true)
     setTimeout(() => setSuggToast(false), 3000)
-    setSuggBody(''); setSuggWrestlerId(''); setSuggTeamId('')
+    setSuggBody(''); setSuggWrestlerId(''); setSuggTeamId(''); setSuggImageFile(null)
     fetchSuggestions()
   }
 
@@ -976,21 +1000,23 @@ export default function PortalPage() {
 
           {/* New Wrestler card — hidden when at limit */}
           {(() => {
+            const effectiveMax = subscriptionTier === 'subscriber' ? subMaxWrestlers : fanMaxWrestlers
             const activeWrestlers = creations.filter((c) => c.type === 'wrestler' && c.status !== 'rejected' && !c.twitchLinked).length
-            return activeWrestlers < fanMaxWrestlers ? (
+            return activeWrestlers < effectiveMax ? (
               <NewCard icon="⚡" label="New Wrestler" sub="Submit a character" onClick={() => setOpenNewWrestler(true)} />
             ) : (
-              <NewCard icon="⚡" label="New Wrestler" sub={`Slot full (${activeWrestlers}/${fanMaxWrestlers})`} onClick={() => {}} disabled />
+              <NewCard icon="⚡" label="New Wrestler" sub={`Slot full (${activeWrestlers}/${effectiveMax})`} onClick={() => {}} disabled />
             )
           })()}
 
           {/* New Faction card — hidden when at limit */}
           {(() => {
+            const effectiveMax = subscriptionTier === 'subscriber' ? subMaxFactions : fanMaxFactions
             const activeFactions = creations.filter((c) => c.type === 'faction' && c.status !== 'rejected').length
-            return activeFactions < fanMaxFactions ? (
+            return activeFactions < effectiveMax ? (
               <NewCard icon="🤝" label="New Faction" sub="Build a stable" onClick={() => setOpenNewFaction(true)} />
             ) : (
-              <NewCard icon="🤝" label="New Faction" sub={`Slot full (${activeFactions}/${fanMaxFactions})`} onClick={() => {}} disabled />
+              <NewCard icon="🤝" label="New Faction" sub={`Slot full (${activeFactions}/${effectiveMax})`} onClick={() => {}} disabled />
             )
           })()}
         </div>
@@ -1026,61 +1052,94 @@ export default function PortalPage() {
 
       {/* Story Suggestions */}
       <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
-        <p className="section-label" style={{ marginBottom: '0.25rem' }}>My Creations</p>
-        <h2 className="section-title" style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>Story Suggestions</h2>
-        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em', lineHeight: 1.8, maxWidth: 520, marginBottom: '1.5rem' }}>
-          Have an idea for a story you want to see your wrestler or faction pursue? Submit it here.<br />
-          The creative team reviews all suggestions — if yours gets used, you&apos;ll be surprised on-screen!
-        </p>
+        <div style={{ maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
+          <p className="section-label" style={{ marginBottom: '0.25rem', textAlign: 'center' }}>Fan Portal</p>
+          <h2 className="section-title" style={{ fontSize: '1.8rem', marginBottom: '0.5rem', textAlign: 'center' }}>Story Suggestions</h2>
+          <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em', lineHeight: 1.8, marginBottom: '0.75rem', textAlign: 'center' }}>
+            Have an idea for a story you want to see your wrestler or faction pursue? Submit it here.<br />
+            The creative team reviews all suggestions — if yours gets used, you&apos;ll be surprised on-screen!
+          </p>
 
-        {/* Submission form */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.5rem', maxWidth: 580, marginBottom: '2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <div className="form-field" style={{ marginBottom: 0 }}>
-              <label className="form-label">Wrestler</label>
-              <select className="form-input form-select" value={suggWrestlerId} onChange={(e) => { setSuggWrestlerId(e.target.value); if (e.target.value) setSuggTeamId('') }}>
-                <option value="">— select —</option>
-                {creations.filter((c) => c.type === 'wrestler' && c.status === 'hired').map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field" style={{ marginBottom: 0 }}>
-              <label className="form-label">Faction</label>
-              <select className="form-input form-select" value={suggTeamId} onChange={(e) => { setSuggTeamId(e.target.value); if (e.target.value) setSuggWrestlerId('') }}>
-                <option value="">— select —</option>
-                {creations.filter((c) => c.type === 'faction' && c.status === 'hired').map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="form-field" style={{ marginBottom: '0.75rem' }}>
-            <label className="form-label">Your Story Idea</label>
-            <textarea className="form-input form-textarea" rows={4} placeholder="Describe what you'd like to see happen…" value={suggBody} onChange={(e) => setSuggBody(e.target.value)} />
-          </div>
-          {suggError && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--accent-red)', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{suggError}</p>}
-          {suggToast && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>✓ Suggestion submitted!</p>}
-          <button className="btn btn-primary" onClick={submitSuggestion} disabled={suggSubmitting}>{suggSubmitting ? 'Submitting…' : 'Submit Idea'}</button>
-        </div>
+          {subscriptionTier === 'subscriber' && (
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: '#00c864', letterSpacing: '0.12em', fontWeight: 700, textAlign: 'center', marginBottom: '1.25rem' }}>
+              ★ SUBSCRIBER — Enhanced creation limits active
+            </p>
+          )}
 
-        {/* Past submissions */}
-        {suggestions.length > 0 && (
-          <div>
-            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.75rem' }}>PAST SUBMISSIONS</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: 580 }}>
-              {suggestions.map((s) => (
-                <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--purple)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.12em' }}>SUBMITTED</span>
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                  </div>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{s.body}</p>
+          {/* Submission form */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Wrestler</label>
+                <select className="form-input form-select" value={suggWrestlerId} onChange={(e) => { setSuggWrestlerId(e.target.value); if (e.target.value) setSuggTeamId('') }}>
+                  <option value="">— select —</option>
+                  {creations.filter((c) => c.type === 'wrestler' && c.status === 'hired').map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field" style={{ marginBottom: 0 }}>
+                <label className="form-label">Faction</label>
+                <select className="form-input form-select" value={suggTeamId} onChange={(e) => { setSuggTeamId(e.target.value); if (e.target.value) setSuggWrestlerId('') }}>
+                  <option value="">— select —</option>
+                  {creations.filter((c) => c.type === 'faction' && c.status === 'hired').map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="form-field" style={{ marginBottom: '0.75rem' }}>
+              <label className="form-label">Your Story Idea</label>
+              <textarea className="form-input form-textarea" rows={4} placeholder="Describe what you'd like to see happen…" value={suggBody} onChange={(e) => setSuggBody(e.target.value)} />
+            </div>
+            <div className="form-field" style={{ marginBottom: '1rem' }}>
+              <label className="form-label">Attach Image <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSuggImageFile(e.target.files?.[0] ?? null)}
+                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.06em', width: '100%' }}
+              />
+              {suggImageFile && (
+                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <img src={URL.createObjectURL(suggImageFile)} alt="Preview" style={{ maxHeight: 80, maxWidth: 120, objectFit: 'cover', border: '1px solid var(--border)' }} />
+                  <button onClick={() => setSuggImageFile(null)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', letterSpacing: '0.08em' }}>✕ remove</button>
                 </div>
-              ))}
+              )}
             </div>
+            {suggError && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--accent-red)', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>{suggError}</p>}
+            {suggToast && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>✓ Suggestion submitted!</p>}
+            <button className="btn btn-primary" onClick={submitSuggestion} disabled={suggSubmitting}>{suggSubmitting ? 'Submitting…' : 'Submit Idea'}</button>
           </div>
-        )}
+
+          {/* Past submissions */}
+          {suggestions.length > 0 && (
+            <div>
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.75rem' }}>PAST SUBMISSIONS</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {suggestions.map((s) => {
+                  const isPending  = s.status === 'pending'
+                  const isApproved = s.status === 'approved'
+                  const leftColor  = isApproved ? '#00c864' : isPending ? 'var(--gold)' : 'var(--purple)'
+                  const statusLabel = isApproved ? '✓ APPROVED' : isPending ? 'PENDING' : '✕ REJECTED'
+                  const statusColor = isApproved ? '#00c864' : isPending ? 'var(--gold)' : 'var(--purple-hot)'
+                  return (
+                    <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftColor}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: statusColor, fontWeight: 700, letterSpacing: '0.14em' }}>{statusLabel}</span>
+                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : 0, textDecoration: s.status === 'rejected' ? 'line-through' : 'none' }}>{s.body}</p>
+                      {s.image_url && (
+                        <img src={s.image_url} alt="Attachment" style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'cover', border: '1px solid var(--border)', display: 'block', marginTop: '0.4rem' }} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modals */}
