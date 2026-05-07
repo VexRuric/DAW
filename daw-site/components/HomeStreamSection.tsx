@@ -216,7 +216,6 @@ export default function HomeStreamSection({
               {/* Compact match list — fills remaining height, scrolls if needed */}
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {matches.length === 0 && show.status !== 'completed' ? (
-                  // Upcoming show with no matchcard yet — show mystery slots
                   Array.from({ length: show.show_type === 'ppv' ? 12 : 9 }, (_, i) => (
                     <MysteryRow
                       key={i}
@@ -276,7 +275,8 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
 
 const NAME_LIMIT = 4
 
-function WrestlerAvatar({ src, name, size = 34 }: { src: string | null; name: string; size?: number }) {
+// size accepts px number or CSS string (e.g. clamp(...)) for responsive sizing
+function WrestlerAvatar({ src, name, size = 34 }: { src: string | null; name: string; size?: number | string }) {
   if (!src) return null
   return (
     <div style={{ width: size, height: size, flexShrink: 0, overflow: 'hidden', background: 'rgba(0,0,0,0.35)' }}>
@@ -286,9 +286,9 @@ function WrestlerAvatar({ src, name, size = 34 }: { src: string | null; name: st
   )
 }
 
-function MatchBadges({ match, stipParts }: { match: CompactMatch; stipParts: string[] }) {
+function MatchBadges({ match, stipParts, center }: { match: CompactMatch; stipParts: string[]; center?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: center ? 'center' : undefined }}>
       <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         {match.matchType}
       </span>
@@ -312,11 +312,11 @@ function MatchBadges({ match, stipParts }: { match: CompactMatch; stipParts: str
 }
 
 function MatchRow({ match }: { match: CompactMatch }) {
-  const sides           = match.sides
-  const isPromo         = match.scheme === 'Promo'
-  const isMassMatch     = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
-  const stipParts       = match.stipulation ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean) : []
-  const hiddenCount     = Math.max(0, sides.length - NAME_LIMIT)
+  const sides             = match.sides
+  const isPromo           = match.scheme === 'Promo'
+  const isMassMatch       = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
+  const stipParts         = match.stipulation ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean) : []
+  const hiddenCount       = Math.max(0, sides.length - NAME_LIMIT)
   const [expanded, setExpanded] = useState(false)
   const hasFactionMembers = sides.some(s => s.members && s.members.length > 0)
 
@@ -327,7 +327,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
     ? '2px solid rgba(128,0,218,0.25)'
     : '1px solid var(--border)'
 
-  // For faction/team sides: fall back to first member render if no team image exists
+  // Faction/team: fall back to first member render if the team has no dedicated image
   function sideImg(idx: number): string | null {
     return sides[idx]?.image_url ?? sides[idx]?.members?.[0]?.image_url ?? null
   }
@@ -354,8 +354,8 @@ function MatchRow({ match }: { match: CompactMatch }) {
             {sides.length > 0 ? sides.map((s, i) => (
               <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                 {i > 0 && <span style={{ fontFamily: 'var(--font-meta)', color: 'var(--text-dim)', fontSize: '0.5rem', opacity: 0.5 }}>&amp;</span>}
-                <WrestlerAvatar src={s.image_url} name={s.name} size={36} />
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
+                <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem, 3vw, 0.9rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                   {s.name}
                 </span>
               </span>
@@ -366,7 +366,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
             )}
           </div>
 
-        /* --- BATTLE ROYAL / RUMBLE --- */
+        /* --- BATTLE ROYAL / ROYAL RUMBLE — names only, no images (too many wrestlers) --- */
         ) : isMassMatch ? (
           <>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
@@ -378,12 +378,11 @@ function MatchRow({ match }: { match: CompactMatch }) {
               ))}
             </div>
             {sides.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
                 {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
-                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
+                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', flexShrink: 0 }}>
                     {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.35, fontSize: '0.45rem', flexShrink: 0 }}>·</span>}
-                    <WrestlerAvatar src={s.image_url} name={s.name} size={26} />
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{s.name}</span>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{s.name}</span>
                   </span>
                 ))}
                 {hiddenCount > 0 && !expanded && (
@@ -393,49 +392,46 @@ function MatchRow({ match }: { match: CompactMatch }) {
             )}
           </>
 
-        /* --- STANDARD 2-SIDE --- */
+        /* --- STANDARD 2-SIDE (singles / tag / faction) --- */
         ) : sides.length <= 2 ? (
           <>
-            {/* Names row with headshots — sideImg() falls back to first member render for factions */}
+            {/* clamp() sizes scale down gracefully on mobile */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               {/* Side A */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0 }}>
-                <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size={52} />
-                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
+                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.55rem', color: 'var(--purple-hot)', flexShrink: 0, opacity: 0.8 }}>VS</span>
               {/* Side B */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
-                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
-                <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size={52} />
+                <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
               </div>
             </div>
-            {/* Faction members row — only shown when sides have a team_id/members */}
+            {/* Faction members row — only when team_id members exist */}
             {hasFactionMembers && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
-                {/* Side A members */}
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
                   {(sides[0]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      <WrestlerAvatar src={m.image_url} name={m.name} size={26} />
-                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
+                      <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
                 </div>
-                {/* Spacer to align under VS */}
                 <div style={{ width: 26, flexShrink: 0 }} />
-                {/* Side B members */}
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {(sides[1]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      <WrestlerAvatar src={m.image_url} name={m.name} size={26} />
-                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
+                      <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
                 </div>
@@ -444,22 +440,22 @@ function MatchRow({ match }: { match: CompactMatch }) {
             <MatchBadges match={match} stipParts={stipParts} />
           </>
 
-        /* --- MULTI-PERSON (3+) --- */
+        /* --- MULTI-PERSON (Triple Threat, Fatal 4-Way, etc.) — centered --- */
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
               {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.5rem', color: 'var(--purple-hot)', opacity: 0.6, flexShrink: 0 }}>vs</span>}
-                  <WrestlerAvatar src={s.image_url} name={s.name} size={36} />
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>{s.name}</span>
+                  <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.7rem, 3vw, 0.85rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>{s.name}</span>
                 </span>
               ))}
               {hiddenCount > 0 && !expanded && (
                 <button onClick={() => setExpanded(true)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', background: 'none', border: 'none', padding: '0 0.25rem', cursor: 'pointer', flexShrink: 0 }}>+{hiddenCount} more</button>
               )}
             </div>
-            <MatchBadges match={match} stipParts={stipParts} />
+            <MatchBadges match={match} stipParts={stipParts} center />
           </>
         )}
       </div>
