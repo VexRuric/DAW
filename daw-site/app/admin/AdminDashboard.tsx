@@ -62,7 +62,7 @@ interface ChampRow { title_id: string; title_name: string; holder_name: string; 
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
 interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean; backstory: string | null }
 interface FactionRow { id: string; name: string; brand: string | null; division: string | null; role: string | null; status: string; saved: boolean; backstory: string | null }
-interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; ppv_color: string | null; ppv_abbr: string | null; status: string; saved: boolean }
+interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; ppv_color: string | null; ppv_abbr: string | null; ppv_logo_url: string | null; status: string; saved: boolean }
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -2073,12 +2073,41 @@ function ScheduleEditor() {
   const [editForm, setEditForm]   = useState<(Partial<ScheduleShowRow> & { show_date: string }) | null>(null)
   const [saving, setSaving]       = useState(false)
   const [deleting, setDeleting]   = useState(false)
+  const [ppvLogoGallery, setPpvLogoGallery] = useState<{ name: string; url: string }[]>([])
+  const [ppvLogoUploading, setPpvLogoUploading] = useState(false)
+
+  async function loadPpvGallery() {
+    const { data } = await supabase.storage.from('ppv-logos').list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } })
+    if (!data) return
+    const items = data
+      .filter(f => f.name !== '.emptyFolderPlaceholder')
+      .map(f => ({
+        name: f.name,
+        url: supabase.storage.from('ppv-logos').getPublicUrl(f.name).data.publicUrl,
+      }))
+    setPpvLogoGallery(items)
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPpvLogoUploading(true)
+    const filename = `${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi, '_')}`
+    const { error } = await supabase.storage.from('ppv-logos').upload(filename, file, { upsert: false })
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from('ppv-logos').getPublicUrl(filename)
+      setEditForm(f => f ? { ...f, ppv_logo_url: publicUrl } : f)
+      await loadPpvGallery()
+    }
+    setPpvLogoUploading(false)
+    e.target.value = ''
+  }
 
   const loadYear = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('shows')
-      .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, status')
+      .select('id, name, show_date, show_type, ppv_name, ppv_color, ppv_abbr, ppv_logo_url, status')
       .gte('show_date', `${year}-01-01`)
       .lte('show_date', `${year}-12-31`)
       .order('show_date')
@@ -2090,13 +2119,16 @@ function ScheduleEditor() {
 
   useEffect(() => { loadYear() }, [loadYear])
 
+  const showType = editForm?.show_type
+  useEffect(() => { if (showType === 'ppv') loadPpvGallery() }, [showType])
+
   function selectDate(dateStr: string) {
     const existing = showMap[dateStr]
     setSelected(dateStr)
     if (existing) {
       setEditForm({ ...existing })
     } else {
-      setEditForm({ show_date: dateStr, name: 'DAW Warehouse LIVE', show_type: 'weekly', ppv_name: null, ppv_color: '#a855f7', ppv_abbr: null, status: 'draft' })
+      setEditForm({ show_date: dateStr, name: 'DAW Warehouse LIVE', show_type: 'weekly', ppv_name: null, ppv_color: '#a855f7', ppv_abbr: null, ppv_logo_url: null, status: 'draft' })
     }
   }
 
@@ -2106,7 +2138,7 @@ function ScheduleEditor() {
     if (!editForm) return
     setSaving(true)
     const existing = selected ? showMap[selected] : null
-    const payload = { name: editForm.name, show_type: editForm.show_type, ppv_name: editForm.ppv_name || null, ppv_color: editForm.ppv_color || null, ppv_abbr: editForm.ppv_abbr || null, show_date: editForm.show_date, status: editForm.status ?? 'draft' }
+    const payload = { name: editForm.name, show_type: editForm.show_type, ppv_name: editForm.ppv_name || null, ppv_color: editForm.ppv_color || null, ppv_abbr: editForm.ppv_abbr || null, ppv_logo_url: editForm.ppv_logo_url || null, show_date: editForm.show_date, status: editForm.status ?? 'draft' }
     if (existing?.id) {
       await supabase.from('shows').update(payload).eq('id', existing.id)
     } else {
@@ -2315,6 +2347,56 @@ function ScheduleEditor() {
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.06em', flexShrink: 0 }}>{editForm.ppv_color ?? '#a855f7'}</span>
                       <span style={{ flex: 1, height: 22, background: editForm.ppv_color ?? '#a855f7', borderRadius: 2 }} />
                     </div>
+                  </div>
+
+                  {/* PPV Logo */}
+                  <div>
+                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.4rem' }}>PPV LOGO</label>
+
+                    {/* Current logo preview */}
+                    {editForm.ppv_logo_url && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.35rem 0.5rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={editForm.ppv_logo_url} alt="PPV Logo" style={{ maxHeight: 40, maxWidth: 120, objectFit: 'contain', display: 'block' }} />
+                        <button onClick={() => setEditForm(f => f ? { ...f, ppv_logo_url: null } : f)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '0.7rem', lineHeight: 1, padding: '2px 4px', flexShrink: 0 }}>✕</button>
+                      </div>
+                    )}
+
+                    {/* Upload button */}
+                    <label style={{ display: 'block', cursor: ppvLogoUploading ? 'default' : 'pointer', marginBottom: '0.5rem' }}>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={ppvLogoUploading} />
+                      <span style={{ display: 'block', textAlign: 'center', padding: '0.38rem 0.55rem', background: 'rgba(168,85,247,0.08)', border: '1px dashed rgba(168,85,247,0.4)', color: ppvLogoUploading ? 'var(--text-dim)' : 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+                        {ppvLogoUploading ? 'UPLOADING…' : '+ UPLOAD NEW LOGO'}
+                      </span>
+                    </label>
+
+                    {/* Gallery of previously uploaded logos */}
+                    {ppvLogoGallery.length > 0 && (
+                      <div>
+                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: '0.35rem' }}>SELECT FROM LIBRARY</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem' }}>
+                          {ppvLogoGallery.map(logo => (
+                            <button
+                              key={logo.name}
+                              onClick={() => setEditForm(f => f ? { ...f, ppv_logo_url: logo.url } : f)}
+                              style={{
+                                padding: '0.3rem',
+                                background: editForm.ppv_logo_url === logo.url ? 'rgba(168,85,247,0.15)' : 'var(--surface-2)',
+                                border: editForm.ppv_logo_url === logo.url ? '1px solid var(--purple-hot)' : '1px solid var(--border)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: 44,
+                              }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={logo.url} alt="" style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>)}
 
