@@ -36,19 +36,9 @@ export default function WrestlerCard({
   const isHeel = role === 'Heel'
   const isFace = role === 'Face'
 
-  // Background always reflects alignment — champions keep their Face/Heel color
-  const cardBg = isFace
-    ? '#00358e'
-    : isHeel
-    ? '#430404'
-    : 'rgb(12,12,16)'
+  const cardBg = 'rgb(12,12,16)'
 
-  // Gradient always uses alignment color
-  const gradientOverlay = isFace
-    ? 'linear-gradient(to top, rgba(0,26,71,0.98) 0%, rgba(0,42,113,0.55) 30%, rgba(0,50,135,0.10) 55%, transparent 75%)'
-    : isHeel
-    ? 'linear-gradient(to top, rgba(33,2,2,0.98) 0%, rgba(53,3,3,0.55) 30%, rgba(64,4,4,0.10) 55%, transparent 75%)'
-    : 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.25) 30%, transparent 55%)'
+  const gradientOverlay = 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.25) 30%, transparent 55%)'
 
   // Face/Heel alignment takes priority; champion fallback = gold; legend fallback = silver
   const textAccent = isFace
