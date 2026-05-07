@@ -69,10 +69,17 @@ function buildSides(participants: any[], matchType: string) {
     if (p.team_id && p.teams && !teamMap.has(p.team_id)) teamMap.set(p.team_id, p)
   }
   if (teamMap.size >= 2) {
-    return Array.from(teamMap.values()).map(p => ({
-      name: p.teams.name as string,
-      image_url: (p.teams.render_url ?? null) as string | null,
-    }))
+    return Array.from(teamMap.values()).map(teamRep => {
+      const mems = participants.filter(p => p.team_id === teamRep.team_id)
+      return {
+        name: teamRep.teams.name as string,
+        image_url: (teamRep.teams.render_url ?? null) as string | null,
+        members: mems.map((mp: any) => ({
+          name: mp.wrestlers?.name ?? mp.write_in_name ?? 'Unknown',
+          image_url: (mp.wrestlers?.render_url ?? null) as string | null,
+        })),
+      }
+    })
   }
 
   const wrestlers = participants.filter(p => p.wrestlers || p.write_in_name)
