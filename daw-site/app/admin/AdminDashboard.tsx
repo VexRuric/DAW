@@ -3227,6 +3227,8 @@ function LegendsSection() {
 function SiteSettings() {
   const [twitchChannel, setTwitchChannel] = useState('')
   const [titleImageUrl, setTitleImageUrl]   = useState('')
+  const [matchcardShowImages, setMatchcardShowImages] = useState(true)
+  const [matchcardShowFactionLogos, setMatchcardShowFactionLogos] = useState(true)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
@@ -3241,6 +3243,8 @@ function SiteSettings() {
       setTwitchChannel(map.twitch_channel ?? 'daware')
       setTitleImageUrl(map.title_image_url ?? '')
       setImgPreview(map.title_image_url || null)
+      setMatchcardShowImages(map.matchcard_show_images !== 'false')
+      setMatchcardShowFactionLogos(map.matchcard_show_faction_logos !== 'false')
       setLoading(false)
     })
   }, [])
@@ -3250,6 +3254,8 @@ function SiteSettings() {
     await Promise.all([
       supabase.from('site_settings').upsert({ key: 'twitch_channel',  value: twitchChannel }),
       supabase.from('site_settings').upsert({ key: 'title_image_url', value: titleImageUrl }),
+      supabase.from('site_settings').upsert({ key: 'matchcard_show_images', value: matchcardShowImages ? 'true' : 'false' }),
+      supabase.from('site_settings').upsert({ key: 'matchcard_show_faction_logos', value: matchcardShowFactionLogos ? 'true' : 'false' }),
     ])
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -3325,6 +3331,22 @@ function SiteSettings() {
             </div>
             {uploadErr && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--accent-red)', marginTop:'0.4rem' }}>{uploadErr}</p>}
             <p style={hint}>Displayed on the home page hero area. Upload or paste a direct URL.</p>
+          </div>
+
+          {/* Matchcard Images */}
+          <div>
+            <span style={label}>Matchcard Images</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={matchcardShowImages} onChange={e => setMatchcardShowImages(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-strong)', letterSpacing: '0.04em' }}>Show wrestler &amp; team images</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: matchcardShowImages ? 'pointer' : 'default', opacity: matchcardShowImages ? 1 : 0.4 }}>
+                <input type="checkbox" checked={matchcardShowFactionLogos} disabled={!matchcardShowImages} onChange={e => setMatchcardShowFactionLogos(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: matchcardShowImages ? 'pointer' : 'default' }} />
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-strong)', letterSpacing: '0.04em' }}>Use faction logos <span style={{ color: 'var(--text-dim)' }}>(off = show first member&apos;s render instead)</span></span>
+              </label>
+            </div>
+            <p style={hint}>Controls images shown on the home page matchcard.</p>
           </div>
 
           {/* Save */}

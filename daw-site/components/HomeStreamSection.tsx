@@ -11,7 +11,7 @@ export interface CompactMatch {
   titleName: string | null
   titleImageUrl: string | null
   hashtag: 'ANDNEW' | 'ANDSTILL' | 'WINNER' | null
-  sides: { name: string; image_url: string | null; members?: { name: string; image_url: string | null }[] }[]
+  sides: { name: string; image_url: string | null; isLogo?: boolean; members?: { name: string; image_url: string | null }[] }[]
   scheme: 'Match' | 'Promo' | 'Write-In' | null
 }
 
@@ -53,11 +53,15 @@ export default function HomeStreamSection({
   matches,
   channel = 'daware',
   youtubePlaylist = YT_PLAYLIST,
+  showImages = true,
+  showFactionLogos = true,
 }: {
   show: StreamShowInfo | null
   matches: CompactMatch[]
   channel?: string
   youtubePlaylist?: string
+  showImages?: boolean
+  showFactionLogos?: boolean
 }) {
   const [twitchSrc, setTwitchSrc]   = useState('')
   const [chatSrc, setChatSrc]       = useState('')
@@ -228,7 +232,7 @@ export default function HomeStreamSection({
                     No matches on record.
                   </div>
                 ) : (
-                  matches.map(m => <MatchRow key={m.id} match={m} />)
+                  matches.map(m => <MatchRow key={m.id} match={m} showImages={showImages} showFactionLogos={showFactionLogos} />)
                 )}
               </div>
             </>
@@ -312,14 +316,14 @@ function MatchBadges({ match, stipParts, center }: { match: CompactMatch; stipPa
   )
 }
 
-function MatchRow({ match }: { match: CompactMatch }) {
+function MatchRow({ match, showImages = true, showFactionLogos = true }: { match: CompactMatch; showImages?: boolean; showFactionLogos?: boolean }) {
   const sides             = match.sides
   const isPromo           = match.scheme === 'Promo'
   const isMassMatch       = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
   const stipParts         = match.stipulation ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean) : []
   const hiddenCount       = Math.max(0, sides.length - NAME_LIMIT)
   const [expanded, setExpanded] = useState(false)
-  const hasFactionMembers = sides.some(s => s.members && s.members.length > 0)
+  const hasMembers = sides.some(s => s.members && s.members.length > 0)
 
   const numColor  = match.isTitleMatch ? 'var(--gold)' : 'var(--purple-hot)'
   const rowBorder = match.isTitleMatch
@@ -328,9 +332,17 @@ function MatchRow({ match }: { match: CompactMatch }) {
     ? '2px solid rgba(128,0,218,0.25)'
     : '1px solid var(--border)'
 
-  // Faction/team: fall back to first member render if the team has no dedicated image
+  // When showFactionLogos is off, skip team logos and fall back to first member's render.
+  // Always falls back to first member render if the team has no dedicated image.
   function sideImg(idx: number): string | null {
-    return sides[idx]?.image_url ?? sides[idx]?.members?.[0]?.image_url ?? null
+    const side = sides[idx]
+    if (!side) return null
+    if (side.isLogo && !showFactionLogos) return side.members?.[0]?.image_url ?? null
+    return side.image_url ?? side.members?.[0]?.image_url ?? null
+  }
+
+  function sideContain(idx: number): boolean {
+    return showFactionLogos && !!(sides[idx]?.isLogo)
   }
 
   return (
@@ -356,7 +368,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
               {sides.length > 0 ? sides.map((s, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-meta)', color: 'var(--text-dim)', fontSize: '0.5rem', opacity: 0.5 }}>&amp;</span>}
-                  <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
+                  {showImages && <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />}
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem, 3vw, 0.9rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                     {s.name}
                   </span>
@@ -403,7 +415,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               {/* Side A */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
-                <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={!!(sides[0]?.members?.length)} />
+                {showImages && <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={sideContain(0)} />}
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
@@ -414,17 +426,17 @@ function MatchRow({ match }: { match: CompactMatch }) {
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
-                <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={!!(sides[1]?.members?.length)} />
+                {showImages && <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={sideContain(1)} />}
               </div>
             </div>
-            {/* Faction members — single centered row, Side A | divider | Side B */}
-            {hasFactionMembers && (
+            {/* Tag / faction members — centered row, Side A | divider | Side B */}
+            {hasMembers && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {(sides[0]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />
+                      {showImages && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
@@ -434,7 +446,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
                   {(sides[1]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />
+                      {showImages && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
@@ -451,7 +463,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
               {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.5rem', color: 'var(--purple-hot)', opacity: 0.6, flexShrink: 0 }}>vs</span>}
-                  <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
+                  {showImages && <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />}
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.7rem, 3vw, 0.85rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>{s.name}</span>
                 </span>
               ))}

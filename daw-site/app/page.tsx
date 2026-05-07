@@ -70,12 +70,11 @@ function buildSides(participants: any[], matchType: string) {
   }
   if (teamMap.size >= 2) {
     return Array.from(teamMap.values()).map(teamRep => {
-      // Members come from team_memberships, not match_participants
-      // (team participant rows store only team_id, wrestler_id is always null)
       const memberships: any[] = teamRep.teams.team_memberships ?? []
       return {
         name: teamRep.teams.name as string,
         image_url: (teamRep.teams.render_url ?? null) as string | null,
+        isLogo: true,
         members: memberships.map((tm: any) => ({
           name: tm.wrestlers?.name ?? 'Unknown',
           image_url: (tm.wrestlers?.render_url ?? null) as string | null,
@@ -87,12 +86,14 @@ function buildSides(participants: any[], matchType: string) {
   const wrestlers = participants.filter(p => p.wrestlers || p.write_in_name)
 
   if (matchType === 'Tag Team') {
-    const sides: { name: string; image_url: string | null }[] = []
+    const sides: { name: string; image_url: string | null; isLogo: boolean; members: { name: string; image_url: string | null }[] }[] = []
     for (let i = 0; i < wrestlers.length; i += 2) {
       const pair = wrestlers.slice(i, i + 2)
       sides.push({
         name: pair.map((p: any) => participantName(p)).join(' & '),
         image_url: participantImage(pair[0]),
+        isLogo: false,
+        members: pair.map((p: any) => ({ name: participantName(p), image_url: participantImage(p) })),
       })
     }
     return sides
@@ -119,6 +120,8 @@ export default async function HomePage() {
     const upcomingShows = upcomingRes.data ?? []
     const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
     const twitchChannel: string = settingsMap.twitch_channel || 'daware'
+    const showMatchcardImages = settingsMap.matchcard_show_images !== 'false'
+    const showMatchcardFactionLogos = settingsMap.matchcard_show_faction_logos !== 'false'
 
     // Prefer the next upcoming show so the matchcard is always forward-looking.
     // If there is no upcoming show, fall back to the last completed show (results stay
@@ -232,7 +235,7 @@ export default async function HomePage() {
 
     return (
       <>
-        <HomeStreamSection show={streamShowInfo} matches={compactMatches} channel={twitchChannel} />
+        <HomeStreamSection show={streamShowInfo} matches={compactMatches} channel={twitchChannel} showImages={showMatchcardImages} showFactionLogos={showMatchcardFactionLogos} />
         <HomeNewsGrid cards={newsCards} />
         <HomeUpcomingEvents events={eventItems} />
         <HomeCommunityStrip />
