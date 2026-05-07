@@ -297,9 +297,11 @@ function MatchBadges({ match, stipParts, center }: { match: CompactMatch; stipPa
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: center ? 'center' : 'flex-start', gap: '0.18rem' }}>
       {/* Row 1: match type + stipulation tags + non-title result hashtag */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: justify }}>
-        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          {match.matchType}
-        </span>
+        {match.scheme !== 'Promo' && (
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {match.matchType}
+          </span>
+        )}
         {stipParts.map(tag => (
           <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.04rem 0.22rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
         ))}
