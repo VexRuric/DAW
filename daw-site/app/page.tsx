@@ -71,14 +71,20 @@ function buildSides(participants: any[], matchType: string) {
   if (teamMap.size >= 2) {
     return Array.from(teamMap.values()).map(teamRep => {
       const memberships: any[] = teamRep.teams.team_memberships ?? []
+      const memberIdSet = new Set(memberships.map((tm: any) => tm.wrestler_id).filter(Boolean))
+
+      // Only show wrestlers who are both in this match AND members of this faction
+      const inMatchMembers = participants.filter(p => p.wrestler_id && memberIdSet.has(p.wrestler_id))
+
+      const members = inMatchMembers.length > 0
+        ? inMatchMembers.map((p: any) => ({ name: participantName(p), image_url: participantImage(p) }))
+        : memberships.map((tm: any) => ({ name: tm.wrestlers?.name ?? 'Unknown', image_url: tm.wrestlers?.render_url ?? null }))
+
       return {
         name: teamRep.teams.name as string,
         image_url: (teamRep.teams.render_url ?? null) as string | null,
         isLogo: true,
-        members: memberships.map((tm: any) => ({
-          name: tm.wrestlers?.name ?? 'Unknown',
-          image_url: (tm.wrestlers?.render_url ?? null) as string | null,
-        })),
+        members,
       }
     })
   }

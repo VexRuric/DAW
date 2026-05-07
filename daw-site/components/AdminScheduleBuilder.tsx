@@ -22,6 +22,7 @@ interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | n
 interface BookerSlot {
   id: number; matchType: string; matchSize: number
   scheme: 'Match' | 'Promo' | 'Write-In'
+  writeInHasType: boolean
   hasStipulation: boolean; stipTags: string[]; stipText: string
   isTitleMatch: boolean; titleId: string
   participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[]; sideFactionIds: (string | null)[]
@@ -87,7 +88,7 @@ function emptyParticipant(): BookerParticipant { return { type: 'roster', wrestl
 function makeBookerSlots(count: number): BookerSlot[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1, matchType: 'Singles', matchSize: 8,
-    scheme: 'Match' as const,
+    scheme: 'Match' as const, writeInHasType: false,
     hasStipulation: false, stipTags: [], stipText: '',
     isTitleMatch: false, titleId: '',
     participants: [emptyParticipant(), emptyParticipant()],
@@ -214,6 +215,7 @@ function BookerModal({
           return {
             id: m.match_number, matchType: m.match_type,
             scheme: (m.scheme ?? 'Match') as 'Match' | 'Promo' | 'Write-In',
+            writeInHasType: m.scheme === 'Write-In' && !!m.match_type && m.match_type !== 'Singles',
             matchSize: ms || defaultMatchSize(m.match_type) || 8,
             hasStipulation: stip.hasStipulation, stipTags: stip.stipTags, stipText: stip.stipText,
             isTitleMatch: m.is_title_match, titleId: m.title_id ?? '',
@@ -228,7 +230,7 @@ function BookerModal({
         const padded = [...loaded]
         while (padded.length < finalCount) {
           const next = padded.length + 1
-          padded.push({ id: next, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
+          padded.push({ id: next, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, writeInHasType: false, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
         }
         padded[padded.length - 1].isMainEvent = true
         setSlotCount(finalCount)
@@ -378,7 +380,7 @@ function BookerModal({
       const next = prev.slice(0, n)
       while (next.length < n) {
         const id = next.length + 1
-        next.push({ id, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
+        next.push({ id, matchType: 'Singles', matchSize: 8, scheme: 'Match' as const, writeInHasType: false, hasStipulation: false, stipTags: [], stipText: '', isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()], isMainEvent: false, sideNames: ['', ''], sideFactionIds: [null, null] })
       }
       next.forEach((s, i) => { s.isMainEvent = i === n - 1 })
       return next
@@ -756,10 +758,27 @@ function BookerModal({
                           <option value="Promo">Promo</option>
                           <option value="Write-In">Write-In</option>
                         </select>
-                        <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto' }}
-                          value={slot.matchType} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={e => e.stopPropagation()}>
-                          {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}
-                        </select>
+                        {/* Match type: always for Match; opt-in checkbox for Write-In; hidden for Promo */}
+                        {slot.scheme === 'Match' && (
+                          <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto' }}
+                            value={slot.matchType} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={e => e.stopPropagation()}>
+                            {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}
+                          </select>
+                        )}
+                        {slot.scheme === 'Write-In' && (
+                          <>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={slot.writeInHasType} onChange={e => updateSlotField(slot.id, 'writeInHasType', e.target.checked)} style={{ accentColor: 'var(--accent-red)' }} />
+                              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: slot.writeInHasType ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing: '0.06em' }}>Type</span>
+                            </label>
+                            {slot.writeInHasType && (
+                              <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto' }}
+                                value={slot.matchType} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={e => e.stopPropagation()}>
+                                {MATCH_TYPES.map(t => <option key={t}>{t}</option>)}
+                              </select>
+                            )}
+                          </>
+                        )}
                         {/* Tag Team 2v2/3v3 toggle */}
                         {slot.matchType === 'Tag Team' && (
                           <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
