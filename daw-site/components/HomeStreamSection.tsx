@@ -395,31 +395,31 @@ function MatchRow({ match }: { match: CompactMatch }) {
             )}
           </>
 
-        /* --- STANDARD 2-SIDE (singles / tag / faction) --- */
+        /* --- STANDARD 2-SIDE (singles / tag / faction) — fully centered --- */
         ) : sides.length <= 2 ? (
           <>
-            {/* clamp() sizes scale down gracefully on mobile */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {/* VS names row — centered, not stretched */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               {/* Side A */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
                 <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
-                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.55rem', color: 'var(--purple-hot)', flexShrink: 0, opacity: 0.8 }}>VS</span>
               {/* Side B */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
-                <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
                 <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
               </div>
             </div>
-            {/* Faction members row — only when team_id members exist */}
+            {/* Faction members — single centered row, Side A | divider | Side B */}
             {hasFactionMembers && (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem' }}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {(sides[0]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
@@ -428,8 +428,8 @@ function MatchRow({ match }: { match: CompactMatch }) {
                     </span>
                   ))}
                 </div>
-                <div style={{ width: 26, flexShrink: 0 }} />
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <span style={{ color: 'var(--border)', fontSize: '0.5rem', opacity: 0.5, flexShrink: 0 }}>|</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {(sides[1]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
