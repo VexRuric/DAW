@@ -332,17 +332,18 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
     ? '2px solid rgba(128,0,218,0.25)'
     : '1px solid var(--border)'
 
-  // When showFactionLogos is off, skip team logos and fall back to first member's render.
-  // Always falls back to first member render if the team has no dedicated image.
+  // True when this side should render as a single logo image (contain mode).
+  // False when it should show multiple member renders or a single wrestler render.
+  function sideUsesLogo(idx: number): boolean {
+    return !!(sides[idx]?.isLogo && showFactionLogos && sides[idx]?.image_url)
+  }
+
+  // For non-logo sides: fallback single image (solo wrestler or first member when no members array).
   function sideImg(idx: number): string | null {
     const side = sides[idx]
     if (!side) return null
-    if (side.isLogo && !showFactionLogos) return side.members?.[0]?.image_url ?? null
+    if (sideUsesLogo(idx)) return side.image_url
     return side.image_url ?? side.members?.[0]?.image_url ?? null
-  }
-
-  function sideContain(idx: number): boolean {
-    return showFactionLogos && !!(sides[idx]?.isLogo)
   }
 
   return (
@@ -411,32 +412,49 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
         /* --- STANDARD 2-SIDE (singles / tag / faction) — fully centered --- */
         ) : sides.length <= 2 ? (
           <>
-            {/* VS names row — centered, not stretched */}
+            {/* VS names row — centered */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {/* Side A */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
-                {showImages && <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={sideContain(0)} />}
+              {/* Side A: images left of name */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(120px, 45%, 300px)' }}>
+                {showImages && (
+                  sideUsesLogo(0)
+                    ? <WrestlerAvatar src={sides[0]!.image_url} name={sides[0]!.name} size="clamp(36px, 10vw, 52px)" contain />
+                    : (sides[0]?.members ?? []).length > 0
+                      ? <div style={{ display: 'flex', gap: '0.1rem', flexShrink: 0 }}>
+                          {(sides[0]?.members ?? []).map((m, i) => <WrestlerAvatar key={i} src={m.image_url} name={m.name} size="clamp(30px, 8vw, 46px)" />)}
+                        </div>
+                      : <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
+                )}
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.55rem', color: 'var(--purple-hot)', flexShrink: 0, opacity: 0.8 }}>VS</span>
-              {/* Side B */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
+              {/* Side B: name left of images */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(120px, 45%, 300px)' }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
-                {showImages && <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={sideContain(1)} />}
+                {showImages && (
+                  sideUsesLogo(1)
+                    ? <WrestlerAvatar src={sides[1]!.image_url} name={sides[1]!.name} size="clamp(36px, 10vw, 52px)" contain />
+                    : (sides[1]?.members ?? []).length > 0
+                      ? <div style={{ display: 'flex', gap: '0.1rem', flexShrink: 0 }}>
+                          {(sides[1]?.members ?? []).map((m, i) => <WrestlerAvatar key={i} src={m.image_url} name={m.name} size="clamp(30px, 8vw, 46px)" />)}
+                        </div>
+                      : <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
+                )}
               </div>
             </div>
-            {/* Tag / faction members — centered row, Side A | divider | Side B */}
+            {/* Member name row — names only (images already shown above when multi-image mode) */}
             {hasMembers && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {(sides[0]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      {showImages && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
+                      {/* Only show small avatar here when the VS row is using a logo (to avoid duplicate renders) */}
+                      {showImages && sideUsesLogo(0) && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
@@ -446,7 +464,7 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
                   {(sides[1]?.members ?? []).map((m, i) => (
                     <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                       {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.3, fontSize: '0.4rem' }}>·</span>}
-                      {showImages && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
+                      {showImages && sideUsesLogo(1) && <WrestlerAvatar src={m.image_url} name={m.name} size="clamp(18px, 5vw, 26px)" />}
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: 'clamp(0.36rem, 1.5vw, 0.44rem)', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{m.name}</span>
                     </span>
                   ))}
