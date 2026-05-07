@@ -126,6 +126,7 @@ export default async function HomePage() {
     const upcomingShows = upcomingRes.data ?? []
     const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
     const twitchChannel: string = settingsMap.twitch_channel || 'daware'
+    const youtubeUrl: string | undefined = settingsMap.youtube_url || undefined
     const showMatchcardImages = settingsMap.matchcard_show_images !== 'false'
     const showMatchcardFactionLogos = settingsMap.matchcard_show_faction_logos !== 'false'
 
@@ -241,7 +242,7 @@ export default async function HomePage() {
 
     return (
       <>
-        <HomeStreamSection show={streamShowInfo} matches={compactMatches} channel={twitchChannel} showImages={showMatchcardImages} showFactionLogos={showMatchcardFactionLogos} />
+        <HomeStreamSection show={streamShowInfo} matches={compactMatches} channel={twitchChannel} youtubeUrl={youtubeUrl} showImages={showMatchcardImages} showFactionLogos={showMatchcardFactionLogos} />
         <HomeNewsGrid cards={newsCards} />
         <HomeUpcomingEvents events={eventItems} />
         <HomeCommunityStrip />

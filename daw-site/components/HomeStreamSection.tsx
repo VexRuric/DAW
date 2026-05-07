@@ -46,20 +46,42 @@ const STIP_COLORS: Record<string, string> = {
   'Casket': '#555577',
 }
 
-const YT_PLAYLIST = 'PLJmTlWB_rLnAUfvozUqtODPuxAE3nC004'
+const DEFAULT_YT_PLAYLIST = 'PLJmTlWB_rLnAUfvozUqtODPuxAE3nC004'
+
+function resolveYouTube(url: string | undefined): { src: string; href: string; isPlaylist: boolean } {
+  const fallback = {
+    src: `https://www.youtube.com/embed/videoseries?list=${DEFAULT_YT_PLAYLIST}&rel=0&modestbranding=1`,
+    href: `https://www.youtube.com/playlist?list=${DEFAULT_YT_PLAYLIST}`,
+    isPlaylist: true,
+  }
+  if (!url) return fallback
+  try {
+    const u = new URL(url)
+    const listId  = u.searchParams.get('list')
+    const videoId = u.searchParams.get('v') || (u.hostname === 'youtu.be' ? u.pathname.slice(1).split('?')[0] : null)
+    if (videoId) {
+      const listParam = listId ? `&list=${listId}` : ''
+      return { src: `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1${listParam}`, href: url, isPlaylist: false }
+    }
+    if (listId) {
+      return { src: `https://www.youtube.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1`, href: `https://www.youtube.com/playlist?list=${listId}`, isPlaylist: true }
+    }
+  } catch {}
+  return fallback
+}
 
 export default function HomeStreamSection({
   show,
   matches,
   channel = 'daware',
-  youtubePlaylist = YT_PLAYLIST,
+  youtubeUrl,
   showImages = true,
   showFactionLogos = true,
 }: {
   show: StreamShowInfo | null
   matches: CompactMatch[]
   channel?: string
-  youtubePlaylist?: string
+  youtubeUrl?: string
   showImages?: boolean
   showFactionLogos?: boolean
 }) {
@@ -78,11 +100,10 @@ export default function HomeStreamSection({
       .catch(() => setIsLive(false))
   }, [channel])
 
-  const ytSrc = `https://www.youtube.com/embed/videoseries?list=${youtubePlaylist}&rel=0&modestbranding=1`
-  const ytLink = `https://www.youtube.com/playlist?list=${youtubePlaylist}`
+  const { src: ytSrc, href: ytLink, isPlaylist } = resolveYouTube(youtubeUrl)
 
   const labelColor  = isLive ? 'var(--purple-hot)' : isLive === false ? 'var(--accent-red)' : 'var(--text-dim)'
-  const labelText   = isLive ? '● LIVE NOW · THE STREAM' : isLive === false ? 'ON DEMAND · YOUTUBE PLAYLIST' : 'THE STREAM'
+  const labelText   = isLive ? '● LIVE NOW · THE STREAM' : isLive === false ? `ON DEMAND · YOUTUBE ${isPlaylist ? 'PLAYLIST' : 'VIDEO'}` : 'THE STREAM'
 
   return (
     <section className="home-stream-section" style={{ borderBottom: '1px solid var(--border)' }}>

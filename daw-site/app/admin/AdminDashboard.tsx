@@ -3227,6 +3227,7 @@ function LegendsSection() {
 function SiteSettings() {
   const [twitchChannel, setTwitchChannel] = useState('')
   const [titleImageUrl, setTitleImageUrl]   = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [matchcardShowImages, setMatchcardShowImages] = useState(true)
   const [matchcardShowFactionLogos, setMatchcardShowFactionLogos] = useState(true)
   const [loading, setLoading]   = useState(true)
@@ -3243,6 +3244,7 @@ function SiteSettings() {
       setTwitchChannel(map.twitch_channel ?? 'daware')
       setTitleImageUrl(map.title_image_url ?? '')
       setImgPreview(map.title_image_url || null)
+      setYoutubeUrl(map.youtube_url ?? '')
       setMatchcardShowImages(map.matchcard_show_images !== 'false')
       setMatchcardShowFactionLogos(map.matchcard_show_faction_logos !== 'false')
       setLoading(false)
@@ -3254,6 +3256,7 @@ function SiteSettings() {
     await Promise.all([
       supabase.from('site_settings').upsert({ key: 'twitch_channel',  value: twitchChannel }),
       supabase.from('site_settings').upsert({ key: 'title_image_url', value: titleImageUrl }),
+      supabase.from('site_settings').upsert({ key: 'youtube_url', value: youtubeUrl }),
       supabase.from('site_settings').upsert({ key: 'matchcard_show_images', value: matchcardShowImages ? 'true' : 'false' }),
       supabase.from('site_settings').upsert({ key: 'matchcard_show_faction_logos', value: matchcardShowFactionLogos ? 'true' : 'false' }),
     ])
@@ -3299,6 +3302,18 @@ function SiteSettings() {
               placeholder="daware"
             />
             <p style={hint}>Controls the stream embed, Twitch link, and live-status detection in the top bar.</p>
+          </div>
+
+          {/* YouTube Video / Playlist */}
+          <div>
+            <span style={label}>Homepage YouTube Video / Playlist</span>
+            <input
+              className="form-input"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value.trim())}
+              placeholder="https://www.youtube.com/playlist?list=… or watch?v=…"
+            />
+            <p style={hint}>Paste any YouTube video or playlist URL. Leave blank to use the default playlist. Supports youtube.com/watch, youtube.com/playlist, and youtu.be links.</p>
           </div>
 
           {/* Title Image */}
