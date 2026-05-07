@@ -347,29 +347,32 @@ function MatchRow({ match }: { match: CompactMatch }) {
 
         {/* --- PROMO --- */}
         {isPromo ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.14em', color: 'var(--purple-hot)', background: 'rgba(128,0,218,0.12)', border: '1px solid rgba(128,0,218,0.3)', padding: '0.12rem 0.4rem', flexShrink: 0 }}>
-              PROMO
-            </span>
-            {sides.length > 0 ? sides.map((s, i) => (
-              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                {i > 0 && <span style={{ fontFamily: 'var(--font-meta)', color: 'var(--text-dim)', fontSize: '0.5rem', opacity: 0.5 }}>&amp;</span>}
-                <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem, 3vw, 0.9rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
-                  {s.name}
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.14em', color: 'var(--purple-hot)', background: 'rgba(128,0,218,0.12)', border: '1px solid rgba(128,0,218,0.3)', padding: '0.12rem 0.4rem', flexShrink: 0 }}>
+                PROMO
+              </span>
+              {sides.length > 0 ? sides.map((s, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  {i > 0 && <span style={{ fontFamily: 'var(--font-meta)', color: 'var(--text-dim)', fontSize: '0.5rem', opacity: 0.5 }}>&amp;</span>}
+                  <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem, 3vw, 0.9rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
+                    {s.name}
+                  </span>
                 </span>
-              </span>
-            )) : (
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
-                TBA
-              </span>
-            )}
-          </div>
+              )) : (
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-dim)', textTransform: 'uppercase', lineHeight: 1 }}>
+                  TBA
+                </span>
+              )}
+            </div>
+            <MatchBadges match={match} stipParts={stipParts} center />
+          </>
 
         /* --- BATTLE ROYAL / ROYAL RUMBLE — names only, no images (too many wrestlers) --- */
         ) : isMassMatch ? (
           <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                 {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
               </span>
@@ -378,7 +381,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
               ))}
             </div>
             {sides.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
                 {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
                   <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', flexShrink: 0 }}>
                     {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.35, fontSize: '0.45rem', flexShrink: 0 }}>·</span>}
@@ -437,7 +440,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
                 </div>
               </div>
             )}
-            <MatchBadges match={match} stipParts={stipParts} />
+            <MatchBadges match={match} stipParts={stipParts} center />
           </>
 
         /* --- MULTI-PERSON (Triple Threat, Fatal 4-Way, etc.) — centered --- */
