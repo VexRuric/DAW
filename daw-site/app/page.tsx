@@ -70,13 +70,15 @@ function buildSides(participants: any[], matchType: string) {
   }
   if (teamMap.size >= 2) {
     return Array.from(teamMap.values()).map(teamRep => {
-      const mems = participants.filter(p => p.team_id === teamRep.team_id)
+      // Members come from team_memberships, not match_participants
+      // (team participant rows store only team_id, wrestler_id is always null)
+      const memberships: any[] = teamRep.teams.team_memberships ?? []
       return {
         name: teamRep.teams.name as string,
         image_url: (teamRep.teams.render_url ?? null) as string | null,
-        members: mems.map((mp: any) => ({
-          name: mp.wrestlers?.name ?? mp.write_in_name ?? 'Unknown',
-          image_url: (mp.wrestlers?.render_url ?? null) as string | null,
+        members: memberships.map((tm: any) => ({
+          name: tm.wrestlers?.name ?? 'Unknown',
+          image_url: (tm.wrestlers?.render_url ?? null) as string | null,
         })),
       }
     })
@@ -134,7 +136,7 @@ export default async function HomePage() {
       fetches.push((async () => {
         const { data } = await supabase
           .from('matches')
-          .select('*, match_participants(*, wrestlers(*), teams(*)), titles(*)')
+          .select('*, match_participants(*, wrestlers(*), teams(*, team_memberships(*, wrestlers(*)))), titles(*)')
           .eq('show_id', streamShowRaw.id)
           .order('match_number', { ascending: true })
         streamMatches = data ?? []
@@ -145,7 +147,7 @@ export default async function HomePage() {
       fetches.push((async () => {
         const { data } = await supabase
           .from('matches')
-          .select('*, match_participants(*, wrestlers(*), teams(*)), titles(*)')
+          .select('*, match_participants(*, wrestlers(*), teams(*, team_memberships(*, wrestlers(*)))), titles(*)')
           .eq('show_id', lastShow.id)
           .order('match_number', { ascending: true })
         lastShowMatches = data ?? []
