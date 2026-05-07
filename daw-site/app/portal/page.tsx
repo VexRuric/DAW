@@ -242,7 +242,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
           snapshot: {
             name: ringName.trim(),
             gender: gender ?? null,
-            role: alignment ?? null,
+            ...(alignment !== null ? { role: alignment } : {}),
             country: homeState || null,
             gimmick: creationType === 'original' && style ? style : null,
             bio: bioFields,
