@@ -159,7 +159,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
     : isLegend
     ? 'rgba(255,201,51,0.75)'
     : isFace
-    ? 'rgba(40,180,230,0.9)'
+    ? 'rgba(60,130,255,0.9)'
     : isHeel
     ? 'var(--accent-red)'
     : 'var(--purple-hot)'
@@ -203,7 +203,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
           background: currentReign
             ? 'linear-gradient(to bottom, rgba(20,14,0,0.15) 0%, rgba(20,14,0,0.55) 100%)'
             : isFace
-            ? 'linear-gradient(to bottom, rgba(4,50,67,0.10) 0%, rgba(4,50,67,0.55) 100%)'
+            ? 'linear-gradient(to bottom, rgba(0,53,142,0.10) 0%, rgba(0,53,142,0.55) 100%)'
             : isHeel
             ? 'linear-gradient(to bottom, rgba(67,4,4,0.10) 0%, rgba(67,4,4,0.55) 100%)'
             : 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%)',
@@ -233,8 +233,8 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             {wrestler.role && (
               <span className="pill" style={{
                 background: 'rgba(0,0,0,0.55)',
-                border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(40,180,230,0.7)' : '#00c864'}`,
-                color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(60,200,245,1)' : '#00c864',
+                border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(60,130,255,0.7)' : '#00c864'}`,
+                color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(80,150,255,1)' : '#00c864',
                 backdropFilter: 'blur(4px)',
               }}>{wrestler.role}</span>
             )}

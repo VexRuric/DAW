@@ -126,7 +126,7 @@ export default async function FactionStatPage({ params }: PageProps) {
     : isHeel
     ? 'var(--accent-red)'
     : isFace
-    ? 'rgba(40,180,230,0.9)'
+    ? 'rgba(60,130,255,0.9)'
     : 'var(--purple-hot)'
 
   const memberRenders = currentMembers
@@ -170,7 +170,7 @@ export default async function FactionStatPage({ params }: PageProps) {
               <span className="pill" style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)' }}>{team.division}</span>
             )}
             {team.role && (
-              <span className="pill" style={{ background: 'rgba(0,0,0,0.55)', border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(40,180,230,0.7)' : '#00c864'}`, color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(60,200,245,1)' : '#00c864', backdropFilter: 'blur(4px)' }}>{team.role}</span>
+              <span className="pill" style={{ background: 'rgba(0,0,0,0.55)', border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(60,130,255,0.7)' : '#00c864'}`, color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(80,150,255,1)' : '#00c864', backdropFilter: 'blur(4px)' }}>{team.role}</span>
             )}
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2.5rem,6vw,5rem)', lineHeight: 0.9, color: 'white', textTransform: 'uppercase', textShadow: '0 2px 24px rgba(0,0,0,0.8)', borderLeft: `5px solid ${accentColor}`, paddingLeft: '1rem', margin: 0 }}>

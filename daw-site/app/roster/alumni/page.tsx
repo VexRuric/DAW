@@ -91,19 +91,19 @@ function AlumniCard({ wrestler, record }: { wrestler: Wrestler; record: Wrestler
   const isHeel = wrestler.role === 'Heel'
 
   const cardBg = isFace
-    ? '#043243'
+    ? '#00358e'
     : isHeel
     ? '#430404'
     : 'rgb(10,10,14)'
 
   const gradient = isFace
-    ? 'linear-gradient(to top, rgba(2,25,33,0.98) 0%, rgba(4,50,67,0.45) 40%, transparent 70%)'
+    ? 'linear-gradient(to top, rgba(0,26,71,0.98) 0%, rgba(0,53,142,0.45) 40%, transparent 70%)'
     : isHeel
     ? 'linear-gradient(to top, rgba(33,2,2,0.98) 0%, rgba(67,4,4,0.45) 40%, transparent 70%)'
     : 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.30) 45%, transparent 70%)'
 
   const accentColor = isFace
-    ? 'rgba(40,180,230,0.5)'
+    ? 'rgba(60,130,255,0.5)'
     : isHeel
     ? 'rgba(255,51,85,0.5)'
     : 'rgba(255,255,255,0.2)'
