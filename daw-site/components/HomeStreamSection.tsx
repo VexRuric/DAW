@@ -292,25 +292,32 @@ function WrestlerAvatar({ src, name, size = 34, contain = false }: { src: string
 }
 
 function MatchBadges({ match, stipParts, center }: { match: CompactMatch; stipParts: string[]; center?: boolean }) {
+  const justify = center ? 'center' : undefined
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: center ? 'center' : undefined }}>
-      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        {match.matchType}
-      </span>
-      {stipParts.map(tag => (
-        <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.04rem 0.22rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
-      ))}
-      {match.isTitleMatch && (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontFamily: 'var(--font-meta)', fontSize: '0.44rem', background: 'rgba(255,201,51,0.12)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.04rem 0.28rem', letterSpacing: '0.1em', fontWeight: 700 }}>
-          {match.titleImageUrl && <img src={match.titleImageUrl} alt="" style={{ height: 14, maxWidth: 36, objectFit: 'contain', display: 'block' }} />}
-          {match.hashtag ? `#${match.hashtag}` : 'TITLE ON THE LINE'}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: center ? 'center' : 'flex-start', gap: '0.18rem' }}>
+      {/* Row 1: match type + stipulation tags + non-title result hashtag */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: justify }}>
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          {match.matchType}
         </span>
-      )}
-      {match.titleName && (
-        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{match.titleName}</span>
-      )}
-      {match.hashtag && !match.isTitleMatch && (
-        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: HASHTAG_COLOR[match.hashtag], letterSpacing: '0.1em', fontWeight: 700 }}>#{match.hashtag}</span>
+        {stipParts.map(tag => (
+          <span key={tag} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: STIP_COLORS[tag] ?? 'var(--text-dim)', border: `1px solid ${STIP_COLORS[tag] ? STIP_COLORS[tag] + '55' : 'var(--border)'}`, padding: '0.04rem 0.22rem', letterSpacing: '0.08em', fontWeight: 700 }}>{tag}</span>
+        ))}
+        {match.hashtag && !match.isTitleMatch && (
+          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.46rem', color: HASHTAG_COLOR[match.hashtag], letterSpacing: '0.1em', fontWeight: 700 }}>#{match.hashtag}</span>
+        )}
+      </div>
+      {/* Row 2: title info on its own line */}
+      {match.isTitleMatch && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: justify }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontFamily: 'var(--font-meta)', fontSize: '0.44rem', background: 'rgba(255,201,51,0.12)', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.04rem 0.28rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+            {match.titleImageUrl && <img src={match.titleImageUrl} alt="" style={{ height: 14, maxWidth: 36, objectFit: 'contain', display: 'block' }} />}
+            {match.hashtag ? `#${match.hashtag}` : 'TITLE ON THE LINE'}
+          </span>
+          {match.titleName && (
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{match.titleName}</span>
+          )}
+        </div>
       )}
     </div>
   )
