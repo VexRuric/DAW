@@ -276,12 +276,13 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
 const NAME_LIMIT = 4
 
 // size accepts px number or CSS string (e.g. clamp(...)) for responsive sizing
-function WrestlerAvatar({ src, name, size = 34 }: { src: string | null; name: string; size?: number | string }) {
+// contain=true for logos/badges (objectFit contain); false/default for wrestler renders (cover + top crop)
+function WrestlerAvatar({ src, name, size = 34, contain = false }: { src: string | null; name: string; size?: number | string; contain?: boolean }) {
   if (!src) return null
   return (
     <div style={{ width: size, height: size, flexShrink: 0, overflow: 'hidden', background: 'rgba(0,0,0,0.35)' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }} />
+      <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: contain ? 'contain' : 'cover', objectPosition: contain ? 'center' : 'top center', display: 'block' }} />
     </div>
   )
 }
@@ -402,7 +403,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               {/* Side A */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(100px, 38%, 260px)' }}>
-                <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
+                <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={!!(sides[0]?.members?.length)} />
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
@@ -413,7 +414,7 @@ function MatchRow({ match }: { match: CompactMatch }) {
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.72rem, 3.5vw, 0.95rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
-                <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
+                <WrestlerAvatar src={sideImg(1)} name={sides[1]?.name ?? ''} size="clamp(36px, 10vw, 52px)" contain={!!(sides[1]?.members?.length)} />
               </div>
             </div>
             {/* Faction members — single centered row, Side A | divider | Side B */}
