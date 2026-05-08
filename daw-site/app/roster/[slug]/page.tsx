@@ -79,8 +79,7 @@ async function getWrestler(slug: string) {
         )
       `)
       .eq('wrestler_id', wrestler.id)
-      .order('created_at', { ascending: false, referencedTable: 'matches' })
-      .limit(25),
+      .order('created_at', { ascending: false, referencedTable: 'matches' }),
 
     // Active team memberships
     supabase
@@ -393,7 +392,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
               Match History
             </h2>
             <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>
-              {matchHistory.length} RECENT
+              {matchHistory.length} MATCHES
             </span>
           </div>
 

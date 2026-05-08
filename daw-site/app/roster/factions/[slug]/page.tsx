@@ -50,8 +50,7 @@ async function getFaction(slug: string) {
         )
       `)
       .eq('team_id', team.id)
-      .order('created_at', { ascending: false, referencedTable: 'matches' })
-      .limit(25),
+      .order('created_at', { ascending: false, referencedTable: 'matches' }),
 
     supabase
       .from('team_memberships')
@@ -308,7 +307,7 @@ export default async function FactionStatPage({ params }: PageProps) {
         <div style={{ maxWidth: 1200, margin: '0 auto', background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <div style={{ padding: '0.85rem 1.25rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: 0 }}>Match History</h2>
-            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>{matchHistory.length} RECENT</span>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.15em' }}>{matchHistory.length} MATCHES</span>
           </div>
 
           {matchHistory.length === 0 ? (
