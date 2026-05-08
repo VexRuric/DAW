@@ -175,15 +175,21 @@ export default async function WrestlerStatPage({ params }: PageProps) {
           position: 'relative',
           height: 'clamp(380px, 60vh, 550px)',
           overflow: 'hidden',
-          background: currentReign
-            ? 'rgb(18,12,0)'
-            : isFace
-            ? '#00358e'
-            : isHeel
-            ? '#430404'
-            : 'rgb(12,12,16)',
+          background: 'rgb(10,10,14)',
         }}
       >
+        {/* Alignment color hint — subtle tint over dark bg */}
+        {(isFace || isHeel || currentReign) && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            background: currentReign
+              ? 'linear-gradient(to bottom, rgba(30,20,0,0.45) 0%, transparent 70%)'
+              : isFace
+              ? 'linear-gradient(to bottom, rgba(0,53,142,0.35) 0%, transparent 70%)'
+              : 'linear-gradient(to bottom, rgba(67,4,4,0.35) 0%, transparent 70%)',
+          }} />
+        )}
+
         {/* Portrait — no inner box, just the img centred in section */}
         {wrestler.render_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -198,6 +204,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
               height: '115%',
               width: 'auto',
               display: 'block',
+              zIndex: 1,
             }}
           />
         ) : (

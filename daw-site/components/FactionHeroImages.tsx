@@ -39,7 +39,7 @@ export default function FactionHeroImages({
               onClick={() => setZoomSrc(url)}
               style={{
                 position: 'absolute', top: 0, left: `${leftPct}%`,
-                width: count <= 2 ? '60%' : '50%', height: '125%',
+                width: count <= 2 ? '40%' : '34%', height: '115%',
                 objectFit: 'cover', objectPosition: 'top center',
                 zIndex: zIdx, cursor: 'zoom-in',
               }}

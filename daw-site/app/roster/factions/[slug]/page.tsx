@@ -139,7 +139,21 @@ export default async function FactionStatPage({ params }: PageProps) {
       <TitleHistoryTab reigns={reigns} />
 
       {/* ── Hero ─────────────────────────────────────────── */}
-      <section style={{ position: 'relative', height: '65vh', minHeight: 320, overflow: 'hidden', background: 'var(--surface-2)' }}>
+      <section style={{
+          position: 'relative', height: '50vh', minHeight: 280, overflow: 'hidden',
+          background: 'rgb(10,10,14)',
+        }}>
+        {/* Alignment color hint */}
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+          background: currentReign
+            ? 'linear-gradient(to bottom, rgba(30,20,0,0.4) 0%, transparent 70%)'
+            : isFace
+            ? 'linear-gradient(to bottom, rgba(0,53,142,0.3) 0%, transparent 70%)'
+            : isHeel
+            ? 'linear-gradient(to bottom, rgba(67,4,4,0.3) 0%, transparent 70%)'
+            : 'none',
+        }} />
         {/* Interactive: wrestler images zoom individually, logo badge zooms separately */}
         <FactionHeroImages
           memberRenders={memberRenders}
