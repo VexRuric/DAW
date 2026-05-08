@@ -26,11 +26,12 @@ interface TeamRecord {
 async function getData() {
   try {
     const supabase = await createClient()
-    const [activeRes, inactiveRes, recordRes, membersRes] = await Promise.all([
+    const [activeRes, inactiveRes, recordRes, membersRes, champRes] = await Promise.all([
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', true).order('name'),
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', false).order('name'),
       supabase.from('team_records').select('*'),
       supabase.from('team_memberships').select('team_id, wrestlers(id, render_url)').is('end_date', null),
+      supabase.from('title_reigns').select('holder_team_id, titles(name, image_url)').is('lost_date', null).not('holder_team_id', 'is', null),
     ])
 
     const memberRendersByTeamId = new Map<string, (string | null)[]>()
@@ -41,14 +42,20 @@ async function getData() {
       memberRendersByTeamId.set(row.team_id, list)
     }
 
+    const champMap = new Map<string, { title_name: string; title_image_url: string | null }>()
+    for (const r of (champRes.data ?? []) as any[]) {
+      if (r.holder_team_id) champMap.set(r.holder_team_id, { title_name: r.titles?.name ?? '', title_image_url: r.titles?.image_url ?? null })
+    }
+
     return {
       teams:    (activeRes.data   ?? []) as Team[],
       disbanded:(inactiveRes.data ?? []) as Team[],
       records:  (recordRes.data   ?? []) as TeamRecord[],
       memberRendersByTeamId,
+      champMap,
     }
   } catch {
-    return { teams: [], disbanded: [], records: [], memberRendersByTeamId: new Map() }
+    return { teams: [], disbanded: [], records: [], memberRendersByTeamId: new Map(), champMap: new Map() }
   }
 }
 
@@ -66,7 +73,7 @@ function SilhouettePlaceholder() {
 }
 
 export default async function FactionsPage() {
-  const { teams, disbanded, records, memberRendersByTeamId } = await getData()
+  const { teams, disbanded, records, memberRendersByTeamId, champMap } = await getData()
 
   const recordMap = new Map<string, TeamRecord>()
   records.forEach((r) => recordMap.set(r.id, r))
@@ -128,15 +135,36 @@ export default async function FactionsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem', marginBottom: '4rem' }}>
               {teams.map((team) => {
                 const record = recordMap.get(team.id)
-                const accentColor = team.role === 'Heel' ? 'var(--accent-red)' : team.role === 'Face' ? 'var(--purple-hot)' : 'var(--border-hot)'
+                const champ = champMap.get(team.id) ?? null
+                const isChamp = !!champ
+                const accentColor = team.role === 'Heel' ? 'var(--accent-red)' : team.role === 'Face' ? 'rgba(60,130,255,0.9)' : 'var(--border-hot)'
+                const cardBorder = isChamp ? 'rgba(255,201,51,0.5)' : 'var(--border)'
                 const memberRenders = (memberRendersByTeamId.get(team.id) ?? []).filter(Boolean).slice(0, 5) as string[]
                 const hasComposite  = memberRenders.length >= 2
                 return (
                   <Link
                     key={team.id}
                     href={`/roster/factions/${toSlug(team.name)}`}
-                    style={{ textDecoration: 'none', display: 'block', position: 'relative', aspectRatio: '2/3', overflow: 'hidden', border: `1px solid var(--border)`, background: 'var(--surface-2)' }}
+                    style={{ textDecoration: 'none', display: 'block', position: 'relative', aspectRatio: '2/3', overflow: 'hidden', border: `1px solid ${cardBorder}`, background: 'var(--surface-2)' }}
                   >
+                    {/* Champion stripe */}
+                    {isChamp && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 12,
+                        background: 'var(--gold)', color: 'var(--bg-top)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: '0.3rem', padding: '0.28rem 0.5rem',
+                        fontFamily: 'var(--font-meta)', fontSize: '0.5rem', fontWeight: 700,
+                        letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1.3,
+                      }}>
+                        {champ!.title_image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={champ!.title_image_url} alt="" style={{ height: 20, maxWidth: 46, objectFit: 'contain', display: 'block', flexShrink: 0 }} />
+                        )}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{champ!.title_name}</span>
+                      </div>
+                    )}
+
                     {/* Background: composite member renders OR solo logo */}
                     <div style={{ position: 'absolute', inset: 0 }}>
                       {hasComposite ? (
