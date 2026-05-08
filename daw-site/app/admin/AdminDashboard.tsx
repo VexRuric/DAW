@@ -778,7 +778,7 @@ function ResultsEntry() {
       .select('matches!inner(shows!inner(id, name, show_date, status, stream_url))')
       .eq(col, entry.id)
     const showMap = new Map<string, ShowStub>()
-    for (const row of (data ?? []) as { matches: { shows: ShowStub } }[]) {
+    for (const row of (data ?? []) as unknown as { matches: { shows: ShowStub } }[]) {
       const s = row.matches?.shows
       if (s && (s.status === 'committed' || s.status === 'completed') && !showMap.has(s.id))
         showMap.set(s.id, s)
