@@ -87,11 +87,16 @@ async function getFaction(slug: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formerMembers  = (formerMembersRes.data ?? []).map((m: any) => m.wrestlers).filter(Boolean)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matchHistory = ([...(recentMatchesRes.data ?? [])] as any[]).sort((a, b) =>
+    (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
+  )
+
   return {
     team,
     dbRecord: recordRes.data,
     reigns: reignsRes.data ?? [],
-    matchHistory: (recentMatchesRes.data ?? []) as any[],
+    matchHistory,
     record,
     winPct,
     currentMembers,

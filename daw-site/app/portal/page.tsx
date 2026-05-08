@@ -999,9 +999,10 @@ export default function PortalPage() {
             })
           )}
 
-          {/* New Wrestler card — hidden when at limit */}
+          {/* New Wrestler card — hidden when at limit (staff are never limited) */}
           {(() => {
-            const effectiveMax = subscriptionTier === 'subscriber' ? subMaxWrestlers : fanMaxWrestlers
+            const isStaff = user?.role === 'admin' || user?.role === 'creative'
+            const effectiveMax = isStaff ? Infinity : subscriptionTier === 'subscriber' ? subMaxWrestlers : fanMaxWrestlers
             const activeWrestlers = creations.filter((c) => c.type === 'wrestler' && c.status !== 'rejected' && !c.twitchLinked).length
             return activeWrestlers < effectiveMax ? (
               <NewCard icon="⚡" label="New Wrestler" sub="Submit a character" onClick={() => setOpenNewWrestler(true)} />
@@ -1010,9 +1011,10 @@ export default function PortalPage() {
             )
           })()}
 
-          {/* New Faction card — hidden when at limit */}
+          {/* New Faction card — hidden when at limit (staff are never limited) */}
           {(() => {
-            const effectiveMax = subscriptionTier === 'subscriber' ? subMaxFactions : fanMaxFactions
+            const isStaff = user?.role === 'admin' || user?.role === 'creative'
+            const effectiveMax = isStaff ? Infinity : subscriptionTier === 'subscriber' ? subMaxFactions : fanMaxFactions
             const activeFactions = creations.filter((c) => c.type === 'faction' && c.status !== 'rejected').length
             return activeFactions < effectiveMax ? (
               <NewCard icon="🤝" label="New Faction" sub="Build a stable" onClick={() => setOpenNewFaction(true)} />

@@ -5,10 +5,11 @@ import WrestlerCard from '@/components/WrestlerCard'
 import { Wrestler, WrestlerRecord, CurrentChampion } from '@/lib/types'
 
 interface RosterClientProps {
-  wrestlers:      Wrestler[]
-  records:        WrestlerRecord[]
-  champions:      CurrentChampion[]
-  titleImageById?: Map<string, string | null>
+  wrestlers:             Wrestler[]
+  records:               WrestlerRecord[]
+  champions:             CurrentChampion[]
+  titleImageById?:       Map<string, string | null>
+  tagChampWrestlerMap?:  Map<string, { title_name: string; title_id: string }>
 }
 
 const DIVISIONS = ['All', 'Mens', 'Womens', 'Internet', 'Intercontinental', 'Tag Team']
@@ -18,7 +19,7 @@ function toSlug(name: string) {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
-export default function RosterClient({ wrestlers, records, champions, titleImageById }: RosterClientProps) {
+export default function RosterClient({ wrestlers, records, champions, titleImageById, tagChampWrestlerMap }: RosterClientProps) {
   const [division, setDivision] = useState('All')
   const [role, setRole]         = useState('All')
   const [search, setSearch]     = useState('')
@@ -30,12 +31,15 @@ export default function RosterClient({ wrestlers, records, champions, titleImage
   }, [records])
 
   const champMap = useMemo(() => {
-    const m = new Map<string | null, string>()
+    const m = new Map<string, string>()
     champions.forEach((c) => {
       if (c.holder_wrestler_id) m.set(c.holder_wrestler_id, c.title_name)
     })
+    tagChampWrestlerMap?.forEach((v, wrestlerId) => {
+      if (!m.has(wrestlerId)) m.set(wrestlerId, v.title_name)
+    })
     return m
-  }, [champions])
+  }, [champions, tagChampWrestlerMap])
 
   const titleImageByWrestlerId = useMemo(() => {
     const m = new Map<string, string | null>()
@@ -44,8 +48,13 @@ export default function RosterClient({ wrestlers, records, champions, titleImage
         m.set(c.holder_wrestler_id, titleImageById.get(c.title_id) ?? null)
       }
     })
+    tagChampWrestlerMap?.forEach((v, wrestlerId) => {
+      if (!m.has(wrestlerId) && titleImageById) {
+        m.set(wrestlerId, titleImageById.get(v.title_id) ?? null)
+      }
+    })
     return m
-  }, [champions, titleImageById])
+  }, [champions, titleImageById, tagChampWrestlerMap])
 
   const filtered = useMemo(() => {
     return wrestlers.filter((w) => {

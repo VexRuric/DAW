@@ -25,20 +25,53 @@ async function getData() {
       (titlesRes.data ?? []).map((t: { id: string; image_url: string | null }) => [t.id, t.image_url])
     )
 
+    // For team-held titles, map each winning wrestler → title info
+    // If specific members were recorded (holder_wrestler_id / _2), use only them;
+    // otherwise fall back to all current team members.
+    const teamChamps = ((champRes.data ?? []) as CurrentChampion[]).filter(c => c.holder_team_id)
+    const tagChampWrestlerMap = new Map<string, { title_name: string; title_id: string }>()
+    if (teamChamps.length > 0) {
+      const teamsWithoutSpecificMembers = teamChamps.filter(c => !c.holder_wrestler_id)
+      // Teams where specific members were recorded — add those members directly
+      for (const champ of teamChamps) {
+        if (champ.holder_wrestler_id) {
+          tagChampWrestlerMap.set(champ.holder_wrestler_id, { title_name: champ.title_name, title_id: champ.title_id })
+          if (champ.holder_wrestler_id_2) {
+            tagChampWrestlerMap.set(champ.holder_wrestler_id_2, { title_name: champ.title_name, title_id: champ.title_id })
+          }
+        }
+      }
+      // Teams without specific members — fall back to all current members
+      if (teamsWithoutSpecificMembers.length > 0) {
+        const memberRes = await supabase
+          .from('team_memberships')
+          .select('wrestler_id, team_id')
+          .in('team_id', teamsWithoutSpecificMembers.map(c => c.holder_team_id as string))
+          .is('end_date', null)
+        for (const row of (memberRes.data ?? []) as { wrestler_id: string; team_id: string }[]) {
+          const champ = teamsWithoutSpecificMembers.find(c => c.holder_team_id === row.team_id)
+          if (champ && !tagChampWrestlerMap.has(row.wrestler_id)) {
+            tagChampWrestlerMap.set(row.wrestler_id, { title_name: champ.title_name, title_id: champ.title_id })
+          }
+        }
+      }
+    }
+
     return {
       wrestlers:   (wrestlerRes.data ?? []) as Wrestler[],
       alumniCount: (alumniRes.data ?? []).length,
       records:     (recordRes.data  ?? []) as WrestlerRecord[],
       champions:   (champRes.data   ?? []) as CurrentChampion[],
       titleImageById,
+      tagChampWrestlerMap,
     }
   } catch {
-    return { wrestlers: [], alumniCount: 0, records: [], champions: [], titleImageById: new Map() }
+    return { wrestlers: [], alumniCount: 0, records: [], champions: [], titleImageById: new Map(), tagChampWrestlerMap: new Map<string, { title_name: string; title_id: string }>() }
   }
 }
 
 export default async function RosterPage() {
-  const { wrestlers, alumniCount, records, champions, titleImageById } = await getData()
+  const { wrestlers, alumniCount, records, champions, titleImageById, tagChampWrestlerMap } = await getData()
 
   const totalMens   = wrestlers.filter(w => w.gender === 'Male').length
   const totalWomens = wrestlers.filter(w => w.gender === 'Female').length
@@ -109,7 +142,7 @@ export default async function RosterPage() {
           </Link>
         </div>
 
-        <RosterClient wrestlers={wrestlers} records={records} champions={champions} titleImageById={titleImageById} />
+        <RosterClient wrestlers={wrestlers} records={records} champions={champions} titleImageById={titleImageById} tagChampWrestlerMap={tagChampWrestlerMap} />
       </div>
     </>
   )

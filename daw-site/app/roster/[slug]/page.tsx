@@ -113,12 +113,16 @@ async function getWrestler(slug: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentTeams = (teamsRes.data ?? []).map((m: any) => m.teams).filter((t: any) => t?.active)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matchHistory = ([...(recentMatchesRes.data ?? [])] as any[]).sort((a, b) =>
+    (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
+  )
+
   return {
     wrestler,
     record: recordRes.data,
     reigns: reignsRes.data ?? [],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    matchHistory: (recentMatchesRes.data ?? []) as any[],
+    matchHistory,
     breakdown,
     currentTeams,
   }

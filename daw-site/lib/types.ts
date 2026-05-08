@@ -140,6 +140,7 @@ export interface CurrentChampion {
   holder_team_id: string | null
   won_date: string
   days_held: number
+  holder_wrestler_id_2: string | null
 }
 
 // Composite types for page data

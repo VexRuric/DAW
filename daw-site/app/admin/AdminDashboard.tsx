@@ -699,6 +699,11 @@ function ResultsEntry() {
   const [addWriteIn, setAddWriteIn]       = useState('')
   const [addingEntry, setAddingEntry]     = useState(false)
   const [editingMatch, setEditingMatch]   = useState<string | null>(null)
+  const [searchMode, setSearchMode]       = useState<'show' | 'roster'>('show')
+  const [rosterSearch, setRosterSearch]   = useState('')
+  const [selectedRoster, setSelectedRoster] = useState<RosterAddEntry | null>(null)
+  const [rosterShows, setRosterShows]     = useState<ShowStub[]>([])
+  const [loadingRosterShows, setLoadingRosterShows] = useState(false)
 
   useEffect(() => {
     async function loadShows() {
@@ -763,6 +768,23 @@ function ResultsEntry() {
     await supabase.from('shows').update({ stream_url: streamUrl.trim() || null }).eq('id', selectedShow.id)
     setStreamSaved(true); setSavingStream(false)
     setTimeout(() => setStreamSaved(false), 3000)
+  }
+
+  async function loadShowsForRoster(entry: RosterAddEntry) {
+    setSelectedRoster(entry); setRosterShows([]); setLoadingRosterShows(true)
+    const col = entry.kind === 'wrestler' ? 'wrestler_id' : 'team_id'
+    const { data } = await supabase
+      .from('match_participants')
+      .select('matches!inner(shows!inner(id, name, show_date, status, stream_url))')
+      .eq(col, entry.id)
+    const showMap = new Map<string, ShowStub>()
+    for (const row of (data ?? []) as { matches: { shows: ShowStub } }[]) {
+      const s = row.matches?.shows
+      if (s && (s.status === 'committed' || s.status === 'completed') && !showMap.has(s.id))
+        showMap.set(s.id, s)
+    }
+    setRosterShows([...showMap.values()].sort((a, b) => b.show_date.localeCompare(a.show_date)))
+    setLoadingRosterShows(false)
   }
 
   async function selectShow(show: ShowStub) {
@@ -876,48 +898,110 @@ function ResultsEntry() {
 
   if (!selectedShow) {
     const allYears  = [...new Set(shows.map(s => s.show_date.slice(0, 4)))].sort().reverse()
-    const filtered  = shows.filter(s => {
+    const filteredShows = shows.filter(s => {
       const matchesYear   = yearFilter === 'all' || s.show_date.startsWith(yearFilter)
       const matchesSearch = !showSearch || s.name.toLowerCase().includes(showSearch.toLowerCase())
       return matchesYear && matchesSearch
     })
+    const filteredRoster = rosterEntries.filter(e =>
+      !rosterSearch || e.name.toLowerCase().includes(rosterSearch.toLowerCase())
+    ).slice(0, 30)
+
+    function ShowButton({ s }: { s: ShowStub }) {
+      return (
+        <button onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer', width:'100%' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+        >
+          <div>
+            <p style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{s.name}</p>
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.2rem' }}>{new Date(s.show_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          </div>
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.2rem 0.6rem', background: s.status === 'committed' ? 'rgba(128,0,218,0.15)' : 'rgba(0,200,100,0.12)', color: s.status === 'committed' ? 'var(--purple-hot)' : '#00c864', border: `1px solid ${s.status === 'committed' ? 'var(--purple)' : '#00c864'}` }}>{s.status.toUpperCase()}</span>
+        </button>
+      )
+    }
+
     return (
       <div>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.5rem' }}>Results Entry</h2>
+        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.25rem' }}>Results Entry</h2>
+
+        {/* Search mode tabs */}
+        <div style={{ display:'flex', gap:'0.25rem', borderBottom:'1px solid var(--border)', marginBottom:'1.25rem' }}>
+          {(['show', 'roster'] as const).map((mode) => (
+            <button key={mode} onClick={() => { setSearchMode(mode); setSelectedRoster(null); setRosterShows([]) }}
+              style={{ padding:'0.55rem 1rem', background:'transparent', border:'none', borderBottom:`2px solid ${searchMode === mode ? 'var(--purple-hot)' : 'transparent'}`, color: searchMode === mode ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer' }}>
+              {mode === 'show' ? 'By Show' : 'By Wrestler / Faction'}
+            </button>
+          ))}
+        </div>
+
         {loadingShows ? (
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading shows…</p>
-        ) : shows.length === 0 ? (
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No committed shows found. Book and commit a show first.</p>
+          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+        ) : searchMode === 'show' ? (
+          shows.length === 0 ? (
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>No committed shows found. Book and commit a show first.</p>
+          ) : (
+            <>
+              <div style={{ display:'flex', gap:'0.75rem', marginBottom:'1rem', flexWrap:'wrap', alignItems:'center' }}>
+                <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
+                  {['all', ...allYears].map(y => (
+                    <button key={y} onClick={() => setYearFilter(y)}
+                      style={{ padding:'0.3rem 0.75rem', background: yearFilter === y ? 'rgba(128,0,218,0.2)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                      {y === 'all' ? 'All' : y}
+                    </button>
+                  ))}
+                </div>
+                <input className="form-input" placeholder="Search shows…" value={showSearch} onChange={e => setShowSearch(e.target.value)}
+                  style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                {filteredShows.map((s) => <ShowButton key={s.id} s={s} />)}
+                {filteredShows.length === 0 && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No shows match your filters.</p>}
+              </div>
+            </>
+          )
         ) : (
-          <>
-            <div style={{ display:'flex', gap:'0.75rem', marginBottom:'1rem', flexWrap:'wrap', alignItems:'center' }}>
-              <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
-                {['all', ...allYears].map(y => (
-                  <button key={y} onClick={() => setYearFilter(y)}
-                    style={{ padding:'0.3rem 0.75rem', background: yearFilter === y ? 'rgba(128,0,218,0.2)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
-                    {y === 'all' ? 'All' : y}
+          /* By Wrestler / Faction mode */
+          <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:'1.5rem', alignItems:'start' }}>
+            {/* Left: roster picker */}
+            <div>
+              <input className="form-input" placeholder="Search wrestlers / factions…" value={rosterSearch} onChange={e => setRosterSearch(e.target.value)}
+                style={{ fontSize:'0.7rem', marginBottom:'0.65rem' }} />
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', maxHeight:480, overflowY:'auto' }}>
+                {filteredRoster.map((entry) => (
+                  <button key={entry.id} onClick={() => loadShowsForRoster(entry)}
+                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.6rem 0.85rem', background: selectedRoster?.id === entry.id ? 'rgba(128,0,218,0.15)' : 'var(--surface)', border:`1px solid ${selectedRoster?.id === entry.id ? 'var(--purple)' : 'var(--border)'}`, textAlign:'left', cursor:'pointer' }}>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', color: selectedRoster?.id === entry.id ? 'var(--purple-hot)' : 'var(--text)', letterSpacing:'0.06em' }}>{entry.name}</span>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.12em', textTransform:'uppercase' }}>{entry.kind === 'team' ? 'Faction' : 'Wrestler'}</span>
                   </button>
                 ))}
+                {filteredRoster.length === 0 && rosterSearch && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>No matches.</p>}
+                {!rosterSearch && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.1em', padding:'0.35rem' }}>Start typing to search…</p>}
               </div>
-              <input className="form-input" placeholder="Search shows…" value={showSearch} onChange={e => setShowSearch(e.target.value)}
-                style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
             </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-              {filtered.map((s) => (
-                <button key={s.id} onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
-                >
-                  <div>
-                    <p style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{s.name}</p>
-                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.2rem' }}>{new Date(s.show_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                  </div>
-                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.2rem 0.6rem', background: s.status === 'committed' ? 'rgba(128,0,218,0.15)' : 'rgba(0,200,100,0.12)', color: s.status === 'committed' ? 'var(--purple-hot)' : '#00c864', border: `1px solid ${s.status === 'committed' ? 'var(--purple)' : '#00c864'}` }}>{s.status.toUpperCase()}</span>
-                </button>
-              ))}
-              {filtered.length === 0 && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No shows match your filters.</p>}
+
+            {/* Right: shows for selected entry */}
+            <div>
+              {!selectedRoster && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>Select a wrestler or faction to see their shows.</p>}
+              {selectedRoster && (
+                <>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.15em', fontWeight:700, textTransform:'uppercase', marginBottom:'0.75rem' }}>
+                    Shows — {selectedRoster.name}
+                  </p>
+                  {loadingRosterShows ? (
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>Loading…</p>
+                  ) : rosterShows.length === 0 ? (
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No committed or completed shows found for this person.</p>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                      {rosterShows.map((s) => <ShowButton key={s.id} s={s} />)}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          </>
+          </div>
         )}
       </div>
     )
@@ -1106,12 +1190,16 @@ function ChampionsSection() {
   const [rebuildResult, setRebuildResult] = useState<string | null>(null)
   const [rebuildError, setRebuildError]   = useState<string | null>(null)
   const [holderId, setHolderId]   = useState('')
+  const [holderId2, setHolderId2] = useState('')
   const [wonDate, setWonDate]     = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [renamingId, setRenamingId]   = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameSaving, setRenameSaving] = useState(false)
+  const [teamMembers, setTeamMembers]               = useState<{ id: string; name: string }[]>([])
+  const [selectedMemberIds, setSelectedMemberIds]   = useState<string[]>([])
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -1130,6 +1218,22 @@ function ChampionsSection() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
+  useEffect(() => {
+    if (holderType !== 'team' || !holderId) { setTeamMembers([]); setSelectedMemberIds([]); return }
+    setLoadingTeamMembers(true)
+    supabase
+      .from('team_memberships')
+      .select('wrestlers(id, name)')
+      .eq('team_id', holderId)
+      .is('end_date', null)
+      .then(({ data }) => {
+        const members = (data ?? []).map((m: { wrestlers: { id: string; name: string } | null }) => m.wrestlers).filter(Boolean) as { id: string; name: string }[]
+        setTeamMembers(members)
+        setSelectedMemberIds([])
+        setLoadingTeamMembers(false)
+      })
+  }, [holderId, holderType])
+
   function getChamp(titleId: string) { return champs.find((c) => c.title_id === titleId) ?? null }
 
   function openEdit(titleId: string) {
@@ -1137,6 +1241,9 @@ function ChampionsSection() {
     setEditId(titleId)
     setHolderType(title?.category === 'Tag' ? 'team' : 'wrestler')
     setHolderId('')
+    setHolderId2('')
+    setTeamMembers([])
+    setSelectedMemberIds([])
     setWonDate(new Date().toISOString().slice(0, 10))
     setSaveError(null)
   }
@@ -1147,10 +1254,33 @@ function ChampionsSection() {
     await supabase.from('title_reigns').update({ lost_date: wonDate }).eq('title_id', editId).is('lost_date', null)
     const { data: prev } = await supabase.from('title_reigns').select('reign_number').eq('title_id', editId).order('reign_number', { ascending: false }).limit(1)
     const nextNum = ((prev?.[0]?.reign_number ?? 0) as number) + 1
-    const { error } = await supabase.from('title_reigns').insert({ title_id: editId, holder_wrestler_id: holderType === 'wrestler' ? holderId : null, holder_team_id: holderType === 'team' ? holderId : null, won_date: wonDate, reign_number: nextNum })
+
+    let insertPayload: Record<string, unknown>
+    if (holderType === 'wrestler') {
+      insertPayload = {
+        title_id: editId,
+        holder_wrestler_id: holderId,
+        holder_wrestler_id_2: holderId2 || null,
+        won_date: wonDate,
+        reign_number: nextNum,
+      }
+    } else {
+      // Team-type: optionally record specific winning members
+      const [m1, m2] = selectedMemberIds
+      insertPayload = {
+        title_id: editId,
+        holder_team_id: holderId,
+        holder_wrestler_id: m1 ?? null,
+        holder_wrestler_id_2: m2 ?? null,
+        won_date: wonDate,
+        reign_number: nextNum,
+      }
+    }
+
+    const { error } = await supabase.from('title_reigns').insert(insertPayload)
     if (error) { setSaveError(error.message); setSaving(false); return }
     await loadAll()
-    setEditId(null); setSaving(false)
+    setEditId(null); setHolderId2(''); setSelectedMemberIds([]); setSaving(false)
   }
 
   async function vacate(titleId: string) {
@@ -1247,17 +1377,26 @@ function ChampionsSection() {
                   {!isEditing && <button onClick={() => retire(title.id, title.name)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }} title="Mark this title as retired and remove it from the active roster">Retire</button>}
                 </div>
               </div>
-              {isEditing && (
+              {isEditing && (() => {
+                const editingTitle = titles.find((t) => t.id === editId)
+                const isTagTitle = editingTitle?.category === 'Tag'
+                return (
                 <div style={{ borderTop:'1px solid var(--border)', padding:'1.25rem', background:'var(--surface-2)', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
                   {saveError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{saveError}</p>}
-                  <div style={{ display:'flex', gap:'0.5rem' }}>
-                    {(['wrestler', 'team'] as const).map((t) => (
-                      <button key={t} onClick={() => { setHolderType(t); setHolderId('') }} style={{ padding:'0.35rem 0.85rem', background: holderType === t ? 'var(--purple)' : 'transparent', border:'1px solid var(--border)', color: holderType === t ? 'white' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer' }}>{t === 'wrestler' ? 'Wrestler' : 'Tag Team'}</button>
-                    ))}
-                  </div>
+
+                  {/* Holder type toggle — only show for Tag titles */}
+                  {isTagTitle && (
+                    <div style={{ display:'flex', gap:'0.5rem' }}>
+                      {(['wrestler', 'team'] as const).map((t) => (
+                        <button key={t} onClick={() => { setHolderType(t); setHolderId(''); setHolderId2(''); setTeamMembers([]); setSelectedMemberIds([]) }} style={{ padding:'0.35rem 0.85rem', background: holderType === t ? 'var(--purple)' : 'transparent', border:'1px solid var(--border)', color: holderType === t ? 'white' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer' }}>{t === 'wrestler' ? 'Wrestlers' : 'Tag Team'}</button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Primary holder + date row */}
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 180px auto', gap:'0.75rem', alignItems:'end' }}>
                     <div className="form-field" style={{ marginBottom:0 }}>
-                      <label className="form-label">{holderType === 'wrestler' ? 'Wrestler' : 'Tag Team'}</label>
+                      <label className="form-label">{holderType === 'wrestler' ? (isTagTitle ? 'Wrestler 1' : 'Wrestler') : 'Tag Team'}</label>
                       <select className="form-input form-select" value={holderId} onChange={(e) => setHolderId(e.target.value)}>
                         <option value="">— Select —</option>
                         {(holderType === 'wrestler' ? wrestlers : teams).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -1269,8 +1408,55 @@ function ChampionsSection() {
                     </div>
                     <button onClick={save} disabled={!holderId || saving} style={{ padding:'0.65rem 1.25rem', background: holderId ? 'var(--gold)' : 'var(--surface-3)', border:'none', color: holderId ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: saving ? 0.6 : 1, height:'fit-content' }}>{saving ? 'Saving…' : 'Set Champion'}</button>
                   </div>
+
+                  {/* Wrestler 2 — only for wrestler-type Tag titles */}
+                  {isTagTitle && holderType === 'wrestler' && (
+                    <div className="form-field" style={{ marginBottom:0, maxWidth:360 }}>
+                      <label className="form-label">Wrestler 2</label>
+                      <select className="form-input form-select" value={holderId2} onChange={(e) => setHolderId2(e.target.value)}>
+                        <option value="">— Select (optional) —</option>
+                        {wrestlers.filter(w => w.id !== holderId).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Team member selection — only for team-type Tag titles */}
+                  {isTagTitle && holderType === 'team' && holderId && (
+                    <div>
+                      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em', fontWeight:700, textTransform:'uppercase', marginBottom:'0.5rem' }}>
+                        Specific Winning Members {loadingTeamMembers ? '…' : `(${selectedMemberIds.length} selected)`}
+                      </p>
+                      {!loadingTeamMembers && teamMembers.length === 0 && (
+                        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.08em' }}>No current members found for this team.</p>
+                      )}
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'0.4rem' }}>
+                        {teamMembers.map((m) => {
+                          const checked = selectedMemberIds.includes(m.id)
+                          return (
+                            <label key={m.id} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.35rem 0.65rem', background: checked ? 'rgba(255,201,51,0.12)' : 'var(--surface)', border:`1px solid ${checked ? 'rgba(255,201,51,0.5)' : 'var(--border)'}`, cursor:'pointer', fontFamily:'var(--font-meta)', fontSize:'0.65rem', color: checked ? 'var(--gold)' : 'var(--text-muted)', letterSpacing:'0.08em' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedMemberIds(prev =>
+                                    prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
+                                  )
+                                }}
+                                style={{ accentColor:'var(--gold)', cursor:'pointer' }}
+                              />
+                              {m.name}
+                            </label>
+                          )
+                        })}
+                      </div>
+                      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.08em', marginTop:'0.5rem', opacity:0.7 }}>
+                        Leave unchecked to show all current members as champions on the roster.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+                )
+              })()}
             </div>
           )
         })}
@@ -1582,6 +1768,9 @@ function RosterEdits() {
   const [reinstating, setReinstating] = useState<string | null>(null)
   const [backstoryEdit, setBackstoryEdit] = useState<{ id: string; name: string; text: string } | null>(null)
   const [backstorySaving, setBackstorySaving] = useState(false)
+  const [addPanel, setAddPanel]     = useState<{ name: string; gender: string; division: string; role: string; brand: string } | null>(null)
+  const [addSaving, setAddSaving]   = useState(false)
+  const [addError, setAddError]     = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -1645,6 +1834,23 @@ function RosterEdits() {
     setBackstoryEdit(null)
   }
 
+  async function addWrestler() {
+    if (!addPanel || !addPanel.name.trim()) { setAddError('Name is required.'); return }
+    setAddSaving(true); setAddError(null)
+    const { data, error } = await supabase.from('wrestlers').insert({
+      name: addPanel.name.trim(),
+      brand: addPanel.brand || 'DAW',
+      gender: addPanel.gender || null,
+      division: addPanel.division || null,
+      role: addPanel.role || null,
+      status: 'hired',
+      active: true,
+    }).select('id, name, brand, gender, division, role, injured, status, backstory').single()
+    if (error) { setAddError(error.message); setAddSaving(false); return }
+    if (data) setRows((prev) => [...prev, { ...(data as any), injured: false, saved: false, backstory: null }].sort((a, b) => a.name.localeCompare(b.name)))
+    setAddPanel(null); setAddSaving(false)
+  }
+
   const filtered = rows.filter((r) => {
     if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false
     if (filterBrand  && r.brand  !== filterBrand)  return false
@@ -1668,7 +1874,14 @@ function RosterEdits() {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
         <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Roster Edits</h2>
-        <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
+          <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+          <button
+            onClick={() => { setAddPanel({ name:'', gender:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
+            style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            + Add Wrestler
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1788,6 +2001,58 @@ function RosterEdits() {
           </div>
         </div>
       )}
+
+      {addPanel && (
+        <div onClick={() => setAddPanel(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid #00c864', width:'100%', maxWidth:480, display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Add Wrestler</h3>
+              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+              {addError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{addError}</p>}
+              <div className="form-field" style={{ marginBottom:0 }}>
+                <label className="form-label">Ring Name *</label>
+                <input className="form-input" value={addPanel.name} onChange={(e) => setAddPanel(p => p ? { ...p, name: e.target.value } : p)} placeholder="e.g. John Doe" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') addWrestler() }} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Gender</label>
+                  <select className="form-input form-select" value={addPanel.gender} onChange={(e) => setAddPanel(p => p ? { ...p, gender: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['Male','Female'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Brand</label>
+                  <select className="form-input form-select" value={addPanel.brand} onChange={(e) => setAddPanel(p => p ? { ...p, brand: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['DAW','Free Agent'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Division</label>
+                  <select className="form-input form-select" value={addPanel.division} onChange={(e) => setAddPanel(p => p ? { ...p, division: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['Mens','Womens','Mixed'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Role</label>
+                  <select className="form-input form-select" value={addPanel.role} onChange={(e) => setAddPanel(p => p ? { ...p, role: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['Face','Heel'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.25rem' }}>
+                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+                <button onClick={addWrestler} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add to Roster'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1810,6 +2075,9 @@ function FactionEdits() {
   const [availWrestlers, setAvailWrestlers] = useState<{ id: string; name: string }[]>([])
   const [memberSearch, setMemberSearch] = useState('')
   const [memberOp, setMemberOp] = useState(false)
+  const [addPanel, setAddPanel]       = useState<{ name: string; division: string; role: string; brand: string } | null>(null)
+  const [addSaving, setAddSaving]     = useState(false)
+  const [addError, setAddError]       = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -1871,6 +2139,22 @@ function FactionEdits() {
     setBackstoryEdit(null)
   }
 
+  async function addFaction() {
+    if (!addPanel || !addPanel.name.trim()) { setAddError('Faction name is required.'); return }
+    setAddSaving(true); setAddError(null)
+    const { data, error } = await supabase.from('teams').insert({
+      name: addPanel.name.trim(),
+      brand: addPanel.brand || 'DAW',
+      division: addPanel.division || null,
+      role: addPanel.role || null,
+      status: 'hired',
+      active: true,
+    }).select('id, name, brand, division, role, status, backstory').single()
+    if (error) { setAddError(error.message); setAddSaving(false); return }
+    if (data) setRows((prev) => [...prev, { ...(data as any), saved: false, backstory: null }].sort((a, b) => a.name.localeCompare(b.name)))
+    setAddPanel(null); setAddSaving(false)
+  }
+
   async function openMembers(row: FactionRow) {
     setMembersPopup({ teamId: row.id, teamName: row.name })
     setMemberSearch('')
@@ -1919,7 +2203,14 @@ function FactionEdits() {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
         <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Faction Edits</h2>
-        <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
+          <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+          <button
+            onClick={() => { setAddPanel({ name:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
+            style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            + Add Faction
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -2054,6 +2345,51 @@ function FactionEdits() {
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
                 <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
                 <button onClick={saveFactionBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addPanel && (
+        <div onClick={() => setAddPanel(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid #00c864', width:'100%', maxWidth:420, display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Add Faction</h3>
+              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+              {addError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{addError}</p>}
+              <div className="form-field" style={{ marginBottom:0 }}>
+                <label className="form-label">Faction Name *</label>
+                <input className="form-input" value={addPanel.name} onChange={(e) => setAddPanel(p => p ? { ...p, name: e.target.value } : p)} placeholder="e.g. The Elite" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') addFaction() }} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Brand</label>
+                  <select className="form-input form-select" value={addPanel.brand} onChange={(e) => setAddPanel(p => p ? { ...p, brand: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['DAW','Free Agent'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Division</label>
+                  <select className="form-input form-select" value={addPanel.division} onChange={(e) => setAddPanel(p => p ? { ...p, division: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['Mens','Womens','Mixed'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-field" style={{ marginBottom:0 }}>
+                  <label className="form-label">Role</label>
+                  <select className="form-input form-select" value={addPanel.role} onChange={(e) => setAddPanel(p => p ? { ...p, role: e.target.value } : p)}>
+                    <option value="">—</option>
+                    {['Face','Heel'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.25rem' }}>
+                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+                <button onClick={addFaction} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add Faction'}</button>
               </div>
             </div>
           </div>
