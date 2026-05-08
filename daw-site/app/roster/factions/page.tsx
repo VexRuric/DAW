@@ -31,7 +31,7 @@ async function getData() {
       supabase.from('teams').select('*').eq('brand', 'DAW').eq('active', false).order('name'),
       supabase.from('team_records').select('*'),
       supabase.from('team_memberships').select('team_id, wrestlers(id, render_url)').is('end_date', null),
-      supabase.from('title_reigns').select('holder_team_id, titles(name, image_url)').is('lost_date', null).not('holder_team_id', 'is', null),
+      supabase.from('title_reigns').select('holder_team_id, titles!inner(name, image_url, active)').is('lost_date', null).not('holder_team_id', 'is', null).eq('titles.active', true),
     ])
 
     const memberRendersByTeamId = new Map<string, (string | null)[]>()
