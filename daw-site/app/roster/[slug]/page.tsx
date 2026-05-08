@@ -173,7 +173,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
       <section
         style={{
           position: 'relative',
-          height: '175vh',
+          height: '140vh',
           overflow: 'hidden',
         }}
       >
