@@ -169,79 +169,80 @@ export default async function WrestlerStatPage({ params }: PageProps) {
       {/* ── Fixed side tab — always visible ─────────────── */}
       <TitleHistoryTab reigns={reigns} />
 
-      {/* ── Hero: tall section, upper body → full body on scroll ─ */}
+      {/* ── Hero: split layout — info left, portrait right ─ */}
       <section
         style={{
           position: 'relative',
-          height: '140vh',
+          height: 'clamp(380px, 65vh, 580px)',
           overflow: 'hidden',
+          background: 'rgb(10,10,14)',
+          display: 'flex',
+          alignItems: 'stretch',
         }}
       >
-        {wrestler.render_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={wrestler.render_url}
-            alt={wrestler.name}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'top center',
-              display: 'block',
-            }}
-          />
-        ) : (
-          <SilhouettePlaceholder />
-        )}
+        {/* Right column: contained portrait */}
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', overflow: 'hidden' }}>
+          {wrestler.render_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={wrestler.render_url}
+              alt={wrestler.name}
+              style={{
+                position: 'absolute',
+                top: 0, left: 0,
+                width: '100%',
+                height: '120%',
+                objectFit: 'cover',
+                objectPosition: 'top center',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <SilhouettePlaceholder />
+          )}
+          {/* Fade left edge of portrait into background */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgb(10,10,14) 0%, transparent 30%)', pointerEvents: 'none' }} />
+          {/* Alignment tint */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: currentReign
+              ? 'linear-gradient(to left, rgba(20,14,0,0.3) 0%, transparent 60%)'
+              : isFace
+              ? 'linear-gradient(to left, rgba(0,53,142,0.25) 0%, transparent 60%)'
+              : isHeel
+              ? 'linear-gradient(to left, rgba(67,4,4,0.25) 0%, transparent 60%)'
+              : 'none',
+            pointerEvents: 'none',
+          }} />
+        </div>
 
-        {/* Alignment tint overlay */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: currentReign
-            ? 'linear-gradient(to bottom, rgba(20,14,0,0.15) 0%, rgba(20,14,0,0.55) 100%)'
-            : isFace
-            ? 'linear-gradient(to bottom, rgba(0,53,142,0.10) 0%, rgba(0,53,142,0.55) 100%)'
-            : isHeel
-            ? 'linear-gradient(to bottom, rgba(67,4,4,0.10) 0%, rgba(67,4,4,0.55) 100%)'
-            : 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.5) 100%)',
-          opacity: 0.75,
-          pointerEvents: 'none',
-        }} />
-
-        {/* Bottom fade into the backstory section */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '25%', background: 'linear-gradient(to bottom, transparent 0%, rgba(10,10,14,0.98) 100%)', pointerEvents: 'none' }} />
-
-        {/* Injured / Legend badges */}
-        {wrestler.injured && (
-          <span className="pill pill-red" style={{ position: 'absolute', top: '1rem', left: '1rem', fontSize: '0.6rem', zIndex: 3 }}>Injured</span>
-        )}
-        {isLegend && (
-          <div style={{ position: 'absolute', top: '1rem', left: wrestler.injured ? '6rem' : '1rem', zIndex: 3, background: 'rgba(20,14,0,0.85)', border: '1px solid rgba(255,201,51,0.5)', color: 'rgba(255,201,51,0.9)', fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', padding: '3px 8px', textTransform: 'uppercase' }}>
-            ★ LEGEND
-          </div>
-        )}
-
-        {/* Name pinned near bottom of first viewport */}
-        <div style={{ position: 'absolute', bottom: '27%', left: 0, right: 0, padding: '0 3rem', zIndex: 2 }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+        {/* Left column: name and info */}
+        <div style={{ position: 'relative', zIndex: 2, padding: 'clamp(1.5rem,4vw,2.5rem) clamp(1.5rem,4vw,3rem)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', width: '60%' }}>
+          {/* Badges */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            {wrestler.injured && (
+              <span className="pill pill-red" style={{ fontSize: '0.6rem' }}>Injured</span>
+            )}
+            {isLegend && (
+              <div style={{ background: 'rgba(20,14,0,0.85)', border: '1px solid rgba(255,201,51,0.5)', color: 'rgba(255,201,51,0.9)', fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', padding: '3px 8px', textTransform: 'uppercase' }}>
+                ★ LEGEND
+              </div>
+            )}
             {wrestler.division && (
-              <span className="pill" style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)' }}>{wrestler.division}</span>
+              <span className="pill" style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)' }}>{wrestler.division}</span>
             )}
             {wrestler.role && (
               <span className="pill" style={{
                 background: 'rgba(0,0,0,0.55)',
                 border: `1px solid ${isHeel ? 'var(--accent-red)' : isFace ? 'rgba(60,130,255,0.7)' : '#00c864'}`,
                 color: isHeel ? 'var(--accent-red)' : isFace ? 'rgba(80,150,255,1)' : '#00c864',
-                backdropFilter: 'blur(4px)',
               }}>{wrestler.role}</span>
             )}
           </div>
+
           <h1 style={{
             fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(3rem, 7vw, 6rem)',
+            fontSize: 'clamp(2.5rem, 6vw, 5rem)',
             lineHeight: 0.88,
             color: 'white',
             textTransform: 'uppercase',
@@ -252,6 +253,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
           }}>
             {wrestler.name}
           </h1>
+
           {currentReign && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingLeft: '1.25rem', marginTop: '0.6rem' }}>
               {currentReign.titles?.image_url && (
@@ -268,6 +270,9 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             </div>
           )}
         </div>
+
+        {/* Bottom fade into stats section */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '20%', background: 'linear-gradient(to bottom, transparent 0%, rgba(10,10,14,0.98) 100%)', pointerEvents: 'none', zIndex: 3 }} />
       </section>
 
       {/* ── Backstory / Stats section ─────────────────────── */}
