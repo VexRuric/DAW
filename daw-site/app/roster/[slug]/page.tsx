@@ -169,11 +169,11 @@ export default async function WrestlerStatPage({ params }: PageProps) {
       {/* ── Fixed side tab — always visible ─────────────── */}
       <TitleHistoryTab reigns={reigns} />
 
-      {/* ── Hero: full-width bg, centered contained portrait ─ */}
+      {/* ── Hero: alignment bg, portrait as natural-sized centered img ─ */}
       <section
         style={{
           position: 'relative',
-          height: 'clamp(380px, 65vh, 580px)',
+          height: 'clamp(380px, 60vh, 550px)',
           overflow: 'hidden',
           background: currentReign
             ? 'rgb(18,12,0)'
@@ -184,40 +184,28 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             : 'rgb(12,12,16)',
         }}
       >
-        {/* Centered portrait — constrained width so it's physically smaller */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 'clamp(220px, 35%, 420px)',
-          height: '100%',
-          overflow: 'hidden',
-        }}>
-          {wrestler.render_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={wrestler.render_url}
-              alt={wrestler.name}
-              style={{
-                position: 'absolute',
-                top: 0, left: 0,
-                width: '100%',
-                height: '120%',
-                objectFit: 'cover',
-                objectPosition: 'top center',
-                display: 'block',
-              }}
-            />
-          ) : (
-            <SilhouettePlaceholder />
-          )}
-          {/* Side fades so portrait blends into bg */}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.6) 100%)', pointerEvents: 'none' }} />
-        </div>
+        {/* Portrait — no inner box, just the img centred in section */}
+        {wrestler.render_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={wrestler.render_url}
+            alt={wrestler.name}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              height: '115%',
+              width: 'auto',
+              display: 'block',
+            }}
+          />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0 }}><SilhouettePlaceholder /></div>
+        )}
 
         {/* Bottom fade */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '35%', background: 'linear-gradient(to bottom, transparent 0%, rgba(10,10,14,0.98) 100%)', pointerEvents: 'none', zIndex: 2 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to bottom, transparent 0%, rgba(10,10,14,0.98) 100%)', pointerEvents: 'none', zIndex: 2 }} />
 
         {/* Name / info pinned bottom-left */}
         <div style={{ position: 'absolute', bottom: '1.5rem', left: 0, right: 0, padding: '0 clamp(1.5rem,4vw,3rem)', zIndex: 3 }}>
