@@ -1200,6 +1200,9 @@ function ChampionsSection() {
   const [teamMembers, setTeamMembers]               = useState<{ id: string; name: string }[]>([])
   const [selectedMemberIds, setSelectedMemberIds]   = useState<string[]>([])
   const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
+  const [addTitlePanel, setAddTitlePanel]   = useState<{ name: string; category: string } | null>(null)
+  const [addTitleSaving, setAddTitleSaving] = useState(false)
+  const [addTitleError, setAddTitleError]   = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -1320,12 +1323,37 @@ function ChampionsSection() {
     setRebuilding(false)
   }
 
+  async function addTitle() {
+    if (!addTitlePanel || !addTitlePanel.name.trim()) return
+    setAddTitleSaving(true); setAddTitleError(null)
+    const { data: existing } = await supabase.from('titles').select('display_order').order('display_order', { ascending: false }).limit(1)
+    const nextOrder = ((existing?.[0]?.display_order ?? 0) as number) + 1
+    const { error } = await supabase.from('titles').insert({
+      name: addTitlePanel.name.trim(),
+      category: addTitlePanel.category,
+      display_order: nextOrder,
+      active: true,
+    })
+    if (error) { setAddTitleError(error.message); setAddTitleSaving(false); return }
+    setAddTitlePanel(null)
+    setAddTitleSaving(false)
+    await loadAll()
+  }
+
   if (loading) return <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
 
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.5rem', flexWrap:'wrap', gap:'1rem' }}>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Champion Management</h2>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Champion Management</h2>
+          <button
+            onClick={() => { setAddTitlePanel({ name:'', category:'Singles' }); setAddTitleError(null) }}
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}
+          >
+            + Add Title
+          </button>
+        </div>
         <button
           onClick={rebuildFromMatches}
           disabled={rebuilding}
@@ -1334,6 +1362,32 @@ function ChampionsSection() {
           {rebuilding ? 'Rebuilding…' : '⟳ Rebuild from Matches'}
         </button>
       </div>
+
+      {/* Add Title Modal */}
+      {addTitlePanel && (
+        <div style={{ marginBottom:'1.5rem', padding:'1.25rem', background:'var(--surface)', border:'1px solid #00c864', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'#00c864', letterSpacing:'0.2em', fontWeight:700, textTransform:'uppercase', margin:0 }}>New Title</p>
+          {addTitleError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--accent-red)', letterSpacing:'0.08em', margin:0 }}>{addTitleError}</p>}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 160px auto', gap:'0.75rem', alignItems:'end' }}>
+            <div className="form-field" style={{ marginBottom:0 }}>
+              <label className="form-label">Title Name</label>
+              <input className="form-input" placeholder="e.g. DAW World Championship" value={addTitlePanel.name} onChange={(e) => setAddTitlePanel(p => p ? { ...p, name: e.target.value } : p)} onKeyDown={(e) => { if (e.key === 'Enter') addTitle(); if (e.key === 'Escape') setAddTitlePanel(null) }} autoFocus />
+            </div>
+            <div className="form-field" style={{ marginBottom:0 }}>
+              <label className="form-label">Category</label>
+              <select className="form-input form-select" value={addTitlePanel.category} onChange={(e) => setAddTitlePanel(p => p ? { ...p, category: e.target.value } : p)}>
+                <option value="Singles">Singles</option>
+                <option value="Tag">Tag</option>
+                <option value="MitB">MitB</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:'0.5rem' }}>
+              <button onClick={addTitle} disabled={addTitleSaving || !addTitlePanel.name.trim()} style={{ padding:'0.65rem 1.1rem', background: addTitlePanel.name.trim() ? '#00c864' : 'var(--surface-3)', border:'none', color: addTitlePanel.name.trim() ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: addTitleSaving ? 0.6 : 1 }}>{addTitleSaving ? 'Adding…' : 'Add Title'}</button>
+              <button onClick={() => setAddTitlePanel(null)} style={{ padding:'0.65rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', cursor:'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {rebuildResult && <div style={{ padding:'0.65rem 1rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✓ {rebuildResult}</div>}
       {rebuildError  && <div style={{ padding:'0.65rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✕ {rebuildError}</div>}
       <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginBottom:'2rem', lineHeight:1.8 }}>Assign or change the current holder for each active title. Use "Rebuild from Matches" to auto-generate all reigns from recorded match results.</p>
@@ -1872,16 +1926,16 @@ function RosterEdits() {
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Roster Edits</h2>
-        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
-          <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Roster Edits</h2>
           <button
             onClick={() => { setAddPanel({ name:'', gender:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
-            style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
             + Add Wrestler
           </button>
         </div>
+        <input className="form-input" placeholder="Search wrestlers..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
       </div>
 
       {/* Tabs */}
@@ -2201,16 +2255,16 @@ function FactionEdits() {
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Faction Edits</h2>
-        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
-          <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap', gap:'1rem' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Faction Edits</h2>
           <button
             onClick={() => { setAddPanel({ name:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
-            style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
             + Add Faction
           </button>
         </div>
+        <input className="form-input" placeholder="Search factions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth:240, fontSize:'0.72rem' }} />
       </div>
 
       {/* Tabs */}
