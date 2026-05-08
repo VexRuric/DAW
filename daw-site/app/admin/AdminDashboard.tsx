@@ -1230,7 +1230,7 @@ function ChampionsSection() {
       .eq('team_id', holderId)
       .is('end_date', null)
       .then(({ data }) => {
-        const members = (data ?? []).map((m: { wrestlers: { id: string; name: string } | null }) => m.wrestlers).filter(Boolean) as { id: string; name: string }[]
+        const members = ((data ?? []) as unknown as { wrestlers: { id: string; name: string } | null }[]).map((m) => m.wrestlers).filter(Boolean) as { id: string; name: string }[]
         setTeamMembers(members)
         setSelectedMemberIds([])
         setLoadingTeamMembers(false)
