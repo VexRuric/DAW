@@ -1,28 +1,48 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 
 type EmailMode = 'signin' | 'signup'
 
+function detectBrowserWarning(): string | null {
+  if (typeof navigator === 'undefined') return null
+  const ua = navigator.userAgent
+  if (ua.includes('Waterfox')) return 'Waterfox'
+  // Other Firefox forks that Twitch/Discord often block
+  if (ua.includes('IceCat') || ua.includes('LibreWolf') || ua.includes('IceWeasel')) return ua.split('/')[0]
+  return null
+}
+
 export default function LoginPage() {
   const { login, loginWithEmail, signUpWithEmail, user, loading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const authFailed = searchParams.get('error') === 'auth_failed'
 
   useEffect(() => {
     if (!loading && user) router.push('/portal')
   }, [user, loading, router])
 
-  const [emailExpanded, setEmailExpanded] = useState(false)
+  const [browserWarning, setBrowserWarning] = useState<string | null>(null)
+  const [emailExpanded, setEmailExpanded] = useState(authFailed)
   const [emailMode, setEmailMode] = useState<EmailMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(authFailed ? 'Sign-in failed — your browser may have blocked the OAuth redirect. Try email sign-in below or switch to Chrome/Firefox.' : null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    const warning = detectBrowserWarning()
+    if (warning) {
+      setBrowserWarning(warning)
+      setEmailExpanded(true)
+    }
+  }, [])
 
   async function handleEmailSubmit() {
     setError(null)
@@ -142,22 +162,37 @@ export default function LoginPage() {
             </h1>
           </div>
 
+          {/* Browser compatibility warning */}
+          {browserWarning && (
+            <div style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem', background: 'rgba(255,159,0,0.08)', border: '1px solid rgba(255,159,0,0.35)', display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '0.05rem' }}>⚠</span>
+              <div>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.25rem' }}>
+                  {browserWarning} detected
+                </p>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.04em', lineHeight: 1.6 }}>
+                  Twitch and Discord OAuth may not work in {browserWarning}. Use <strong style={{ color: 'var(--text-strong)' }}>email sign-in below</strong>, or switch to Chrome or Firefox.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* OAuth Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
 
-            <OAuthButton color="#9147ff" onClick={() => login('twitch')}>
+            <OAuthButton color="#9147ff" onClick={() => login('twitch')} disabled={!!browserWarning}>
               <TwitchIcon />
-              Continue with Twitch
+              Continue with Twitch{browserWarning ? ' (may not work)' : ''}
             </OAuthButton>
 
-            <OAuthButton color="#7289da" onClick={() => login('discord')}>
+            <OAuthButton color="#7289da" onClick={() => login('discord')} disabled={!!browserWarning}>
               <DiscordIcon />
-              Continue with Discord
+              Continue with Discord{browserWarning ? ' (may not work)' : ''}
             </OAuthButton>
 
-            <OAuthButton color="#4285f4" onClick={() => login('google')}>
+            <OAuthButton color="#4285f4" onClick={() => login('google')} disabled={!!browserWarning}>
               <GoogleIcon />
-              Continue with Google
+              Continue with Google{browserWarning ? ' (may not work)' : ''}
             </OAuthButton>
 
             {/* Divider */}
@@ -281,12 +316,14 @@ export default function LoginPage() {
 }
 
 /* ── Shared OAuth button ── */
-function OAuthButton({ children, color, onClick }: { children: React.ReactNode; color?: string; onClick: () => void }) {
+function OAuthButton({ children, color, onClick, disabled }: { children: React.ReactNode; color?: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       className="oauth-btn"
-      style={color ? { borderColor: color } : undefined}
+      style={{ ...(color ? { borderColor: color } : {}), opacity: disabled ? 0.45 : 1 }}
       onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'OAuth may not work in your browser — use email sign-in below' : undefined}
     >
       {children}
     </button>
