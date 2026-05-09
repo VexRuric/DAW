@@ -4145,6 +4145,7 @@ export default function AdminDashboard() {
     { label: 'Creative', items: [
       { id: 'story',       label: 'Story Development' },
       { id: 'suggestions', label: 'Fan Suggestions' },
+      { id: 'news',        label: 'News Templates' },
     ]},
     { label: 'Administration', items: [
       { id: 'accounts',    label: 'Account Management' },
