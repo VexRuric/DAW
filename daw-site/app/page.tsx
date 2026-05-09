@@ -94,14 +94,15 @@ const FALLBACK_EXCERPTS: TemplateMap = {
 }
 
 function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap): string {
+  const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
   const winner = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
-  if (!winner) return match.match_type
+  if (!winner) return effectiveType
   const wName = participantName(winner)
   const losers = (match.match_participants ?? []).filter((p: any) => p.result === 'loser')
   const lName = losers.length === 1 ? participantName(losers[0]) : losers.length > 1 ? 'the field' : ''
   const hashtag = deriveHashtag(match, andNewIds)
   const titleName = match.titles?.name ?? 'Title'
-  const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: match.match_type }
+  const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: effectiveType }
 
   const catKey = hashtag === 'ANDNEW' ? 'andnew_headline' : hashtag === 'ANDSTILL' ? 'andstill_headline' : 'winner_headline'
   const pool = (tplMap[catKey]?.length ? tplMap[catKey] : FALLBACK_HEADLINES[catKey])!
@@ -115,8 +116,9 @@ function buildExcerpt(match: any, andNewIds: Set<string>, tplMap: TemplateMap): 
   const lStr = losers.map((p: any) => participantName(p)).join(' and ')
   const hashtag = deriveHashtag(match, andNewIds)
   const titleName = match.titles?.name ?? 'title'
+  const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
   const stip = match.stipulation ? ` ${match.stipulation}` : ''
-  const matchLabel = `${match.match_type}${stip}`
+  const matchLabel = `${effectiveType}${stip}`
   const tokens = { winner: wName, loser: lStr || wName, title: titleName, match_type: matchLabel }
 
   const catKey = hashtag === 'ANDNEW' ? 'andnew_excerpt' : hashtag === 'ANDSTILL' ? 'andstill_excerpt' : 'winner_excerpt'
