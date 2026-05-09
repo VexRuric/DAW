@@ -49,39 +49,34 @@ async function getWrestler(slug: string) {
   const wrestler = wrestlers.find((w) => toSlug(w.name) === slug)
   if (!wrestler) return null
 
-  const [recordRes, reignsRes, allMatchesRes, recentMatchesRes, teamsRes] = await Promise.all([
-    // Career totals
-    supabase.from('wrestler_records').select('*').eq('id', wrestler.id).single(),
+  // Get all team IDs this wrestler has ever been part of (for tag match credit)
+  const { data: memberships } = await supabase
+    .from('team_memberships')
+    .select('team_id')
+    .eq('wrestler_id', wrestler.id)
+  const teamIds = (memberships ?? []).map((m: { team_id: string }) => m.team_id).filter(Boolean)
 
-    // Title history (with belt image)
+  const MATCH_SELECT = `
+    result,
+    matches!inner(
+      id, match_type, stipulation, is_title_match, is_draw, rating,
+      shows!inner(name, show_date, ppv_name, status),
+      titles(name),
+      match_participants(result, wrestlers(id, name), teams(id, name))
+    )
+  `
+
+  const [recordRes, reignsRes, directRes, teamRes, currentTeamsRes] = await Promise.all([
+    supabase.from('wrestler_records').select('*').eq('id', wrestler.id).single(),
     supabase
       .from('title_reigns')
       .select('*, titles(name, category, image_url)')
       .eq('holder_wrestler_id', wrestler.id)
       .order('won_date', { ascending: false }),
-
-    // ALL matches for stat breakdown (no limit)
-    supabase
-      .from('match_participants')
-      .select('result, matches!inner(match_type)')
-      .eq('wrestler_id', wrestler.id),
-
-    // Recent match display (last 25)
-    supabase
-      .from('match_participants')
-      .select(`
-        result,
-        matches!inner(
-          id, match_type, stipulation, is_title_match, is_draw, rating,
-          shows!inner(name, show_date, ppv_name),
-          titles(name),
-          match_participants(result, wrestlers(id, name), teams(id, name))
-        )
-      `)
-      .eq('wrestler_id', wrestler.id)
-      .order('created_at', { ascending: false, referencedTable: 'matches' }),
-
-    // Active team memberships
+    supabase.from('match_participants').select(MATCH_SELECT).eq('wrestler_id', wrestler.id),
+    teamIds.length > 0
+      ? supabase.from('match_participants').select(MATCH_SELECT).in('team_id', teamIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     supabase
       .from('team_memberships')
       .select('teams(id, name, active)')
@@ -89,10 +84,22 @@ async function getWrestler(slug: string) {
       .is('end_date', null),
   ])
 
-  // Flatten match rows for stat calc
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allMatchRows = (allMatchesRes.data ?? []).map((mp: any) => ({
-    result: mp.result as string,
+  const directData = (directRes.data ?? []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teamData   = (teamRes.data   ?? []) as any[]
+
+  // Deduplicate: if wrestler was entered both directly and via team in same match, keep direct
+  const directMatchIds = new Set(directData.map((mp: any) => mp.matches?.id))
+  const uniqueTeamData = teamData.filter((mp: any) => !directMatchIds.has(mp.matches?.id))
+
+  // Only show matches from completed shows
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allParticipations = ([...directData, ...uniqueTeamData] as any[])
+    .filter((mp: any) => mp.matches?.shows?.status === 'completed')
+
+  const allMatchRows = allParticipations.map((mp: any) => ({
+    result:     mp.result as string,
     match_type: mp.matches?.match_type as string,
   }))
 
@@ -102,18 +109,17 @@ async function getWrestler(slug: string) {
     multiMan: calcStat(allMatchRows, MULTI_TYPES),
     rumble:   calcStat(allMatchRows, RUMBLE_TYPES),
     total: {
-      w: allMatchRows.filter(r => r.result === 'winner').length,
-      l: allMatchRows.filter(r => r.result === 'loser').length,
-      d: allMatchRows.filter(r => r.result === 'draw').length,
+      w:     allMatchRows.filter(r => r.result === 'winner').length,
+      l:     allMatchRows.filter(r => r.result === 'loser').length,
+      d:     allMatchRows.filter(r => r.result === 'draw').length,
       total: allMatchRows.length,
     },
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentTeams = (teamsRes.data ?? []).map((m: any) => m.teams).filter((t: any) => t?.active)
+  const currentTeams = (currentTeamsRes.data ?? []).map((m: any) => m.teams).filter((t: any) => t?.active)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matchHistory = ([...(recentMatchesRes.data ?? [])] as any[]).sort((a, b) =>
+  const matchHistory = [...allParticipations].sort((a: any, b: any) =>
     (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
   )
 

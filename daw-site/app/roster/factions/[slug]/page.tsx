@@ -35,7 +35,7 @@ async function getFaction(slug: string) {
 
     supabase
       .from('match_participants')
-      .select('result, matches!inner(match_type)')
+      .select('result, matches!inner(match_type, shows!inner(status))')
       .eq('team_id', team.id),
 
     supabase
@@ -44,7 +44,7 @@ async function getFaction(slug: string) {
         result,
         matches!inner(
           id, match_type, stipulation, is_title_match, is_draw, rating,
-          shows!inner(name, show_date, ppv_name),
+          shows!inner(name, show_date, ppv_name, status),
           titles(name),
           match_participants(result, wrestlers(id, name), teams(id, name))
         )
@@ -68,14 +68,15 @@ async function getFaction(slug: string) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allMatchRows = (allMatchesRes.data ?? []).map((mp: any) => ({
-    result: mp.result as string,
+    result:     mp.result as string,
     match_type: mp.matches?.match_type as string,
-  }))
+    status:     mp.matches?.shows?.status as string,
+  })).filter(r => r.status === 'completed')
 
   const record: StatLine = {
-    w: allMatchRows.filter(r => r.result === 'winner').length,
-    l: allMatchRows.filter(r => r.result === 'loser').length,
-    d: allMatchRows.filter(r => r.result === 'draw').length,
+    w:     allMatchRows.filter(r => r.result === 'winner').length,
+    l:     allMatchRows.filter(r => r.result === 'loser').length,
+    d:     allMatchRows.filter(r => r.result === 'draw').length,
     total: allMatchRows.length,
   }
 
@@ -87,9 +88,11 @@ async function getFaction(slug: string) {
   const formerMembers  = (formerMembersRes.data ?? []).map((m: any) => m.wrestlers).filter(Boolean)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matchHistory = ([...(recentMatchesRes.data ?? [])] as any[]).sort((a, b) =>
-    (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
-  )
+  const matchHistory = ([...(recentMatchesRes.data ?? [])] as any[])
+    .filter((mp: any) => mp.matches?.shows?.status === 'completed')
+    .sort((a, b) =>
+      (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
+    )
 
   return {
     team,
