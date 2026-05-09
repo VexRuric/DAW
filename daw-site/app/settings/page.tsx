@@ -83,7 +83,7 @@ const DEFAULT_SITE_PREFS: Record<string, boolean> = {
 /* ── Page ───────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { isFan, user, logout, loading: authLoading } = useAuth()
+  const { isFan, user, logout, refreshNickname, loading: authLoading } = useAuth()
   const router = useRouter()
 
   const [section, setSection]               = useState<SettingsSection>('profile')
@@ -229,6 +229,7 @@ export default function SettingsPage() {
       avatar_url: avatarUrl.trim() || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' })
+    await refreshNickname()
     setProfileSaving(false)
     setProfileSaved(true)
     if (profileTimer.current) clearTimeout(profileTimer.current)

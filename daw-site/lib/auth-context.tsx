@@ -20,6 +20,7 @@ interface AuthContextType {
   loginWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>
   logout: () => Promise<void>
+  refreshNickname: () => Promise<void>
   isAdmin: boolean
   isCreative: boolean
   isWriter: boolean
@@ -33,6 +34,7 @@ const AuthContext = createContext<AuthContextType>({
   loginWithEmail: async () => ({ error: null }),
   signUpWithEmail: async () => ({ error: null }),
   logout: async () => {},
+  refreshNickname: async () => {},
   isAdmin: false,
   isCreative: false,
   isWriter: false,
@@ -132,6 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  const refreshNickname = async () => {
+    const id = user?.id
+    if (!id) return
+    const nickname = await fetchNickname(id).catch(() => null)
+    setUser(prev => prev?.id === id ? { ...prev, nickname: nickname ?? null } : prev)
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -139,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithEmail,
       signUpWithEmail,
       logout,
+      refreshNickname,
       isAdmin: user?.role === 'admin',
       isCreative: user?.role === 'creative',
       isWriter: user?.role === 'writer',
