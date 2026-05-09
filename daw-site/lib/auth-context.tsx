@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     fetchNickname(userId).then(nickname => {
       if (!cancelled) setUser(prev => prev?.id === userId ? { ...prev, nickname } : prev)
-    })
+    }).catch(() => { /* nickname is optional — silently ignore network/table errors */ })
     return () => { cancelled = true }
   }, [userId])
 
