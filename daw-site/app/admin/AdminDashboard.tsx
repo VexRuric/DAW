@@ -3277,7 +3277,7 @@ const ROLE_COLORS: Record<string, string> = {
   fan: 'var(--text-dim)',
 }
 
-interface AccountRow { id: string; email: string; name: string; role: string; created_at: string }
+interface AccountRow { id: string; email: string; name: string; role: string; created_at: string; nickname?: string | null }
 
 function AccountManagement() {
   const [users, setUsers]       = useState<AccountRow[]>([])
@@ -3293,6 +3293,10 @@ function AccountManagement() {
   const [acctFeedback, setAcctFeedback] = useState<string | null>(null)
   const [tierMap, setTierMap]       = useState<Record<string, string>>({})
   const [savingTier, setSavingTier] = useState<string | null>(null)
+  const [nicknameMap, setNicknameMap]   = useState<Record<string, string | null>>({})
+  const [editNicknameId, setEditNicknameId] = useState<string | null>(null)
+  const [nicknameInput, setNicknameInput]   = useState('')
+  const [savingNickname, setSavingNickname] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -3312,7 +3316,21 @@ function AccountManagement() {
       for (const p of data ?? []) map[p.id] = p.subscription_tier ?? 'fan'
       setTierMap(map)
     })
+    supabase.from('user_profiles').select('id, nickname').then(({ data }) => {
+      const map: Record<string, string | null> = {}
+      for (const p of data ?? []) map[p.id] = p.nickname ?? null
+      setNicknameMap(map)
+    })
   }, [users])
+
+  async function saveNickname(userId: string) {
+    setSavingNickname(true)
+    const value = nicknameInput.trim() || null
+    await supabase.from('user_profiles').upsert({ id: userId, nickname: value, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+    setNicknameMap(prev => ({ ...prev, [userId]: value }))
+    setEditNicknameId(null)
+    setSavingNickname(false)
+  }
 
   async function changeTier(userId: string, tier: string) {
     setSavingTier(userId)
@@ -3421,7 +3439,14 @@ function AccountManagement() {
                   </div>
                   <div>
                     <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', fontWeight:700, letterSpacing:'0.05em' }}>{u.name}</p>
-                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
+                    {nicknameMap[u.id] ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.35rem', marginTop:'0.15rem' }}>
+                        <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--purple-hot)', letterSpacing:'0.06em' }}>"{nicknameMap[u.id]}"</span>
+                        <button onClick={() => { setEditNicknameId(u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.6rem', cursor:'pointer', padding:0, lineHeight:1 }} title="Edit nickname">✎</button>
+                      </div>
+                    ) : (
+                      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
+                    )}
                   </div>
                 </div>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-muted)', letterSpacing:'0.04em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email ?? '—'}</span>
@@ -3452,10 +3477,27 @@ function AccountManagement() {
                       </button>
                     )
                   })()}
+                  <button onClick={() => { setEditNicknameId(editNicknameId === u.id ? null : u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ padding:'0.3rem 0.55rem', background: editNicknameId === u.id ? 'rgba(168,77,255,0.2)' : 'rgba(168,77,255,0.08)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>✎ Nickname</button>
                   <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch('') }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
                   <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
                 </div>
               </div>
+              {editNicknameId === u.id && (
+                <div style={{ padding:'0.85rem 1.25rem', background:'rgba(168,77,255,0.05)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--purple)', display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--purple-hot)', letterSpacing:'0.15em', fontWeight:700, whiteSpace:'nowrap' }}>NICKNAME — {u.name.toUpperCase()}</span>
+                  <input
+                    className="form-input"
+                    placeholder="Enter nickname (leave blank to clear)"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveNickname(u.id); if (e.key === 'Escape') setEditNicknameId(null) }}
+                    autoFocus
+                    style={{ fontSize:'0.72rem', maxWidth:280, flex:1, minWidth:160 }}
+                  />
+                  <button onClick={() => saveNickname(u.id)} disabled={savingNickname} style={{ padding:'0.4rem 0.9rem', background:'var(--purple)', border:'none', color:'white', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: savingNickname ? 0.6 : 1, whiteSpace:'nowrap' }}>{savingNickname ? 'Saving…' : nicknameInput.trim() ? 'Save' : 'Clear'}</button>
+                  <button onClick={() => setEditNicknameId(null)} style={{ padding:'0.4rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'pointer' }}>Cancel</button>
+                </div>
+              )}
               {combineExpandedId === u.id && (
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,159,0,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>MERGE — {u.name.toUpperCase()}</p>

@@ -10,6 +10,7 @@ export interface AuthUser {
   id: string
   role: AuthRole
   name: string
+  nickname: string | null
   email?: string
 }
 
@@ -54,7 +55,12 @@ function mapUser(su: User | undefined): AuthUser | null {
     meta.preferred_username ||
     su.email?.split('@')[0] ||
     'Fan'
-  return { id: su.id, role, name, email: su.email }
+  return { id: su.id, role, name, nickname: null, email: su.email }
+}
+
+async function fetchNickname(userId: string): Promise<string | null> {
+  const { data } = await supabase.from('user_profiles').select('nickname').eq('id', userId).single()
+  return data?.nickname ?? null
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -66,17 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session) {
         // Force refresh to pick up latest app_metadata (e.g. admin role set server-side)
         const { data: refreshed } = await supabase.auth.refreshSession()
-        setUser(mapUser(refreshed.session?.user ?? session.user))
+        const su = refreshed.session?.user ?? session.user
+        const base = mapUser(su)
+        if (base) {
+          const nickname = await fetchNickname(base.id)
+          setUser({ ...base, nickname })
+        } else {
+          setUser(null)
+        }
       } else {
         setUser(null)
       }
       setLoading(false)  // only set here, after refresh completes
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       // Don't set loading here — it races with refreshSession() above and
       // can mark loading=false before the admin role is populated.
-      setUser(mapUser(session?.user))
+      const base = mapUser(session?.user)
+      if (base) {
+        const nickname = await fetchNickname(base.id)
+        setUser({ ...base, nickname })
+      } else {
+        setUser(null)
+      }
     })
 
     return () => subscription.unsubscribe()
