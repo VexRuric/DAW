@@ -199,6 +199,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
   const [hair, setHair]         = useState<string>(parsedBio?.hair ?? '')
   const [eyes, setEyes]         = useState<string>(parsedBio?.eyes ?? '')
   const [alignment, setAlignment] = useState<Alignment | null>((editData?.role as Alignment) ?? null)
+  const [gimmick, setGimmick]   = useState<string>(editData?.gimmick ?? '')
   const [finisher, setFinisher] = useState<string>(parsedBio?.finisher ?? '')
   const [songUrl, setSongUrl]   = useState<string>(parsedBio?.songUrl ?? '')
   const [imgFile, setImgFile]   = useState<File | null>(null)
@@ -244,7 +245,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
             gender: gender ?? null,
             ...(alignment !== null ? { role: alignment } : {}),
             country: homeState || null,
-            gimmick: creationType === 'original' && style ? style : null,
+            gimmick: gimmick.trim() || null,
             bio: bioFields,
           },
         }),
@@ -261,7 +262,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
       gender:       gender ?? null,
       role:         alignment ?? null,
       country:      homeState || null,
-      gimmick:      creationType === 'original' && style ? style : null,
+      gimmick:      gimmick.trim() || null,
       status:       'pending',
       submitted_by: userId,
       bio:          JSON.stringify(bioFields),
@@ -324,9 +325,13 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                     <label className="form-label">Wrestler Name (as announced)</label>
                     <input className="form-input" placeholder="Ring name" value={ringName} onChange={(e) => setRingName(e.target.value)} />
                   </div>
-                  <div className="form-field" style={{ marginBottom: 0 }}>
+                  <div className="form-field">
                     <label className="form-label">Creation Keyword <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(used to find your creation in WWE 2K)</span></label>
                     <input className="form-input" placeholder="e.g. DAWARE_JOHN_DOE" value={communityKeyword} onChange={(e) => setCommunityKeyword(e.target.value)} />
+                  </div>
+                  <div className="form-field" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Gimmick / Character Concept <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                    <input className="form-input" placeholder='e.g. "The Deadman", "The People\'s Champion", Anti-hero brawler' value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
                   </div>
                 </div>
                 <div className="form-section" style={{ marginBottom: 0 }}>
@@ -407,6 +412,10 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                       <label className="form-label">Finishing Move</label>
                       <input className="form-input" placeholder="e.g. The Killswitch" value={finisher} onChange={(e) => setFinisher(e.target.value)} />
                     </div>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Gimmick / Character Concept <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                    <input className="form-input" placeholder='e.g. "The Deadman", "The People\'s Champion", Anti-hero brawler' value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">Alignment</label>
