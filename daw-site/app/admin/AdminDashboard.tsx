@@ -3280,7 +3280,8 @@ const ROLE_COLORS: Record<string, string> = {
   fan: 'var(--text-dim)',
 }
 
-interface AccountRow { id: string; email: string; name: string; role: string; created_at: string; nickname?: string | null }
+interface UserIdentity { identity_id: string; provider: string; identity_data: Record<string, unknown> }
+interface AccountRow { id: string; email: string; name: string; role: string; created_at: string; nickname?: string | null; identities: UserIdentity[] }
 
 function AccountManagement() {
   const [users, setUsers]       = useState<AccountRow[]>([])
@@ -3300,6 +3301,8 @@ function AccountManagement() {
   const [editNicknameId, setEditNicknameId] = useState<string | null>(null)
   const [nicknameInput, setNicknameInput]   = useState('')
   const [savingNickname, setSavingNickname] = useState(false)
+  const [providerExpandedId, setProviderExpandedId] = useState<string | null>(null)
+  const [unlinkingId, setUnlinkingId]   = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -3333,6 +3336,28 @@ function AccountManagement() {
     setNicknameMap(prev => ({ ...prev, [userId]: value }))
     setEditNicknameId(null)
     setSavingNickname(false)
+  }
+
+  async function unlinkIdentity(userId: string, identityId: string, provider: string) {
+    if (!confirm(`Remove ${provider} from this account? The user will no longer be able to sign in with ${provider}.`)) return
+    setUnlinkingId(identityId)
+    const res = await fetch('/api/admin/unlink-identity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, identityId }),
+    })
+    const data = await res.json()
+    if (data.error) {
+      alert(`Failed to unlink ${provider}: ${data.error}`)
+    } else {
+      setUsers(prev => prev.map(u => u.id === userId
+        ? { ...u, identities: u.identities.filter(i => i.identity_id !== identityId) }
+        : u
+      ))
+      setAcctFeedback(`${provider} unlinked from account.`)
+      setTimeout(() => setAcctFeedback(null), 3000)
+    }
+    setUnlinkingId(null)
   }
 
   async function changeTier(userId: string, tier: string) {
@@ -3481,7 +3506,8 @@ function AccountManagement() {
                     )
                   })()}
                   <button onClick={() => { setEditNicknameId(editNicknameId === u.id ? null : u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ padding:'0.3rem 0.55rem', background: editNicknameId === u.id ? 'rgba(168,77,255,0.2)' : 'rgba(168,77,255,0.08)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>✎ Nickname</button>
-                  <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch('') }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
+                  <button onClick={() => { setProviderExpandedId(providerExpandedId === u.id ? null : u.id); setCombineExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: providerExpandedId === u.id ? 'rgba(88,101,242,0.25)' : 'rgba(88,101,242,0.08)', border:'1px solid rgba(88,101,242,0.5)', color:'#8b9cff', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⊕ Providers</button>
+                  <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch(''); setProviderExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
                   <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
                 </div>
               </div>
@@ -3501,6 +3527,51 @@ function AccountManagement() {
                   <button onClick={() => setEditNicknameId(null)} style={{ padding:'0.4rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'pointer' }}>Cancel</button>
                 </div>
               )}
+              {providerExpandedId === u.id && (() => {
+                const PROVIDER_META: Record<string, { label: string; color: string; bg: string }> = {
+                  discord: { label: 'Discord', color: '#8b9cff', bg: 'rgba(88,101,242,0.12)' },
+                  twitch:  { label: 'Twitch',  color: '#bf8fff', bg: 'rgba(145,70,255,0.12)' },
+                  google:  { label: 'Google',  color: '#ff8b8b', bg: 'rgba(234,67,53,0.12)'  },
+                  email:   { label: 'Email',   color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)' },
+                }
+                const linked = u.identities ?? []
+                return (
+                  <div style={{ padding:'1rem 1.25rem', background:'rgba(88,101,242,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid #5865f2' }}>
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'#8b9cff', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.75rem' }}>LINKED PROVIDERS — {u.name.toUpperCase()}</p>
+                    {linked.length === 0 ? (
+                      <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.06em' }}>No linked providers found.</p>
+                    ) : (
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'0.6rem', marginBottom:'0.75rem' }}>
+                        {linked.map(identity => {
+                          const meta = PROVIDER_META[identity.provider] ?? { label: identity.provider, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)' }
+                          const subLabel = (identity.identity_data?.email as string) || (identity.identity_data?.name as string) || (identity.identity_data?.full_name as string) || ''
+                          return (
+                            <div key={identity.identity_id} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.4rem 0.75rem', background: meta.bg, border:`1px solid ${meta.color}55`, minWidth:120 }}>
+                              <div style={{ flex:1 }}>
+                                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, color: meta.color, letterSpacing:'0.08em' }}>{meta.label}</span>
+                                {subLabel && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.04em', marginTop:'0.1rem' }}>{subLabel}</p>}
+                              </div>
+                              {identity.provider !== 'email' && (
+                                <button
+                                  onClick={() => unlinkIdentity(u.id, identity.identity_id, meta.label)}
+                                  disabled={unlinkingId === identity.identity_id}
+                                  title={`Remove ${meta.label}`}
+                                  style={{ background:'transparent', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.7rem', lineHeight:1, padding:'0.15rem', flexShrink:0, opacity: unlinkingId === identity.identity_id ? 0.4 : 1 }}
+                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
+                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)'}
+                                >✕</button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.56rem', color:'var(--text-dim)', letterSpacing:'0.05em', lineHeight:1.6 }}>
+                      To add a provider, the user must sign in via that provider in a standard browser — OAuth flows cannot be initiated from the admin panel.
+                    </p>
+                  </div>
+                )
+              })()}
               {combineExpandedId === u.id && (
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,159,0,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>MERGE — {u.name.toUpperCase()}</p>

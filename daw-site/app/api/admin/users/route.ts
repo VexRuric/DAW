@@ -24,6 +24,11 @@ export async function GET() {
     name: u.user_metadata?.full_name || u.user_metadata?.name || u.user_metadata?.preferred_username || u.email?.split('@')[0] || 'Unknown',
     role: (u.app_metadata?.role as string) || 'fan',
     created_at: u.created_at,
+    identities: (u.identities ?? []).map((id) => ({
+      identity_id: id.identity_id,
+      provider: id.provider,
+      identity_data: id.identity_data ?? {},
+    })),
   }))
 
   users.sort((a, b) => a.name.localeCompare(b.name))
