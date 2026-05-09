@@ -8,15 +8,15 @@ import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
 type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news'
 
-const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'booker', 'results', 'schedule', 'story', 'suggestions']
+const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'schedule', 'booker', 'results', 'story', 'suggestions']
 const ADMIN_ONLY_SECTIONS = new Set<Section>(['accounts', 'settings', 'permissions'])
 
 const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
   { id: 'approvals',   label: 'Pending Approvals', group: 'General' },
   { id: 'support',     label: 'Support Tickets',   group: 'General' },
+  { id: 'schedule',    label: 'Schedule Editor',    group: 'Show Management' },
   { id: 'booker',      label: 'Show Booker',        group: 'Show Management' },
   { id: 'results',     label: 'Results Entry',      group: 'Show Management' },
-  { id: 'schedule',    label: 'Schedule Editor',    group: 'Show Management' },
   { id: 'edits',       label: 'Roster Edits',       group: 'Roster & Factions' },
   { id: 'factions',    label: 'Faction Edits',      group: 'Roster & Factions' },
   { id: 'champions',   label: 'Champions',          group: 'Roster & Factions' },
@@ -4198,9 +4198,9 @@ export default function AdminDashboard() {
   const ALL_NAV: NavGroup[] = [
     { items: [{ id: 'approvals', label: 'Pending Approvals', badge: approvalCount }, { id: 'support', label: 'Support Tickets' }] },
     { label: 'Show Management', items: [
+      { id: 'schedule',  label: 'Schedule Editor' },
       { id: 'booker',    label: 'Show Booker' },
       { id: 'results',   label: 'Results Entry' },
-      { id: 'schedule',  label: 'Schedule Editor' },
     ]},
     { label: 'Roster & Factions', items: [
       { id: 'edits',     label: 'Roster Edits' },

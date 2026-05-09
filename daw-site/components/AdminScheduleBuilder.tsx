@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 interface ScheduledShow {
   id: string; name: string; show_date: string; show_type: string
   ppv_name: string | null; status: string; match_count: number
-  stream_url: string | null
+  stream_url: string | null; matchcard_locked: boolean
 }
 
 interface BookerRosterEntry {
@@ -135,7 +135,7 @@ function BookerModal({
   titles: BookerTitle[]
   factions: BookerFaction[]
   onClose: () => void
-  onSaved: (showId: string, matchCount: number, newStatus: string) => void
+  onSaved: (showId: string, matchCount: number, locked: boolean) => void
 }) {
   const initialSlotCount = show.show_type === 'ppv' ? 12 : 9
   const [slotCount, setSlotCount]           = useState(initialSlotCount)
@@ -149,7 +149,9 @@ function BookerModal({
   const [showWriteIn, setShowWriteIn]       = useState(false)
   const [writeInName, setWriteInName]       = useState('')
   const [loading, setLoading]               = useState(true)
+  const [locked, setLocked]                 = useState(show.matchcard_locked)
   const [saving, setSaving]                 = useState(false)
+  const [committing, setCommitting]         = useState(false)
   const [saveError, setSaveError]           = useState<string | null>(null)
   const [saveDone, setSaveDone]             = useState(false)
   const [copied, setCopied]                 = useState(false)
@@ -387,64 +389,89 @@ function BookerModal({
     })
   }
 
+  async function doSaveMatchcard(): Promise<number> {
+    const { data: existing } = await supabase.from('matches').select('id').eq('show_id', show.id)
+
+    // Block resave if any results have already been recorded
+    if (existing?.length) {
+      const ids = existing.map((m: any) => m.id)
+      const { data: hasResults } = await supabase
+        .from('match_participants').select('id').in('match_id', ids).eq('result', 'winner').limit(1)
+      if (hasResults && hasResults.length > 0) {
+        throw new Error('Results have already been entered for this show. Use Results Entry to manage this matchcard.')
+      }
+      await supabase.from('match_participants').delete().in('match_id', ids)
+      await supabase.from('matches').delete().in('id', ids)
+    }
+
+    let savedCount = 0
+    for (const slot of slots) {
+      const count  = participantCount(slot.matchType, slot.matchSize)
+      const filled = slot.participants.slice(0, count).filter(p => p.name)
+      const stipStr = buildStipulationString(slot)
+      const { data: matchData, error: matchErr } = await supabase
+        .from('matches')
+        .insert({
+          show_id: show.id, match_number: slot.id, match_type: slot.matchType,
+          scheme: slot.scheme,
+          stipulation: stipStr,
+          is_title_match: slot.isTitleMatch,
+          title_id: slot.isTitleMatch && slot.titleId ? slot.titleId : null,
+          is_mitb: false, mitb_cashin: false, is_draw: false,
+        })
+        .select('id').single()
+      if (matchErr) throw matchErr
+      const matchId = matchData.id
+      for (const p of filled) {
+        const { error: mpErr } = await supabase.from('match_participants').insert({
+          match_id: matchId,
+          wrestler_id: p.type === 'roster' ? p.wrestlerId : null,
+          team_id: null,
+          write_in_name: p.type === 'writein' ? p.name : null,
+          result: 'loser',
+        })
+        if (mpErr) throw mpErr
+      }
+      const perSide = getParticipantsPerSide(slot.matchType, slot.matchSize)
+      for (let si = 0; si < perSide.length; si++) {
+        const factionId = slot.sideFactionIds?.[si]
+        if (!factionId) continue
+        const { error: fpErr } = await supabase.from('match_participants').insert({
+          match_id: matchId, wrestler_id: null, team_id: factionId, write_in_name: null, result: 'loser',
+        })
+        if (fpErr) throw fpErr
+      }
+      if (filled.length > 0) savedCount++
+    }
+    return savedCount
+  }
+
   async function saveMatchcard() {
+    if (locked) return
     setSaving(true); setSaveError(null); setSaveDone(false)
     try {
-      const { data: existing } = await supabase.from('matches').select('id').eq('show_id', show.id)
-      if (existing?.length) {
-        const ids = existing.map((m: any) => m.id)
-        await supabase.from('match_participants').delete().in('match_id', ids)
-        await supabase.from('matches').delete().in('id', ids)
-      }
-      let savedCount = 0
-      for (const slot of slots) {
-        const count  = participantCount(slot.matchType, slot.matchSize)
-        const filled = slot.participants.slice(0, count).filter(p => p.name)
-        const stipStr = buildStipulationString(slot)
-        const { data: matchData, error: matchErr } = await supabase
-          .from('matches')
-          .insert({
-            show_id: show.id, match_number: slot.id, match_type: slot.matchType,
-            scheme: slot.scheme,
-            stipulation: stipStr,
-            is_title_match: slot.isTitleMatch,
-            title_id: slot.isTitleMatch && slot.titleId ? slot.titleId : null,
-            is_mitb: false, mitb_cashin: false, is_draw: false,
-          })
-          .select('id').single()
-        if (matchErr) throw matchErr
-        const matchId = matchData.id
-        for (const p of filled) {
-          const { error: mpErr } = await supabase.from('match_participants').insert({
-            match_id: matchId,
-            wrestler_id: p.type === 'roster' ? p.wrestlerId : null,
-            team_id: null,
-            write_in_name: p.type === 'writein' ? p.name : null,
-            result: 'loser',
-          })
-          if (mpErr) throw mpErr
-        }
-        const perSide = getParticipantsPerSide(slot.matchType, slot.matchSize)
-        for (let si = 0; si < perSide.length; si++) {
-          const factionId = slot.sideFactionIds?.[si]
-          if (!factionId) continue
-          const { error: fpErr } = await supabase.from('match_participants').insert({
-            match_id: matchId, wrestler_id: null, team_id: factionId, write_in_name: null, result: 'loser',
-          })
-          if (fpErr) throw fpErr
-        }
-        if (filled.length > 0) savedCount++
-      }
-      const newStatus = savedCount > 0 ? 'booked' : show.status
-      if (savedCount > 0 && show.status !== 'booked') {
-        await supabase.from('shows').update({ status: 'booked' }).eq('id', show.id)
-      }
+      const savedCount = await doSaveMatchcard()
       setSaveDone(true)
-      onSaved(show.id, savedCount, newStatus)
+      onSaved(show.id, savedCount, false)
     } catch (e: any) {
       setSaveError(e?.message ?? 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function commitMatchcard() {
+    setCommitting(true); setSaveError(null); setSaveDone(false)
+    try {
+      const savedCount = await doSaveMatchcard()
+      const { error } = await supabase.from('shows').update({ matchcard_locked: true }).eq('id', show.id)
+      if (error) throw error
+      setLocked(true)
+      onSaved(show.id, savedCount, true)
+    } catch (e: any) {
+      setSaveError(e?.message ?? 'Commit failed')
+    } finally {
+      setCommitting(false)
     }
   }
 
@@ -518,25 +545,77 @@ function BookerModal({
             <button onClick={exportToDiscord} className="btn" style={{ padding: '0.55rem 1rem', fontSize: '0.65rem' }}>
               {copied ? '✓ Copied!' : '📋 Discord'}
             </button>
-            {/* Slot count slider — near Save for easy access */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
-              <input type="range" min={9} max={20} value={slotCount}
-                onChange={e => changeSlotCount(Number(e.target.value))}
-                style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
-              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
-            </div>
-            <button onClick={saveMatchcard} disabled={saving || saveDone} className="btn btn-primary" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
-              {saving ? 'Saving…' : saveDone ? '✓ Saved!' : 'Save Matchcard'}
-            </button>
+            {locked ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'rgba(0,200,100,0.1)', border: '1px solid #00c864' }}>
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', fontWeight: 700, letterSpacing: '0.1em' }}>✓ MATCHCARD COMMITTED</span>
+              </div>
+            ) : (
+              <>
+                {/* Slot count slider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
+                  <input type="range" min={9} max={20} value={slotCount}
+                    onChange={e => changeSlotCount(Number(e.target.value))}
+                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
+                </div>
+                <button onClick={saveMatchcard} disabled={saving || committing || saveDone} className="btn" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
+                  {saving ? 'Saving…' : saveDone ? '✓ Draft Saved' : 'Save Draft'}
+                </button>
+                <button onClick={commitMatchcard} disabled={saving || committing} className="btn btn-primary" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
+                  {committing ? 'Committing…' : 'Commit Matchcard'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         {saveError && <div style={{ margin: '0.75rem 1.5rem 0', padding: '0.6rem 1rem', background: 'rgba(255,51,85,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>✕ {saveError}</div>}
-        {saveDone  && <div style={{ margin: '0.75rem 1.5rem 0', padding: '0.6rem 1rem', background: 'rgba(0,200,100,0.1)', border: '1px solid #00c864', color: '#00c864', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>✓ Matchcard saved.</div>}
+        {saveDone  && <div style={{ margin: '0.75rem 1.5rem 0', padding: '0.6rem 1rem', background: 'rgba(0,200,100,0.1)', border: '1px solid #00c864', color: '#00c864', fontFamily: 'var(--font-meta)', fontSize: '0.68rem', letterSpacing: '0.08em' }}>✓ Draft saved.</div>}
 
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.2em' }}>Loading…</div>
+        ) : locked ? (
+          /* ── Read-only committed matchcard view ── */
+          <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,200,100,0.08)', border: '1px solid #00c864', color: '#00c864', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+              ✓ MATCHCARD COMMITTED — Use Results Entry to record match results
+            </div>
+            {slots.map(slot => {
+              if (slot.scheme === 'Promo') return (
+                <div key={slot.id} style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : 'var(--border)'}`, padding: '0.85rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform: 'uppercase' }}>{slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}</span>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.15em', fontWeight: 700 }}>PROMO SEGMENT</span>
+                </div>
+              )
+              if (slot.scheme === 'Write-In') return (
+                <div key={slot.id} style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : 'var(--border)'}`, padding: '0.85rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform: 'uppercase' }}>{slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}</span>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--accent-red)', letterSpacing: '0.15em', fontWeight: 700 }}>WRITE-IN / TBA</span>
+                </div>
+              )
+              const count = participantCount(slot.matchType, slot.matchSize)
+              const filled = slot.participants.slice(0, count).filter(p => p.name)
+              const matchupStr = buildSideGroups(filled, slot.matchType, slot.matchSize)
+                .map(({ side }, si) => {
+                  const facName = slot.sideNames[si]?.trim()
+                  return facName || side.filter(p => p.name).map(p => p.name).join(' & ')
+                }).join(' vs ')
+              const stipStr = buildStipulationString(slot)
+              return (
+                <div key={slot.id} style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : 'var(--border)'}`, padding: '0.85rem 1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform: 'uppercase' }}>{slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}</span>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', letterSpacing: '0.1em' }}>{slot.matchType}{stipStr ? ` · ${stipStr}` : ''}</span>
+                      {slot.isTitleMatch && <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', background: 'rgba(255,201,51,0.2)', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '1px 5px', fontWeight: 700, letterSpacing: '0.08em' }}>TITLE</span>}
+                    </div>
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1.3 }}>{matchupStr || 'TBA'}</p>
+                </div>
+              )
+            })}
+          </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '1.25rem', padding: '1.25rem 1.5rem' }}>
 
@@ -924,7 +1003,7 @@ export default function AdminScheduleBuilder() {
   useEffect(() => {
     async function load() {
       const [showRes, rosterRes, champRes, titleRes, factionRes, memberRes] = await Promise.all([
-        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status, stream_url, matches(id)').in('status', ['committed', 'booked']).order('show_date', { ascending: true }),
+        supabase.from('shows').select('id, name, show_date, show_type, ppv_name, status, stream_url, matchcard_locked, matches(id)').eq('status', 'committed').order('show_date', { ascending: true }),
         supabase.from('wrestlers').select('id, name, role, injured, brand, gender, division').eq('active', true).order('name'),
         supabase.from('current_champions').select('holder_wrestler_id, title_name'),
         supabase.from('titles').select('id, name').eq('active', true).order('display_order'),
@@ -957,6 +1036,7 @@ export default function AdminScheduleBuilder() {
         id: s.id, name: s.name, show_date: s.show_date, show_type: s.show_type, ppv_name: s.ppv_name, status: s.status,
         stream_url: s.stream_url ?? null,
         match_count: (s.matches ?? []).length,
+        matchcard_locked: s.matchcard_locked ?? false,
       }))
 
       const nameInit:   Record<string, string> = {}
@@ -991,7 +1071,7 @@ export default function AdminScheduleBuilder() {
       .insert({ name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed', match_count: 0, stream_url: null }
+      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'weekly', ppv_name: null, status: 'committed', match_count: 0, stream_url: null, matchcard_locked: false }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: showName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
@@ -1010,7 +1090,7 @@ export default function AdminScheduleBuilder() {
       .insert({ name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed', match_count: 0, stream_url: null }
+      const s: ScheduledShow = { id: data.id, name: showName, show_date: newDate, show_type: 'skip', ppv_name: null, status: 'committed', match_count: 0, stream_url: null, matchcard_locked: false }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: showName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: '' }))
@@ -1028,7 +1108,7 @@ export default function AdminScheduleBuilder() {
       .insert({ name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed' })
       .select('id').single()
     if (!error && data) {
-      const s: ScheduledShow = { id: data.id, name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed', match_count: 0, stream_url: null }
+      const s: ScheduledShow = { id: data.id, name: fullName, show_date: ppvDate, show_type: 'ppv', ppv_name: ppvNameInput.trim(), status: 'committed', match_count: 0, stream_url: null, matchcard_locked: false }
       setShows(prev => [...prev, s].sort((a, b) => a.show_date.localeCompare(b.show_date)))
       setEditNames(prev => ({ ...prev, [data.id]: fullName }))
       setEditPPVNames(prev => ({ ...prev, [data.id]: ppvNameInput.trim() }))
@@ -1070,8 +1150,8 @@ export default function AdminScheduleBuilder() {
     setShows(prev => prev.filter(s => s.id !== showId))
   }
 
-  function handleSaved(showId: string, matchCount: number, newStatus: string) {
-    setShows(prev => prev.map(s => s.id === showId ? { ...s, match_count: matchCount, status: newStatus } : s))
+  function handleSaved(showId: string, matchCount: number, locked: boolean) {
+    setShows(prev => prev.map(s => s.id === showId ? { ...s, match_count: matchCount, matchcard_locked: locked } : s))
   }
 
   async function saveStreamUrl(showId: string) {
@@ -1131,18 +1211,18 @@ export default function AdminScheduleBuilder() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {shows.map(show => {
-            const isSkip    = show.show_type === 'skip'
-            const isPPV     = show.show_type === 'ppv'
-            const isBooked  = show.status === 'booked'
-            const slotCount = isPPV ? 12 : 9
-            const pct       = isSkip ? 0 : show.match_count / slotCount
-            const isBuilt   = !isSkip && pct >= 1
-            const isPartial = !isSkip && pct > 0 && pct < 1
-            const isEditing = editingShowId === show.id
+            const isSkip      = show.show_type === 'skip'
+            const isPPV       = show.show_type === 'ppv'
+            const isLocked    = show.matchcard_locked
+            const hasMatchcard = show.match_count > 0
+            const slotCount   = isPPV ? 12 : 9
+            const pct         = isSkip ? 0 : show.match_count / slotCount
+            const isPartial   = !isSkip && pct > 0 && pct < 1
+            const isEditing   = editingShowId === show.id
 
-            // Status colors: committed=purple, booked=blue
-            const statusColor  = isBooked ? '#3b82f6' : 'var(--purple)'
-            const statusBorder = isPPV ? 'rgba(255,201,51,0.35)' : isSkip ? 'rgba(255,255,255,0.07)' : isBooked ? 'rgba(59,130,246,0.4)' : 'var(--border)'
+            // Status colors: locked=green, has matchcard=blue, scheduled=purple
+            const statusColor  = isLocked ? '#00c864' : hasMatchcard ? '#3b82f6' : 'var(--purple)'
+            const statusBorder = isPPV ? 'rgba(255,201,51,0.35)' : isSkip ? 'rgba(255,255,255,0.07)' : isLocked ? 'rgba(0,200,100,0.4)' : hasMatchcard ? 'rgba(59,130,246,0.4)' : 'var(--border)'
 
             return (
               <div key={show.id} style={{ border: `1px solid ${statusBorder}`, overflow: 'hidden', opacity: isSkip ? 0.65 : 1 }}>
@@ -1154,8 +1234,8 @@ export default function AdminScheduleBuilder() {
                   </span>
                   {/* Status badge */}
                   {!isSkip && (
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.15rem 0.45rem', background: isBooked ? 'rgba(59,130,246,0.15)' : 'rgba(128,0,218,0.08)', color: isBooked ? '#3b82f6' : 'var(--purple-hot)', border: `1px solid ${statusColor}`, flexShrink: 0 }}>
-                      {isBooked ? 'BOOKED' : 'SCHEDULED'}
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', padding: '0.15rem 0.45rem', background: isLocked ? 'rgba(0,200,100,0.12)' : hasMatchcard ? 'rgba(59,130,246,0.15)' : 'rgba(128,0,218,0.08)', color: isLocked ? '#00c864' : hasMatchcard ? '#3b82f6' : 'var(--purple-hot)', border: `1px solid ${statusColor}`, flexShrink: 0 }}>
+                      {isLocked ? '✓ COMMITTED' : hasMatchcard ? 'MATCHCARD' : 'SCHEDULED'}
                     </span>
                   )}
                   <input type="date" value={show.show_date} onChange={e => updateDate(show.id, e.target.value)}
@@ -1179,8 +1259,8 @@ export default function AdminScheduleBuilder() {
                   {isSkip ? (
                     <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>no show</span>
                   ) : (
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isBooked ? '#3b82f6' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
-                      {isBooked ? '✓ ' : ''}{show.match_count}/{slotCount} matches
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', letterSpacing: '0.1em', color: isLocked ? '#00c864' : hasMatchcard ? '#3b82f6' : isPartial ? 'var(--gold)' : 'var(--text-dim)', flexShrink: 0, minWidth: 70 }}>
+                      {show.match_count}/{slotCount} matches
                     </span>
                   )}
                   {/* Edit show button */}
@@ -1192,8 +1272,8 @@ export default function AdminScheduleBuilder() {
                   )}
                   {!isSkip && (
                     <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
-                      style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isBooked ? 'transparent' : undefined, border: isBooked ? `1px solid ${statusColor}` : undefined, color: isBooked ? '#3b82f6' : undefined }}>
-                      {show.match_count === 0 ? 'Build Card ▶' : isBooked ? 'Edit Card ▶' : 'Continue ▶'}
+                      style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isLocked ? 'transparent' : hasMatchcard ? 'transparent' : undefined, border: (isLocked || hasMatchcard) ? `1px solid ${statusColor}` : undefined, color: isLocked ? '#00c864' : hasMatchcard ? '#3b82f6' : undefined }}>
+                      {isLocked ? 'View Card ▶' : show.match_count === 0 ? 'Build Card ▶' : 'Edit Card ▶'}
                     </button>
                   )}
                   <button onClick={() => deleteShow(show.id)}
@@ -1240,7 +1320,7 @@ export default function AdminScheduleBuilder() {
           titles={titles}
           factions={factions}
           onClose={() => setSelectedShow(null)}
-          onSaved={(id, count, newStatus) => { handleSaved(id, count, newStatus); setSelectedShow(null) }}
+          onSaved={(id, count, locked) => { handleSaved(id, count, locked); if (locked) setSelectedShow(null) }}
         />
       )}
     </div>

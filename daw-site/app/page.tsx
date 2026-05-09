@@ -4,6 +4,8 @@ import HomeNewsGrid, { NewsCard } from '@/components/HomeNewsGrid'
 import HomeUpcomingEvents, { EventItem } from '@/components/HomeUpcomingEvents'
 import HomeCommunityStrip from '@/components/HomeCommunityStrip'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'DAW Warehouse LIVE — Home',
   description: 'Results, roster, championships, and upcoming shows for DAW Warehouse LIVE.',
@@ -256,18 +258,19 @@ export default async function HomePage() {
       lastShowMatches = streamMatches
     }
 
-    // Get ANDNEW match IDs for last completed show
-    const lastShowMatchIds = lastShowMatches.map(m => m.id)
-    if (lastShowMatchIds.length > 0) {
+    // Get ANDNEW match IDs across both stream show and last completed show
+    const allRelevantMatchIds = [...new Set([
+      ...lastShowMatches.map(m => m.id),
+      ...streamMatches.map(m => m.id),
+    ])]
+    if (allRelevantMatchIds.length > 0) {
       const { data: reigns } = await supabase
         .from('title_reigns')
         .select('won_at_match_id')
-        .in('won_at_match_id', lastShowMatchIds)
+        .in('won_at_match_id', allRelevantMatchIds)
       andNewIds = new Set((reigns ?? []).map((r: any) => r.won_at_match_id))
     }
 
-    // For stream section: if it's the completed show, include hashtags; if upcoming, null
-    const streamIsCompleted = streamShowRaw?.status === 'completed'
     const streamShowInfo: StreamShowInfo | null = streamShowRaw
       ? {
           id: streamShowRaw.id,
@@ -281,19 +284,20 @@ export default async function HomePage() {
 
     const compactMatches: CompactMatch[] = streamMatches.map(m => {
       const sides = buildSides(m.match_participants ?? [], m.match_type)
+      const hasWinner = (m.match_participants ?? []).some((p: any) => p.result === 'winner')
       return {
-      id: m.id,
-      matchNumber: m.match_number,
-      matchType: m.match_type,
-      stipulation: m.stipulation ?? null,
-      isTitleMatch: m.is_title_match,
-      titleName: m.titles?.name ?? null,
-      titleImageUrl: m.titles?.image_url ?? null,
-      hashtag: streamIsCompleted ? deriveHashtag(m, andNewIds) : null,
-      winningSideIdx: streamIsCompleted ? findWinningSideIdx(m, sides) : null,
-      sides,
-      scheme: (m.scheme ?? null) as 'Match' | 'Promo' | 'Write-In' | null,
-    }
+        id: m.id,
+        matchNumber: m.match_number,
+        matchType: m.match_type,
+        stipulation: m.stipulation ?? null,
+        isTitleMatch: m.is_title_match,
+        titleName: m.titles?.name ?? null,
+        titleImageUrl: m.titles?.image_url ?? null,
+        hashtag: hasWinner ? deriveHashtag(m, andNewIds) : null,
+        winningSideIdx: hasWinner ? findWinningSideIdx(m, sides) : null,
+        sides,
+        scheme: (m.scheme ?? null) as 'Match' | 'Promo' | 'Write-In' | null,
+      }
     })
 
     // News grid: from last completed show only
