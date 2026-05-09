@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news'
 
 const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'booker', 'results', 'schedule', 'story', 'suggestions']
 const ADMIN_ONLY_SECTIONS = new Set<Section>(['accounts', 'settings', 'permissions'])
@@ -26,6 +26,7 @@ const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
   { id: 'titleimages', label: 'Title Images',       group: 'Images' },
   { id: 'story',       label: 'Story Development',  group: 'Creative' },
   { id: 'suggestions', label: 'Fan Suggestions',    group: 'Creative' },
+  { id: 'news',        label: 'News Templates',     group: 'Creative' },
 ]
 
 const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
@@ -46,7 +47,7 @@ const PERSONALITY_TRAITS = [
 /* ── Types ──────────────────────────────────────────── */
 
 interface DBStoryNote { id: string; note_type: string; title: string; body: string; wrestler_ids: string[]; team_ids: string[]; priority: string; resolved: boolean; created_by: string | null; created_at: string; author_name?: string | null }
-interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null; render_url: string | null; gender: string | null; role: string | null; country: string | null }
+interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null; render_url: string | null; gender: string | null; role: string | null; country: string | null; gimmick: string | null }
 interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
 interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
@@ -162,9 +163,10 @@ function SubmissionDetails({ item }: { item: PendingItem }) {
   const snap = item.isEdit ? (bio.snapshot ?? {}) : null
   const bioData: Record<string, unknown> = item.isEdit ? (snap?.bio ?? {}) : bio
   const displayName = item.isEdit ? (snap?.name ?? item.name) : item.name
-  const gender: string | null = item.isEdit ? (snap?.gender ?? null) : item.gender
-  const role: string | null   = item.isEdit ? (snap?.role   ?? null) : item.role
+  const gender: string | null  = item.isEdit ? (snap?.gender  ?? null) : item.gender
+  const role: string | null    = item.isEdit ? (snap?.role    ?? null) : item.role
   const country: string | null = item.isEdit ? (snap?.country ?? null) : item.country
+  const gimmick: string | null = item.isEdit ? (snap?.gimmick ?? null) : item.gimmick
   const isComm = (bioData.creationType as string) === 'community'
   const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.85rem' }
 
@@ -194,6 +196,7 @@ function SubmissionDetails({ item }: { item: PendingItem }) {
                 <DetailField label="Ring Name"     value={displayName} />
                 <DetailField label="Gender"        value={gender} />
                 <DetailField label="Alignment"     value={role} />
+                <DetailField label="Gimmick"       value={gimmick} />
                 <DetailField label="From"          value={country} />
                 <DetailField label="Weight Class"  value={bioData.weightClass as string} />
                 <DetailField label="Height"        value={bioData.height as string} />
@@ -300,7 +303,7 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
   useEffect(() => {
     async function load() {
       const [wRes, tRes] = await Promise.all([
-        supabase.from('wrestlers').select('id, name, bio, render_url, gender, role, country, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
+        supabase.from('wrestlers').select('id, name, bio, render_url, gender, role, country, gimmick, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
         supabase.from('teams').select('id, name, bio, render_url, created_at').eq('status', 'pending').order('created_at', { ascending: true }),
       ])
       function parseEditMeta(row: { name: string; bio: string | null }): { isEdit: boolean; editOf: string | null; displayName: string } {
@@ -312,11 +315,11 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
       }
       const wrestlers: PendingItem[] = (wRes.data ?? []).map((w) => {
         const { isEdit, editOf, displayName } = parseEditMeta(w)
-        return { id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: displayName, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: w.bio, isEdit, editOf, render_url: w.render_url ?? null, gender: w.gender ?? null, role: w.role ?? null, country: w.country ?? null }
+        return { id: w.id, table: 'wrestlers' as const, type: 'Wrestler' as const, name: displayName, submittedAt: new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: w.bio, isEdit, editOf, render_url: w.render_url ?? null, gender: w.gender ?? null, role: w.role ?? null, country: w.country ?? null, gimmick: w.gimmick ?? null }
       })
       const factions: PendingItem[] = (tRes.data ?? []).map((t) => {
         const { isEdit, editOf, displayName } = parseEditMeta(t)
-        return { id: t.id, table: 'teams' as const, type: 'Faction' as const, name: displayName, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: t.bio, isEdit, editOf, render_url: t.render_url ?? null, gender: null, role: null, country: null }
+        return { id: t.id, table: 'teams' as const, type: 'Faction' as const, name: displayName, submittedAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), bio: t.bio, isEdit, editOf, render_url: t.render_url ?? null, gender: null, role: null, country: null, gimmick: null }
       })
       const all = [...wrestlers, ...factions].sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
       setItems(all)
@@ -3959,6 +3962,123 @@ function RolePermissions() {
   )
 }
 
+/* ── News Templates ──────────────────────────────────── */
+
+const NEWS_CATEGORIES = [
+  { id: 'andnew_headline',  label: 'ANDNEW — Headlines' },
+  { id: 'andstill_headline', label: 'ANDSTILL — Headlines' },
+  { id: 'winner_headline',  label: 'Non-Title Win — Headlines' },
+  { id: 'andnew_excerpt',   label: 'ANDNEW — Excerpts' },
+  { id: 'andstill_excerpt', label: 'ANDSTILL — Excerpts' },
+  { id: 'winner_excerpt',   label: 'Non-Title Win — Excerpts' },
+]
+
+const TEMPLATE_TOKENS = ['{winner}', '{loser}', '{title}', '{match_type}']
+
+interface NewsTemplate { id: string; category: string; template: string; active: boolean }
+
+function NewsTemplates() {
+  const [templates, setTemplates] = useState<NewsTemplate[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [addCat, setAddCat]       = useState(NEWS_CATEGORIES[0].id)
+  const [addText, setAddText]     = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('news_templates').select('*').order('category').order('created_at').then(({ data }) => {
+      setTemplates(data ?? [])
+      setLoading(false)
+    })
+  }, [])
+
+  async function addTemplate() {
+    if (!addText.trim()) return
+    setSaving(true); setError(null)
+    const { data, error: e } = await supabase.from('news_templates').insert({ category: addCat, template: addText.trim() }).select().single()
+    if (e) { setError(e.message); setSaving(false); return }
+    setTemplates(prev => [...prev, data])
+    setAddText('')
+    setSaving(false)
+  }
+
+  async function toggleActive(t: NewsTemplate) {
+    const { error: e } = await supabase.from('news_templates').update({ active: !t.active }).eq('id', t.id)
+    if (!e) setTemplates(prev => prev.map(x => x.id === t.id ? { ...x, active: !x.active } : x))
+  }
+
+  async function deleteTemplate(id: string) {
+    const { error: e } = await supabase.from('news_templates').delete().eq('id', id)
+    if (!e) setTemplates(prev => prev.filter(x => x.id !== id))
+  }
+
+  if (loading) return <div style={{ padding: '2rem', fontFamily: 'var(--font-meta)', color: 'var(--text-dim)' }}>Loading…</div>
+
+  const byCategory = Object.fromEntries(NEWS_CATEGORIES.map(c => [c.id, templates.filter(t => t.category === c.id)]))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', textTransform: 'uppercase', color: 'var(--text-strong)', marginBottom: '0.35rem' }}>News Templates</h2>
+        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
+          Control the headline and excerpt text that appears in the homepage news grid. Use tokens: {TEMPLATE_TOKENS.join(', ')}. The system picks randomly per match (same match always shows same variant).
+        </p>
+      </div>
+
+      {/* Add new template */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--purple-hot)', fontWeight: 700 }}>ADD TEMPLATE</span>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <select value={addCat} onChange={e => setAddCat(e.target.value)}
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '0.5rem 0.75rem', minWidth: 200 }}>
+            {NEWS_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <input value={addText} onChange={e => setAddText(e.target.value)}
+            placeholder="{winner} dethrones {loser} for the {title}"
+            onKeyDown={e => e.key === 'Enter' && addTemplate()}
+            style={{ flex: 1, minWidth: 260, fontFamily: 'var(--font-meta)', fontSize: '0.65rem', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-strong)', padding: '0.5rem 0.75rem' }} />
+          <button onClick={addTemplate} disabled={saving || !addText.trim()}
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(168,77,255,0.15)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', padding: '0.5rem 1.25rem', cursor: 'pointer', opacity: (!addText.trim() || saving) ? 0.5 : 1 }}>
+            {saving ? 'Saving…' : '+ Add'}
+          </button>
+        </div>
+        {error && <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--accent-red)' }}>{error}</span>}
+      </div>
+
+      {/* Templates by category */}
+      {NEWS_CATEGORIES.map(cat => (
+        <div key={cat.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.15em', color: 'var(--text-muted)', fontWeight: 700 }}>{cat.label}</span>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
+              {byCategory[cat.id].filter(t => t.active).length} active / {byCategory[cat.id].length} total
+            </span>
+          </div>
+          {byCategory[cat.id].length === 0 ? (
+            <p style={{ padding: '0.85rem 1.25rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>No templates yet — add one above.</p>
+          ) : (
+            byCategory[cat.id].map(t => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.04)', opacity: t.active ? 1 : 0.45 }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font-meta)', fontSize: '0.63rem', color: t.active ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing: '0.04em' }}>{t.template}</span>
+                <button onClick={() => toggleActive(t)}
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: t.active ? 'rgba(34,204,102,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${t.active ? '#22cc66' : 'var(--border)'}`, color: t.active ? '#22cc66' : 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'pointer', flexShrink: 0 }}>
+                  {t.active ? 'Active' : 'Inactive'}
+                </button>
+                <button onClick={() => deleteTemplate(t.id)}
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'pointer', flexShrink: 0 }}
+                  onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
+                  onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}>
+                  Delete
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /* ── Admin Page ──────────────────────────────────────── */
 
 export default function AdminDashboard() {
@@ -4083,6 +4203,7 @@ export default function AdminDashboard() {
           {section === 'accounts'    && isAdmin && <AccountManagement />}
           {section === 'settings'    && isAdmin && <SiteSettings />}
           {section === 'permissions' && isAdmin && <RolePermissions />}
+          {section === 'news'        && canAccess('news') && <NewsTemplates />}
         </main>
       </div>
       {showNotes && <StoryNotesWindow onClose={() => setShowNotes(false)} />}

@@ -64,7 +64,7 @@ export default function Footer() {
         color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase',
       }}>
         <span>© {year} DAW Warehouse LIVE. All rights reserved.</span>
-        <span>Built by Jake · Powered by Supabase + Next.js</span>
+        <span>Built by Ruric · Powered by Supabase + Next.js</span>
       </div>
     </footer>
   )
