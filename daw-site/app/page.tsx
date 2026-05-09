@@ -186,22 +186,31 @@ export default async function HomePage() {
     const supabase = await createClient()
     const today = new Date().toISOString().slice(0, 10)
 
-    // Parallel: last completed show + upcoming committed shows + recently-aired committed shows + site settings + news templates
-    const [lastShowRes, upcomingRes, recentCommittedRes, settingsRes, templatesRes] = await Promise.all([
+    // Parallel queries:
+    // - lastShowRes: most recent completed show (for news grid fallback)
+    // - streamLockedRes: next upcoming show with a committed matchcard (matchcard_locked=true)
+    // - recentAiredLockedRes: most recent aired show with a committed matchcard but no results yet
+    // - upcomingAllRes: all upcoming scheduled shows for the events strip (regardless of matchcard)
+    // - settingsRes, templatesRes: site config
+    const [lastShowRes, streamLockedRes, recentAiredLockedRes, upcomingAllRes, settingsRes, templatesRes] = await Promise.all([
       supabase.from('shows').select('*').eq('status', 'completed')
         .order('show_date', { ascending: false }).limit(1),
+      supabase.from('shows').select('*').eq('status', 'committed').eq('matchcard_locked', true)
+        .gte('show_date', today).order('show_date', { ascending: true }).limit(1),
+      // Shows that have already aired but results haven't been entered yet — only if matchcard was committed
+      supabase.from('shows').select('*').eq('status', 'committed').eq('matchcard_locked', true)
+        .lt('show_date', today).order('show_date', { ascending: false }).limit(1),
+      // All upcoming scheduled shows for the events strip (any status committed, any matchcard state)
       supabase.from('shows').select('*').eq('status', 'committed')
         .gte('show_date', today).order('show_date', { ascending: true }).limit(6),
-      // Shows that have already aired but results haven't been entered yet
-      supabase.from('shows').select('*').eq('status', 'committed')
-        .lt('show_date', today).order('show_date', { ascending: false }).limit(1),
       supabase.from('site_settings').select('key, value'),
       supabase.from('news_templates').select('category, template').eq('active', true),
     ])
 
     const lastShow = lastShowRes.data?.[0] ?? null
-    const upcomingShows = upcomingRes.data ?? []
-    const recentAiredCommitted = recentCommittedRes.data?.[0] ?? null
+    const streamUpcoming = streamLockedRes.data?.[0] ?? null
+    const recentAiredCommitted = recentAiredLockedRes.data?.[0] ?? null
+    const upcomingShows = upcomingAllRes.data ?? []
     const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
     const tplMap: TemplateMap = {}
     for (const row of templatesRes.data ?? []) {
@@ -214,10 +223,10 @@ export default async function HomePage() {
     const showMatchcardFactionLogos = settingsMap.matchcard_show_faction_logos !== 'false'
 
     // Priority:
-    // 1. A show that already aired but results aren't in yet — keep showing its matchcard
-    // 2. The soonest upcoming committed show — promote the next event
-    // 3. The last completed show — fallback when nothing is scheduled
-    const streamShowRaw = recentAiredCommitted ?? upcomingShows[0] ?? lastShow
+    // 1. A show that aired but results aren't in yet (must have a committed matchcard)
+    // 2. The next upcoming show with a committed matchcard
+    // 3. The last completed show — fallback when nothing is ready
+    const streamShowRaw = recentAiredCommitted ?? streamUpcoming ?? lastShow
 
     // Fetch matches for both stream show and last completed show
     let streamMatches: any[] = []
