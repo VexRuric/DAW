@@ -331,7 +331,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                   </div>
                   <div className="form-field" style={{ marginBottom: 0 }}>
                     <label className="form-label">Gimmick / Character Concept <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-                    <input className="form-input" placeholder='e.g. "The Deadman", "The People\'s Champion", Anti-hero brawler' value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
+                    <input className="form-input" placeholder="e.g. The Deadman, The People's Champion, Anti-hero brawler" value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
                   </div>
                 </div>
                 <div className="form-section" style={{ marginBottom: 0 }}>
@@ -415,7 +415,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                   </div>
                   <div className="form-field">
                     <label className="form-label">Gimmick / Character Concept <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-                    <input className="form-input" placeholder='e.g. "The Deadman", "The People\'s Champion", Anti-hero brawler' value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
+                    <input className="form-input" placeholder="e.g. The Deadman, The People's Champion, Anti-hero brawler" value={gimmick} onChange={(e) => setGimmick(e.target.value)} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">Alignment</label>
