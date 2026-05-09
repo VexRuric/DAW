@@ -72,34 +72,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session) {
         // Force refresh to pick up latest app_metadata (e.g. admin role set server-side)
         const { data: refreshed } = await supabase.auth.refreshSession()
-        const su = refreshed.session?.user ?? session.user
-        const base = mapUser(su)
-        if (base) {
-          const nickname = await fetchNickname(base.id)
-          setUser({ ...base, nickname })
-        } else {
-          setUser(null)
-        }
+        setUser(mapUser(refreshed.session?.user ?? session.user))
       } else {
         setUser(null)
       }
       setLoading(false)  // only set here, after refresh completes
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Don't set loading here — it races with refreshSession() above and
-      // can mark loading=false before the admin role is populated.
-      const base = mapUser(session?.user)
-      if (base) {
-        const nickname = await fetchNickname(base.id)
-        setUser({ ...base, nickname })
-      } else {
-        setUser(null)
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Keep synchronous — async callbacks here race with refreshSession() above
+      // and can overwrite the correctly-refreshed role with stale data.
+      setUser(mapUser(session?.user))
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Fetch nickname separately so it never races with role resolution
+  const userId = user?.id
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    fetchNickname(userId).then(nickname => {
+      if (!cancelled) setUser(prev => prev?.id === userId ? { ...prev, nickname } : prev)
+    })
+    return () => { cancelled = true }
+  }, [userId])
 
   const login = async (provider: 'discord' | 'twitch' | 'google') => {
     await supabase.auth.signInWithOAuth({
