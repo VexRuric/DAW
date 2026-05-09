@@ -95,14 +95,15 @@ const FALLBACK_EXCERPTS: TemplateMap = {
 
 function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap): string {
   const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
+  const promoLabel = match.scheme === 'Promo' && match.stipulation ? match.stipulation : effectiveType
   const winner = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
-  if (!winner) return effectiveType
+  if (!winner) return promoLabel
   const wName = participantName(winner)
   const losers = (match.match_participants ?? []).filter((p: any) => p.result === 'loser')
   const lName = losers.length === 1 ? participantName(losers[0]) : losers.length > 1 ? 'the field' : ''
   const hashtag = deriveHashtag(match, andNewIds)
   const titleName = match.titles?.name ?? 'Title'
-  const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: effectiveType }
+  const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: promoLabel }
 
   const catKey = hashtag === 'ANDNEW' ? 'andnew_headline' : hashtag === 'ANDSTILL' ? 'andstill_headline' : 'winner_headline'
   const pool = (tplMap[catKey]?.length ? tplMap[catKey] : FALLBACK_HEADLINES[catKey])!
