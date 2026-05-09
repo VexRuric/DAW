@@ -113,27 +113,32 @@ export default async function HomePage() {
     const supabase = await createClient()
     const today = new Date().toISOString().slice(0, 10)
 
-    // Parallel: last completed show + upcoming committed shows + site settings
-    const [lastShowRes, upcomingRes, settingsRes] = await Promise.all([
+    // Parallel: last completed show + upcoming committed shows + recently-aired committed shows + site settings
+    const [lastShowRes, upcomingRes, recentCommittedRes, settingsRes] = await Promise.all([
       supabase.from('shows').select('*').eq('status', 'completed')
         .order('show_date', { ascending: false }).limit(1),
       supabase.from('shows').select('*').eq('status', 'committed')
         .gte('show_date', today).order('show_date', { ascending: true }).limit(6),
+      // Shows that have already aired but results haven't been entered yet
+      supabase.from('shows').select('*').eq('status', 'committed')
+        .lt('show_date', today).order('show_date', { ascending: false }).limit(1),
       supabase.from('site_settings').select('key, value'),
     ])
 
     const lastShow = lastShowRes.data?.[0] ?? null
     const upcomingShows = upcomingRes.data ?? []
+    const recentAiredCommitted = recentCommittedRes.data?.[0] ?? null
     const settingsMap = Object.fromEntries((settingsRes.data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
     const twitchChannel: string = settingsMap.twitch_channel || 'daware'
     const youtubeUrl: string | undefined = settingsMap.youtube_url || undefined
     const showMatchcardImages = settingsMap.matchcard_show_images !== 'false'
     const showMatchcardFactionLogos = settingsMap.matchcard_show_faction_logos !== 'false'
 
-    // Prefer the next upcoming show so the matchcard is always forward-looking.
-    // If there is no upcoming show, fall back to the last completed show (results stay
-    // visible until a new show is scheduled, regardless of how long ago it was).
-    const streamShowRaw = upcomingShows[0] ?? lastShow
+    // Priority:
+    // 1. A show that already aired but results aren't in yet — keep showing its matchcard
+    // 2. The soonest upcoming committed show — promote the next event
+    // 3. The last completed show — fallback when nothing is scheduled
+    const streamShowRaw = recentAiredCommitted ?? upcomingShows[0] ?? lastShow
 
     // Fetch matches for both stream show and last completed show
     let streamMatches: any[] = []
