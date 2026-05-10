@@ -797,7 +797,7 @@ function ResultsEntry() {
     setMatches(cards)
     const initial: Record<string, MatchResultForm> = {}
     for (const c of cards) {
-      const existingWinner = c.participants.find((p) => p.result === 'winner')
+      const existingWinner = c.participants.find((p) => p.result === 'winner' && !p.team_id) ?? c.participants.find((p) => p.result === 'winner')
       initial[c.id] = { winner_mp_id: existingWinner?.mp_id ?? '', defeat_type: c.defeat_type ?? '', rating: c.rating != null ? String(c.rating) : '', notes: c.notes ?? '', add_to_story_board: false }
     }
     setForms(initial); setLoadingMatches(false)
@@ -816,31 +816,46 @@ function ResultsEntry() {
     try {
       const wrestlerParts = match.participants.filter(p => !p.team_id)
       const factionParts  = match.participants.filter(p => !!p.team_id)
-      const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
-      const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
-      let winningSide = -1
-      if (winnerIdx >= 0) {
-        let cum = 0
-        for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
-      }
-      let sideStart = 0
-      for (let s = 0; s < perSide.length; s++) {
-        for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
-          const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+      const winnerFaction = factionParts.find(fp => fp.mp_id === form.winner_mp_id)
+      if (winnerFaction) {
+        // Faction selected directly as winner
+        const memberIds = new Set(teamMemberships.filter(m => m.teamId === winnerFaction.team_id).map(m => m.wrestlerId))
+        for (const p of wrestlerParts) {
+          const newResult = (p.wrestler_id && memberIds.has(p.wrestler_id)) ? 'winner' : 'loser'
           await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
         }
-        sideStart += perSide[s]
-      }
-      if (factionParts.length > 0) {
         for (const fp of factionParts) {
-          const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
-          let factionSide = -1; let wIdx = 0
-          for (let s = 0; s < perSide.length; s++) {
-            if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
-            wIdx += perSide[s]
-          }
-          const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+          const newResult = fp.mp_id === form.winner_mp_id ? 'winner' : 'loser'
           await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
+        }
+      } else {
+        // Wrestler-selected winner or draw: side-based logic
+        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+        const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+        let winningSide = -1
+        if (winnerIdx >= 0) {
+          let cum = 0
+          for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+        }
+        let sideStart = 0
+        for (let s = 0; s < perSide.length; s++) {
+          for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
+            const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+            await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+          }
+          sideStart += perSide[s]
+        }
+        if (factionParts.length > 0) {
+          for (const fp of factionParts) {
+            const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
+            let factionSide = -1; let wIdx = 0
+            for (let s = 0; s < perSide.length; s++) {
+              if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
+              wIdx += perSide[s]
+            }
+            const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+            await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
+          }
         }
       }
       await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', matchId)
@@ -860,33 +875,48 @@ function ResultsEntry() {
         if (!form) continue
         const wrestlerParts = match.participants.filter(p => !p.team_id)
         const factionParts  = match.participants.filter(p => !!p.team_id)
-        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
-        const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
-        let winningSide = -1
-        if (winnerIdx >= 0) {
-          let cum = 0
-          for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
-        }
-        let sideStart = 0
-        for (let s = 0; s < perSide.length; s++) {
-          for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
-            const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+        const winnerFaction = factionParts.find(fp => fp.mp_id === form.winner_mp_id)
+        if (winnerFaction) {
+          const memberIds = new Set(teamMemberships.filter(m => m.teamId === winnerFaction.team_id).map(m => m.wrestlerId))
+          for (const p of wrestlerParts) {
+            const newResult = (p.wrestler_id && memberIds.has(p.wrestler_id)) ? 'winner' : 'loser'
             const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
             if (error) throw error
           }
-          sideStart += perSide[s]
-        }
-        if (factionParts.length > 0) {
           for (const fp of factionParts) {
-            const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
-            let factionSide = -1; let wIdx = 0
-            for (let s = 0; s < perSide.length; s++) {
-              if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
-              wIdx += perSide[s]
-            }
-            const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+            const newResult = fp.mp_id === form.winner_mp_id ? 'winner' : 'loser'
             const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
             if (error) throw error
+          }
+        } else {
+          const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+          const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+          let winningSide = -1
+          if (winnerIdx >= 0) {
+            let cum = 0
+            for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+          }
+          let sideStart = 0
+          for (let s = 0; s < perSide.length; s++) {
+            for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
+              const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+              const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+              if (error) throw error
+            }
+            sideStart += perSide[s]
+          }
+          if (factionParts.length > 0) {
+            for (const fp of factionParts) {
+              const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
+              let factionSide = -1; let wIdx = 0
+              for (let s = 0; s < perSide.length; s++) {
+                if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
+                wIdx += perSide[s]
+              }
+              const newResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+              const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', fp.mp_id)
+              if (error) throw error
+            }
           }
         }
         const { error: matchErr } = await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', match.id)
@@ -1110,13 +1140,14 @@ function ResultsEntry() {
                             if (wrestlerParts.slice(wIdx, wIdx + perSide[s]).some(p => p.wrestler_id && memberIds.has(p.wrestler_id))) { factionSide = s; break }
                             wIdx += perSide[s]
                           }
-                          const computedResult = form.winner_mp_id === '' ? 'draw' : (factionSide >= 0 && factionSide === winningSide) ? 'winner' : 'loser'
+                          const directSelected = form.winner_mp_id === fp.mp_id
+                          const computedResult = form.winner_mp_id === '' ? 'draw' : (directSelected || (factionSide >= 0 && factionSide === winningSide)) ? 'winner' : 'loser'
                           const isWin = computedResult === 'winner'; const isDraw = computedResult === 'draw'
                           return (
-                            <div key={fp.mp_id} style={{ padding:'0.35rem 0.75rem', background: isWin ? 'rgba(0,200,100,0.1)' : isDraw ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)', border:`1px solid ${isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--border)'}`, display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                            <button key={fp.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: fp.mp_id })} style={{ padding:'0.35rem 0.75rem', background: isWin ? 'rgba(0,200,100,0.1)' : isDraw ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)', border:`1px solid ${isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--border)'}`, display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
                               <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', fontWeight:700, letterSpacing:'0.08em', padding:'1px 4px', background:'rgba(128,0,218,0.2)', color:'var(--purple-hot)' }}>FACTION</span>
                               <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color: isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--text-muted)', textTransform:'uppercase' }}>{isWin ? '✓ ' : ''}{fp.name}</span>
-                            </div>
+                            </button>
                           )
                         })}
                       </div>
