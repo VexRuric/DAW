@@ -816,18 +816,22 @@ function ResultsEntry() {
     try {
       const wrestlerParts = match.participants.filter(p => !p.team_id)
       const factionParts  = match.participants.filter(p => !!p.team_id)
-      for (const p of wrestlerParts) {
-        const newResult = form.winner_mp_id === '' ? 'draw' : p.mp_id === form.winner_mp_id ? 'winner' : 'loser'
-        await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+      const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+      const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+      let winningSide = -1
+      if (winnerIdx >= 0) {
+        let cum = 0
+        for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+      }
+      let sideStart = 0
+      for (let s = 0; s < perSide.length; s++) {
+        for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
+          const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+          await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+        }
+        sideStart += perSide[s]
       }
       if (factionParts.length > 0) {
-        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
-        const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
-        let winningSide = -1
-        if (winnerIdx >= 0) {
-          let cum = 0
-          for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
-        }
         for (const fp of factionParts) {
           const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
           let factionSide = -1; let wIdx = 0
@@ -856,19 +860,23 @@ function ResultsEntry() {
         if (!form) continue
         const wrestlerParts = match.participants.filter(p => !p.team_id)
         const factionParts  = match.participants.filter(p => !!p.team_id)
-        for (const p of wrestlerParts) {
-          const newResult = form.winner_mp_id === '' ? 'draw' : p.mp_id === form.winner_mp_id ? 'winner' : 'loser'
-          const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
-          if (error) throw error
+        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+        const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
+        let winningSide = -1
+        if (winnerIdx >= 0) {
+          let cum = 0
+          for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
+        }
+        let sideStart = 0
+        for (let s = 0; s < perSide.length; s++) {
+          for (const p of wrestlerParts.slice(sideStart, sideStart + perSide[s])) {
+            const newResult = form.winner_mp_id === '' ? 'draw' : (winningSide >= 0 && s === winningSide) ? 'winner' : 'loser'
+            const { error } = await supabase.from('match_participants').update({ result: newResult }).eq('id', p.mp_id)
+            if (error) throw error
+          }
+          sideStart += perSide[s]
         }
         if (factionParts.length > 0) {
-          const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
-          const winnerIdx = form.winner_mp_id ? wrestlerParts.findIndex(p => p.mp_id === form.winner_mp_id) : -1
-          let winningSide = -1
-          if (winnerIdx >= 0) {
-            let cum = 0
-            for (let s = 0; s < perSide.length; s++) { cum += perSide[s]; if (winnerIdx < cum) { winningSide = s; break } }
-          }
           for (const fp of factionParts) {
             const memberIds = new Set(teamMemberships.filter(m => m.teamId === fp.team_id).map(m => m.wrestlerId))
             let factionSide = -1; let wIdx = 0
