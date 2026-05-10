@@ -59,7 +59,7 @@ async function getWrestler(slug: string) {
   const MATCH_SELECT = `
     result,
     matches!inner(
-      id, match_type, stipulation, is_title_match, is_draw, rating,
+      id, match_type, scheme, stipulation, is_title_match, is_draw, rating,
       shows!inner(name, show_date, ppv_name, status),
       titles(name),
       match_participants(result, wrestlers(id, name), teams(id, name))
@@ -412,6 +412,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                 result: string
                 matches: {
                   match_type: string
+                  scheme?: string | null
                   stipulation: string | null
                   is_title_match: boolean
                   is_draw: boolean
@@ -446,12 +447,14 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                     </span>
                     <div>
                       <p style={{ fontFamily: 'var(--font-display)', fontSize: '0.88rem', color: 'var(--text-strong)', lineHeight: 1.1, textTransform: 'uppercase' }}>
-                        {opponents ? `vs. ${opponents}` : m.match_type}
+                        {m.scheme === 'Promo'
+                          ? (m.stipulation ?? 'Promo')
+                          : opponents ? `vs. ${opponents}` : m.match_type}
                       </p>
                       <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.15rem' }}>
                         {new Date(m.shows.show_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         {' · '}{m.shows.ppv_name ?? m.shows.name}
-                        {' · '}<span style={{ color: 'var(--text-muted)' }}>{m.match_type}</span>
+                        {' · '}<span style={{ color: 'var(--text-muted)' }}>{m.scheme === 'Promo' ? 'Promo' : m.match_type}</span>
                         {m.is_title_match && m.titles ? ` · ${m.titles.name}` : ''}
                         {m.stipulation ? ` · ${m.stipulation}` : ''}
                       </p>
