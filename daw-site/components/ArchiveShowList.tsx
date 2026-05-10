@@ -12,6 +12,7 @@ interface Match {
   id: string
   match_number: number
   match_type: string
+  scheme?: string | null
   stipulation: string | null
   is_title_match: boolean
   is_draw: boolean
@@ -34,6 +35,54 @@ function formatDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
   })
+}
+
+function pName(p: Participant): string {
+  return p.wrestlers?.name ?? p.teams?.name ?? '?'
+}
+
+function getPerSide(matchType: string, total: number): number[] {
+  switch (matchType) {
+    case 'Tag Team':      return total === 6 ? [3, 3] : [2, 2]
+    case 'Triple Threat': return [1, 1, 1]
+    case 'Fatal 4-Way':   return [1, 1, 1, 1]
+    case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
+    case 'Battle Royal':  return Array(total).fill(1)
+    case 'Royal Rumble':  return Array(total).fill(1)
+    case 'Handicap':      return [2, 1]
+    default:              return [1, 1]
+  }
+}
+
+function buildMatchDisplay(match: Match): { winnerStr: string; loserStr: string } | { promoStr: string } {
+  const parts = match.match_participants
+  if (match.scheme === 'Promo') {
+    const subject = parts.find(p => p.result === 'winner') ?? parts[0] ?? null
+    return { promoStr: subject ? pName(subject) : '' }
+  }
+
+  const isSided = match.match_type === 'Tag Team' || match.match_type === 'Handicap'
+  if (isSided && parts.length > 0) {
+    const perSide = getPerSide(match.match_type, parts.length)
+    let idx = 0
+    const sides = perSide.map(n => { const s = parts.slice(idx, idx + n); idx += n; return s })
+    const winnerSideIdx = sides.findIndex(side => side.some(p => p.result === 'winner'))
+    if (winnerSideIdx >= 0) {
+      const winnerStr = sides[winnerSideIdx].map(pName).join(' & ')
+      const loserStr = sides
+        .filter((_, i) => i !== winnerSideIdx)
+        .map(side => side.map(pName).join(' & '))
+        .join(' vs ')
+      return { winnerStr, loserStr }
+    }
+  }
+
+  const winner = parts.find(p => p.result === 'winner')
+  const losers = parts.filter(p => p.result !== 'winner')
+  return {
+    winnerStr: winner ? pName(winner) : '?',
+    loserStr: losers.map(pName).filter(Boolean).join(', '),
+  }
 }
 
 function ShowRow({ show }: { show: ArchiveShow }) {
@@ -112,10 +161,9 @@ function ShowRow({ show }: { show: ArchiveShow }) {
       {expanded && (
         <div style={{ background: 'var(--bg-mid)' }}>
           {sortedMatches.map((match) => {
-            const winner = match.match_participants.find(p => p.result === 'winner')
-            const losers = match.match_participants.filter(p => p.result !== 'winner')
-            const winnerName = winner?.wrestlers?.name ?? winner?.teams?.name ?? '?'
-            const loserNames = losers.map(p => p.wrestlers?.name ?? p.teams?.name).filter(Boolean).join(', ')
+            const display = buildMatchDisplay(match)
+            const isPromo = 'promoStr' in display
+            const displayType = match.scheme === 'Promo' ? 'Promo' : match.match_type
 
             return (
               <div key={match.id} style={{
@@ -131,21 +179,38 @@ function ShowRow({ show }: { show: ArchiveShow }) {
                 </span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.85rem,2.5vw,1rem)', color: 'var(--text-strong)', textTransform: 'uppercase' }}>
-                      {winnerName}
-                    </span>
-                    {loserNames && (
+                    {isPromo ? (
                       <>
-                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>def.</span>
-                        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem,2vw,0.9rem)', color: 'var(--text-muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                          {loserNames}
+                        {display.promoStr && (
+                          <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.85rem,2.5vw,1rem)', color: 'var(--text-strong)', textTransform: 'uppercase' }}>
+                            {display.promoStr}
+                          </span>
+                        )}
+                        {match.stipulation && (
+                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
+                            — {match.stipulation}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.85rem,2.5vw,1rem)', color: 'var(--text-strong)', textTransform: 'uppercase' }}>
+                          {display.winnerStr}
                         </span>
+                        {display.loserStr && (
+                          <>
+                            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>def.</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.75rem,2vw,0.9rem)', color: 'var(--text-muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                              {display.loserStr}
+                            </span>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
                   <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>
-                    {match.match_type}
-                    {match.stipulation ? ` · ${match.stipulation}` : ''}
+                    {displayType}
+                    {match.stipulation && !isPromo ? ` · ${match.stipulation}` : ''}
                     {match.is_title_match && match.titles ? ` · ${match.titles.name}` : ''}
                   </p>
                 </div>

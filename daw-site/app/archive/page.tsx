@@ -21,7 +21,7 @@ async function getData(page: number, showType: string, year: string) {
       .select(`
         id, name, show_date, show_type, ppv_name, stream_url,
         matches(
-          id, match_number, match_type, stipulation, is_title_match, is_draw, rating,
+          id, match_number, match_type, scheme, stipulation, is_title_match, is_draw, rating,
           titles(name),
           match_participants(
             result,

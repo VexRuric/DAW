@@ -98,10 +98,17 @@ function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap):
   const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
   const promoLabel = match.scheme === 'Promo' && match.stipulation ? match.stipulation : effectiveType
   const winner = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
-  if (!winner) return promoLabel
+  const promoSubject = match.scheme === 'Promo'
+    ? (winner ?? (match.match_participants ?? [])[0] ?? null) : null
+  if (!winner) {
+    if (promoSubject) return `${participantName(promoSubject)} — ${promoLabel}`
+    return promoLabel
+  }
   const wName = participantName(winner)
   const losers = (match.match_participants ?? []).filter((p: any) => p.result === 'loser')
-  const lName = losers.length === 1 ? participantName(losers[0]) : losers.length > 1 ? 'the field' : ''
+  const lName = losers.length === 0 ? ''
+    : losers.length <= 3 ? losers.map((p: any) => participantName(p)).join(' & ')
+    : losers.slice(0, 2).map((p: any) => participantName(p)).join(', ') + ' & more'
   const hashtag = deriveHashtag(match, andNewIds)
   const titleName = match.titles?.name ?? 'Title'
   const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: promoLabel }
@@ -322,6 +329,8 @@ export default async function HomePage() {
     const newsCards: NewsCard[] = lastShow
       ? newsMatches.map(m => {
           const winner = (m.match_participants ?? []).find((p: any) => p.result === 'winner')
+          const firstParticipant = (m.match_participants ?? [])[0] ?? null
+          const imageSource = winner ?? (m.scheme === 'Promo' ? firstParticipant : null)
           return {
             id: m.id,
             hashtag: deriveHashtag(m, andNewIds),
@@ -329,8 +338,8 @@ export default async function HomePage() {
             dateShort: formatDateShortAbbr(lastShow.show_date),
             title: buildHeadline(m, andNewIds, tplMap),
             excerpt: buildExcerpt(m, andNewIds, tplMap),
-            href: `/shows/${toSlug(lastShow.name)}`,
-            image_url: winner ? participantImage(winner) : null,
+            href: `/archive`,
+            image_url: imageSource ? participantImage(imageSource) : null,
           }
         })
       : []
