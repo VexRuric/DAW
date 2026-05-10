@@ -1,3 +1,4 @@
+import { unstable_noStore } from 'next/cache'
 import { createClient } from '@/lib/supabase-server'
 import HomeStreamSection, { CompactMatch, StreamShowInfo } from '@/components/HomeStreamSection'
 import HomeNewsGrid, { NewsCard } from '@/components/HomeNewsGrid'
@@ -185,6 +186,7 @@ function findWinningSideIdx(match: any, sides: ReturnType<typeof buildSides>): n
 }
 
 export default async function HomePage() {
+  unstable_noStore()
   try {
     const supabase = await createClient()
     const today = new Date().toISOString().slice(0, 10)

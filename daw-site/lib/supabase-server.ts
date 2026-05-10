@@ -23,6 +23,9 @@ export async function createClient() {
           }
         },
       },
+      global: {
+        fetch: (url, init) => fetch(url, { ...init, cache: 'no-store' }),
+      },
     }
   )
 }
