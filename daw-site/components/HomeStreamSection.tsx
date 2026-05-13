@@ -388,7 +388,7 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
 
       {/* Number column */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, flexShrink: 0, background: 'rgba(0,0,0,0.25)', borderRight: '1px solid var(--border)' }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.85rem', lineHeight: 1, color: numColor, opacity: 0.9 }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', lineHeight: 1, color: numColor, opacity: 0.9 }}>
           {String(match.matchNumber).padStart(2, '0')}
         </span>
       </div>
@@ -407,7 +407,7 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-meta)', color: 'var(--text-dim)', fontSize: '0.5rem', opacity: 0.5 }}>&amp;</span>}
                   {showImages && <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />}
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.82rem, 3vw, 1rem)', color: sideNameColor(i), textTransform: 'uppercase', lineHeight: 1, transition: 'color 0.2s' }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1rem, 3.6vw, 1.2rem)', color: sideNameColor(i), textTransform: 'uppercase', lineHeight: 1, transition: 'color 0.2s' }}>
                     {s.name}
                   </span>
                 </span>
@@ -424,7 +424,7 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
         ) : isMassMatch ? (
           <>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.08rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1 }}>
                 {sides.length > 0 ? `${sides.length}-Man ` : ''}{match.matchType}
               </span>
               {stipParts.map(tag => (
@@ -462,14 +462,14 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
                         </div>
                       : <WrestlerAvatar src={sideImg(0)} name={sides[0]?.name ?? ''} size="clamp(36px, 10vw, 52px)" />
                 )}
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.82rem, 3.5vw, 1.05rem)', color: sideNameColor(0), textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.2s' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1rem, 4.2vw, 1.26rem)', color: sideNameColor(0), textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.2s' }}>
                   {sides[0]?.name ?? 'TBA'}
                 </span>
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.65rem', color: 'var(--purple-hot)', flexShrink: 0, opacity: 0.8 }}>VS</span>
               {/* Side B: name left of images */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, maxWidth: 'clamp(120px, 45%, 300px)' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.82rem, 3.5vw, 1.05rem)', color: sideNameColor(1), textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.2s' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1rem, 4.2vw, 1.26rem)', color: sideNameColor(1), textTransform: 'uppercase', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.2s' }}>
                   {sides[1]?.name ?? 'TBA'}
                 </span>
                 {showImages && (
@@ -519,7 +519,7 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.6rem', color: 'var(--purple-hot)', opacity: 0.6, flexShrink: 0 }}>vs</span>}
                   {showImages && <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />}
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.78rem, 3vw, 0.95rem)', color: sideNameColor(i), textTransform: 'uppercase', lineHeight: 1, transition: 'color 0.2s' }}>{s.name}</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.94rem, 3.6vw, 1.14rem)', color: sideNameColor(i), textTransform: 'uppercase', lineHeight: 1, transition: 'color 0.2s' }}>{s.name}</span>
                 </span>
               ))}
               {hiddenCount > 0 && !expanded && (
