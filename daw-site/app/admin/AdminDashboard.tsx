@@ -4481,7 +4481,6 @@ function SupportTickets() {
 interface FineRow { id: string; wrestler_id: string | null; team_id: string | null; match_id: string | null; show_id: string | null; amount: number; reason: string; issued_date: string; paid: boolean; wrestlers: { name: string } | null; teams: { name: string } | null; shows: { name: string; ppv_name: string | null } | null; matches: { match_number: number } | null }
 
 function FinesSection() {
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   const [fines, setFines]           = useState<FineRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
