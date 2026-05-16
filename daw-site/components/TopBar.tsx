@@ -18,8 +18,9 @@ function formatTopBarDate(dateStr: string) {
 
 export default function TopBar() {
   const [nextShow, setNextShow]   = useState<NextShow | null>(null)
-  const [live, setLive]           = useState(false)
-  const [channel, setChannel]     = useState('daware')
+  const [live, setLive]             = useState(false)
+  const [channel, setChannel]       = useState('daware')
+  const [streamTitle, setStreamTitle] = useState<string | null>(null)
   const [discordUrl, setDiscordUrl] = useState('')
   const [twitterUrl, setTwitterUrl] = useState('')
 
@@ -43,6 +44,7 @@ export default function TopBar() {
         const social = await socialRes.json()
         setLive(!!stream.live)
         if (stream.channel) setChannel(stream.channel)
+        setStreamTitle(stream.title ?? null)
         setDiscordUrl(social.discord_url || '')
         setTwitterUrl(social.twitter_url || '')
       } catch { /* offline fallback */ }
@@ -84,9 +86,7 @@ export default function TopBar() {
           }}
         />
         {live
-          ? (nextShow
-              ? `Live now · ${nextShow.ppv_name ?? nextShow.name} · ${formatTopBarDate(nextShow.show_date)}`
-              : `${channel} is live now`)
+          ? (streamTitle ?? `${channel} is live now`)
           : (nextShow
               ? `Next show · ${nextShow.ppv_name ?? nextShow.name} · ${formatTopBarDate(nextShow.show_date)}`
               : 'DAW Warehouse LIVE')}
