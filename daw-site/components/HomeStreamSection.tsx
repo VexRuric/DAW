@@ -89,6 +89,7 @@ export default function HomeStreamSection({
   const [twitchSrc, setTwitchSrc]   = useState('')
   const [chatSrc, setChatSrc]       = useState('')
   const [isLive, setIsLive]         = useState<boolean | null>(null)
+  const [streamTitle, setStreamTitle] = useState<string | null>(null)
 
   useEffect(() => {
     const host = window.location.hostname
@@ -97,7 +98,7 @@ export default function HomeStreamSection({
 
     fetch('/api/stream-status')
       .then(r => r.json())
-      .then(d => setIsLive(!!d.live))
+      .then(d => { setIsLive(!!d.live); setStreamTitle(d.title ?? null) })
       .catch(() => setIsLive(false))
   }, [channel])
 
@@ -114,15 +115,27 @@ export default function HomeStreamSection({
         <div className="stream-video-col">
 
           {/* Section label */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
-            <span style={{ display: 'inline-block', width: 24, height: 1, background: labelColor }} />
-            <span style={{
-              fontFamily: 'var(--font-meta)', fontSize: '0.65rem',
-              color: labelColor, fontWeight: 700,
-              letterSpacing: '0.25em', textTransform: 'uppercase',
-            }}>
-              {labelText}
-            </span>
+          <div style={{ marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ display: 'inline-block', width: 24, height: 1, background: labelColor }} />
+              <span style={{
+                fontFamily: 'var(--font-meta)', fontSize: '0.65rem',
+                color: labelColor, fontWeight: 700,
+                letterSpacing: '0.25em', textTransform: 'uppercase',
+              }}>
+                {labelText}
+              </span>
+            </div>
+            {isLive && streamTitle && (
+              <p style={{
+                fontFamily: 'var(--font-meta)', fontSize: '0.72rem',
+                color: 'var(--text-strong)', marginTop: '0.35rem',
+                letterSpacing: '0.04em', lineHeight: 1.4,
+                paddingLeft: 32,
+              }}>
+                {streamTitle}
+              </p>
+            )}
           </div>
 
           {/* Player — 16:9 */}

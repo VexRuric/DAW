@@ -40,9 +40,11 @@ export async function GET() {
       { headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}` } }
     )
     const body = await r.json()
-    const live = Array.isArray(body.data) && body.data.length > 0
+    const stream = Array.isArray(body.data) && body.data.length > 0 ? body.data[0] : null
+    const live = !!stream
+    const title = stream?.title ?? null
     return Response.json(
-      { live, channel },
+      { live, channel, title },
       { headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' } }
     )
   } catch {
