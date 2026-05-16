@@ -321,8 +321,9 @@ export default async function HomePage() {
       }
     })
 
-    // News grid: only matches that have a declared winner or loser — excludes unentered matches
-    const hasResult = (m: any) => (m.match_participants ?? []).some((p: any) => p.result === 'winner' || p.result === 'loser' || p.result === 'draw')
+    // News grid: participants default to 'loser' when matchcard is built, so only show
+    // a match once a winner (or draw) has been explicitly declared
+    const hasResult = (m: any) => (m.match_participants ?? []).some((p: any) => p.result === 'winner' || p.result === 'draw')
     const titleMatches = lastShowMatches.filter(m => m.is_title_match && hasResult(m))
     const nonTitleMatches = lastShowMatches.filter(m => !m.is_title_match && hasResult(m))
     const newsMatches = [...titleMatches, ...nonTitleMatches].slice(0, 6)
