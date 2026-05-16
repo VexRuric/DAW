@@ -340,7 +340,7 @@ export default async function HomePage() {
             dateShort: formatDateShortAbbr(lastShow.show_date),
             title: buildHeadline(m, andNewIds, tplMap),
             excerpt: buildExcerpt(m, andNewIds, tplMap),
-            href: `/archive`,
+            href: `/shows`,
             image_url: imageSource ? participantImage(imageSource) : null,
           }
         })
