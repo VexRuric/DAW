@@ -321,9 +321,10 @@ export default async function HomePage() {
       }
     })
 
-    // News grid: from last completed show only
-    const titleMatches = lastShowMatches.filter(m => m.is_title_match)
-    const nonTitleMatches = lastShowMatches.filter(m => !m.is_title_match)
+    // News grid: only matches that have had results entered (at least one participant with a result)
+    const hasResult = (m: any) => (m.match_participants ?? []).some((p: any) => p.result != null && p.result !== '')
+    const titleMatches = lastShowMatches.filter(m => m.is_title_match && hasResult(m))
+    const nonTitleMatches = lastShowMatches.filter(m => !m.is_title_match && hasResult(m))
     const newsMatches = [...titleMatches, ...nonTitleMatches].slice(0, 6)
 
     const newsCards: NewsCard[] = lastShow
