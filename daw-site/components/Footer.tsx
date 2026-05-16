@@ -1,7 +1,30 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 export default function Footer() {
   const year = new Date().getFullYear()
+  const [twitchUrl, setTwitchUrl]   = useState('https://twitch.tv/daware')
+  const [discordUrl, setDiscordUrl] = useState('')
+  const [twitterUrl, setTwitterUrl] = useState('')
+
+  useEffect(() => {
+    fetch('/api/social-links')
+      .then(r => r.json())
+      .then(d => {
+        if (d.twitch_url)  setTwitchUrl(d.twitch_url)
+        if (d.discord_url) setDiscordUrl(d.discord_url)
+        if (d.twitter_url) setTwitterUrl(d.twitter_url)
+      })
+      .catch(() => {})
+  }, [])
+
+  const socialLinks = [
+    { href: twitchUrl,  label: 'Twitch',    show: true },
+    { href: twitterUrl, label: 'Twitter/X', show: !!twitterUrl },
+    { href: discordUrl, label: 'Discord',   show: !!discordUrl },
+  ].filter(l => l.show)
 
   return (
     <footer style={{
@@ -30,13 +53,9 @@ export default function Footer() {
           All results recorded live on Twitch.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {[
-            { href: 'https://twitch.tv/daware', label: 'Twitch' },
-            { href: 'https://twitter.com/DAWarehouseLive', label: 'Twitter/X' },
-            { href: 'https://discord.gg/daw', label: 'Discord' },
-          ].map(({ href, label }) => (
+          {socialLinks.map(({ href, label }) => (
             <Link
-              key={href}
+              key={label}
               href={href}
               target="_blank"
               rel="noopener noreferrer"

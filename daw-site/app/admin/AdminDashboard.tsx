@@ -3959,6 +3959,8 @@ function LegendsSection() {
 
 function SiteSettings() {
   const [twitchChannel, setTwitchChannel] = useState('')
+  const [discordUrl, setDiscordUrl]       = useState('')
+  const [twitterUrl, setTwitterUrl]       = useState('')
   const [titleImageUrl, setTitleImageUrl]   = useState('')
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [matchcardShowImages, setMatchcardShowImages] = useState(true)
@@ -3975,6 +3977,8 @@ function SiteSettings() {
     supabase.from('site_settings').select('key, value').then(({ data }) => {
       const map = Object.fromEntries((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]))
       setTwitchChannel(map.twitch_channel ?? 'daware')
+      setDiscordUrl(map.discord_url ?? '')
+      setTwitterUrl(map.twitter_url ?? '')
       setTitleImageUrl(map.title_image_url ?? '')
       setImgPreview(map.title_image_url || null)
       setYoutubeUrl(map.youtube_url ?? '')
@@ -3988,6 +3992,8 @@ function SiteSettings() {
     setSaving(true); setSaved(false)
     await Promise.all([
       supabase.from('site_settings').upsert({ key: 'twitch_channel',  value: twitchChannel }),
+      supabase.from('site_settings').upsert({ key: 'discord_url',     value: discordUrl }),
+      supabase.from('site_settings').upsert({ key: 'twitter_url',     value: twitterUrl }),
       supabase.from('site_settings').upsert({ key: 'title_image_url', value: titleImageUrl }),
       supabase.from('site_settings').upsert({ key: 'youtube_url', value: youtubeUrl }),
       supabase.from('site_settings').upsert({ key: 'matchcard_show_images', value: matchcardShowImages ? 'true' : 'false' }),
@@ -4035,6 +4041,30 @@ function SiteSettings() {
               placeholder="daware"
             />
             <p style={hint}>Controls the stream embed, Twitch link, and live-status detection in the top bar.</p>
+          </div>
+
+          {/* Discord */}
+          <div>
+            <span style={label}>Discord Invite URL</span>
+            <input
+              className="form-input"
+              value={discordUrl}
+              onChange={(e) => setDiscordUrl(e.target.value.trim())}
+              placeholder="https://discord.gg/…"
+            />
+            <p style={hint}>Full invite link shown in the top bar, footer, and community section. Leave blank to hide the Discord link.</p>
+          </div>
+
+          {/* Twitter / X */}
+          <div>
+            <span style={label}>Twitter / X Profile URL</span>
+            <input
+              className="form-input"
+              value={twitterUrl}
+              onChange={(e) => setTwitterUrl(e.target.value.trim())}
+              placeholder="https://twitter.com/…"
+            />
+            <p style={hint}>Full profile URL shown in the top bar, footer, and community section. Leave blank to hide the Twitter link.</p>
           </div>
 
           {/* YouTube Video / Playlist */}

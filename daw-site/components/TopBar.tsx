@@ -20,6 +20,8 @@ export default function TopBar() {
   const [nextShow, setNextShow]   = useState<NextShow | null>(null)
   const [live, setLive]           = useState(false)
   const [channel, setChannel]     = useState('daware')
+  const [discordUrl, setDiscordUrl] = useState('')
+  const [twitterUrl, setTwitterUrl] = useState('')
 
   useEffect(() => {
     async function init() {
@@ -33,10 +35,16 @@ export default function TopBar() {
       setNextShow(data ?? null)
 
       try {
-        const res  = await fetch('/api/stream-status')
-        const json = await res.json()
-        setLive(!!json.live)
-        if (json.channel) setChannel(json.channel)
+        const [streamRes, socialRes] = await Promise.all([
+          fetch('/api/stream-status'),
+          fetch('/api/social-links'),
+        ])
+        const stream = await streamRes.json()
+        const social = await socialRes.json()
+        setLive(!!stream.live)
+        if (stream.channel) setChannel(stream.channel)
+        setDiscordUrl(social.discord_url || '')
+        setTwitterUrl(social.twitter_url || '')
       } catch { /* offline fallback */ }
     }
     init()
@@ -93,22 +101,16 @@ export default function TopBar() {
         >
           Twitch
         </Link>
-        <Link
-          href="https://discord.gg/daw"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: 'var(--text-strong)', textDecoration: 'none', opacity: 0.9 }}
-        >
-          Discord
-        </Link>
-        <Link
-          href="https://twitter.com/DAWarehouseLive"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: 'var(--text-strong)', textDecoration: 'none', opacity: 0.9 }}
-        >
-          Twitter/X
-        </Link>
+        {discordUrl && (
+          <Link href={discordUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-strong)', textDecoration: 'none', opacity: 0.9 }}>
+            Discord
+          </Link>
+        )}
+        {twitterUrl && (
+          <Link href={twitterUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-strong)', textDecoration: 'none', opacity: 0.9 }}>
+            Twitter/X
+          </Link>
+        )}
       </div>
     </div>
   )
