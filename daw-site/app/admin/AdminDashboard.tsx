@@ -1946,6 +1946,12 @@ function RosterEdits() {
   const [addPanel, setAddPanel]     = useState<{ name: string; gender: string; division: string; role: string; brand: string } | null>(null)
   const [addSaving, setAddSaving]   = useState(false)
   const [addError, setAddError]     = useState<string | null>(null)
+  const [finesPanel, setFinesPanel] = useState<{ id: string; name: string } | null>(null)
+  const [finesList, setFinesList]   = useState<any[]>([])
+  const [finesLoading, setFinesLoading] = useState(false)
+  const [addingBill, setAddingBill] = useState(false)
+  const [newBill, setNewBill]       = useState({ amount: '', reason: '' })
+  const [billSaving, setBillSaving] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -2007,6 +2013,44 @@ function RosterEdits() {
     setRows((prev) => prev.map((r) => r.id === backstoryEdit!.id ? { ...r, backstory: backstoryEdit!.text || null } : r))
     setBackstorySaving(false)
     setBackstoryEdit(null)
+  }
+
+  async function openFines(id: string, name: string) {
+    setFinesPanel({ id, name })
+    setAddingBill(false)
+    setNewBill({ amount: '', reason: '' })
+    setFinesLoading(true)
+    const { data } = await supabase.from('fines')
+      .select('id, amount, reason, issued_date, paid')
+      .eq('wrestler_id', id)
+      .order('issued_date', { ascending: false })
+    setFinesList(data ?? [])
+    setFinesLoading(false)
+  }
+
+  async function payFine(fineId: string) {
+    await supabase.from('fines').update({ paid: true }).eq('id', fineId)
+    setFinesList(prev => prev.map((f: any) => f.id === fineId ? { ...f, paid: true } : f))
+  }
+
+  async function deleteFineFromPanel(fineId: string) {
+    await supabase.from('fines').delete().eq('id', fineId)
+    setFinesList(prev => prev.filter((f: any) => f.id !== fineId))
+  }
+
+  async function saveBill() {
+    if (!finesPanel || !newBill.amount.trim()) return
+    setBillSaving(true)
+    const { data, error } = await supabase.from('fines').insert({
+      wrestler_id: finesPanel.id,
+      amount: parseInt(newBill.amount) || 0,
+      reason: newBill.reason.trim() || null,
+      issued_date: new Date().toISOString().slice(0, 10),
+    }).select('id, amount, reason, issued_date, paid').single()
+    if (!error && data) setFinesList((prev: any[]) => [data, ...prev])
+    setNewBill({ amount: '', reason: '' })
+    setAddingBill(false)
+    setBillSaving(false)
   }
 
   async function addWrestler() {
@@ -2091,12 +2135,12 @@ function RosterEdits() {
             <span style={{ marginLeft:'auto', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>{filtered.length} / {rows.length}</span>
           </div>
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', overflow:'hidden' }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
-              {['Name','Brand','Gender','Division','Role','Injured','Status','','','Backstory'].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px 70px', gap:'0.5rem', padding:'0.65rem 1rem', background:'var(--surface-2)', borderBottom:'1px solid var(--border)' }}>
+              {['Name','Brand','Gender','Division','Role','Injured','Status','','','Backstory','Fines'].map((h, i) => <span key={i} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)' }}>{h}</span>)}
             </div>
             <div style={{ maxHeight:'60vh', overflowY:'auto' }}>
               {filtered.map((row) => (
-                <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
+                <div key={row.id} style={{ display:'grid', gridTemplateColumns:'1fr 110px 100px 120px 120px 90px 100px 60px 60px 80px 70px', gap:'0.5rem', padding:'0.6rem 1rem', borderBottom:'1px solid rgba(42,42,51,0.5)', alignItems:'center' }}>
                   <input className="form-input" value={row.name} onChange={(e) => update(row.id, 'name', e.target.value)} style={{ padding:'0.35rem 0.6rem', fontSize:'0.72rem' }} />
                   <select className="form-input form-select" value={row.brand ?? ''} onChange={(e) => update(row.id, 'brand', e.target.value)} style={{ padding:'0.35rem 1.5rem 0.35rem 0.6rem', fontSize:'0.68rem' }}>
                     <option value="">—</option>
@@ -2125,6 +2169,7 @@ function RosterEdits() {
                   <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
                   <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
                   <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                  <button onClick={() => openFines(row.id, row.name)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid rgba(255,51,85,0.35)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Fines</button>
                 </div>
               ))}
             </div>
@@ -2173,6 +2218,70 @@ function RosterEdits() {
                 <button onClick={saveBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {finesPanel && (
+        <div onClick={() => { setFinesPanel(null); setAddingBill(false) }} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid rgba(255,51,85,0.45)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column', maxHeight:'80vh' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--accent-red)', textTransform:'uppercase', margin:0 }}>Fines — {finesPanel.name}</h3>
+              <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                {!addingBill && (
+                  <button onClick={() => setAddingBill(true)} style={{ padding:'0.35rem 0.9rem', background:'rgba(255,51,85,0.12)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Bill</button>
+                )}
+                <button onClick={() => { setFinesPanel(null); setAddingBill(false) }} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              </div>
+            </div>
+            {addingBill && (
+              <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', background:'rgba(255,51,85,0.05)', display:'flex', flexDirection:'column', gap:'0.65rem', flexShrink:0 }}>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--accent-red)' }}>NEW FINE</span>
+                <div style={{ display:'grid', gridTemplateColumns:'100px 1fr', gap:'0.5rem' }}>
+                  <div className="form-field" style={{ marginBottom:0 }}>
+                    <label className="form-label">Amount ($)</label>
+                    <input className="form-input" type="number" min="0" value={newBill.amount} onChange={(e) => setNewBill(p => ({ ...p, amount: e.target.value }))} placeholder="0" autoFocus style={{ fontSize:'0.72rem' }} />
+                  </div>
+                  <div className="form-field" style={{ marginBottom:0 }}>
+                    <label className="form-label">Reason</label>
+                    <input className="form-input" value={newBill.reason} onChange={(e) => setNewBill(p => ({ ...p, reason: e.target.value }))} placeholder="e.g. Attacking referee" style={{ fontSize:'0.72rem' }} onKeyDown={(e) => { if (e.key === 'Enter') saveBill() }} />
+                  </div>
+                </div>
+                <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem' }}>
+                  <button onClick={() => { setAddingBill(false); setNewBill({ amount:'', reason:'' }) }} style={{ padding:'0.4rem 0.9rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+                  <button onClick={saveBill} disabled={billSaving || !newBill.amount.trim()} style={{ padding:'0.4rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: billSaving ? 0.6 : 1 }}>{billSaving ? 'Saving…' : 'Issue Fine'}</button>
+                </div>
+              </div>
+            )}
+            <div style={{ overflowY:'auto', flex:1 }}>
+              {finesLoading ? (
+                <p style={{ padding:'1.5rem 1.25rem', fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>Loading…</p>
+              ) : finesList.length === 0 ? (
+                <p style={{ padding:'1.5rem 1.25rem', fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No fines on record.</p>
+              ) : (
+                <div>
+                  {finesList.map((fine: any) => (
+                    <div key={fine.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1.25rem', borderBottom:'1px solid rgba(42,42,51,0.5)', opacity: fine.paid ? 0.45 : 1 }}>
+                      <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color: fine.paid ? 'var(--text-dim)' : 'var(--accent-red)', fontWeight:700, minWidth:60 }}>${(fine.amount ?? 0).toLocaleString()}</span>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:0, fontFamily:'var(--font-meta)', fontSize:'0.72rem', color: fine.paid ? 'var(--text-dim)' : 'var(--text-strong)', lineHeight:1.4 }}>{fine.reason || '—'}</p>
+                        <p style={{ margin:0, fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.08em', marginTop:'0.15rem' }}>{fine.issued_date ?? ''}{fine.paid ? ' · PAID' : ''}</p>
+                      </div>
+                      {!fine.paid && (
+                        <button onClick={() => payFine(fine.id)} style={{ padding:'0.3rem 0.7rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', whiteSpace:'nowrap' }}>Pay Off</button>
+                      )}
+                      <button onClick={() => deleteFineFromPanel(fine.id)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.9rem', lineHeight:1, padding:'0.2rem', flexShrink:0 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {finesList.some((f: any) => !f.paid) && (
+              <div style={{ padding:'0.75rem 1.25rem', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', background:'var(--surface-2)', flexShrink:0 }}>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>TOTAL UNPAID</span>
+                <span style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--accent-red)', fontWeight:700 }}>${finesList.filter((f: any) => !f.paid).reduce((s: number, f: any) => s + (f.amount ?? 0), 0).toLocaleString()}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

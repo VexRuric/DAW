@@ -205,8 +205,8 @@ export default async function HomePage() {
     // - upcomingAllRes: all upcoming scheduled shows for the events strip (regardless of matchcard)
     // - settingsRes, templatesRes: site config
     const [lastShowRes, streamLockedRes, recentAiredLockedRes, upcomingAllRes, settingsRes, templatesRes] = await Promise.all([
-      supabase.from('shows').select('*').eq('status', 'completed')
-        .order('show_date', { ascending: false }).limit(1),
+      supabase.from('shows').select('*').in('status', ['completed', 'committed'])
+        .lte('show_date', today).order('show_date', { ascending: false }).limit(1),
       supabase.from('shows').select('*').eq('status', 'committed').eq('matchcard_locked', true)
         .gte('show_date', today).order('show_date', { ascending: true }).limit(1),
       // Shows that have already aired but results haven't been entered yet — only if matchcard was committed
