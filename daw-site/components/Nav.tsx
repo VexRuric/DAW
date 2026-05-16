@@ -17,13 +17,13 @@ const BASE_NAV = [
 export default function Nav() {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout, isFan, isAdmin } = useAuth()
+  const { user, logout, isFan, isAdmin, isCreative } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
 
   const navLinks = [
     ...BASE_NAV,
     ...(isFan    ? [{ href: '/portal',   label: 'My Creations' }] : []),
-    ...(isAdmin  ? [{ href: '/admin',    label: 'Admin' }]        : []),
+    ...((isAdmin || isCreative) ? [{ href: '/admin', label: 'Admin' }] : []),
     ...(isFan    ? [{ href: '/settings', label: 'Settings' }]     : []),
   ]
 
@@ -81,7 +81,7 @@ export default function Nav() {
             <>
               <NotificationBell />
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0.9rem', background: isAdmin ? 'rgba(255,201,51,0.1)' : 'rgba(168,77,255,0.1)', border: `1px solid ${isAdmin ? 'var(--gold)' : 'var(--purple)'}` }}>
-                <span style={{ fontSize: '0.85rem' }}>{isAdmin ? '⚙️' : '👤'}</span>
+                <span style={{ fontSize: '0.85rem' }}>{isAdmin ? '⚙️' : isCreative ? '🎨' : '👤'}</span>
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)' }}>{user.nickname || user.name}</span>
               </div>
               <button onClick={handleLogout}
@@ -149,7 +149,7 @@ export default function Nav() {
             {user ? (
               <>
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.75rem', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.08em', fontWeight: 700, alignSelf: 'center' }}>
-                  {isAdmin ? '⚙️' : '👤'} {user.nickname || user.name}
+                  {isAdmin ? '⚙️' : isCreative ? '🎨' : '👤'} {user.nickname || user.name}
                 </span>
                 <button onClick={handleLogout}
                   style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.5rem 1rem', cursor: 'pointer' }}>
