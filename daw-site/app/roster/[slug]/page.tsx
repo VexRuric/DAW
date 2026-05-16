@@ -66,7 +66,7 @@ async function getWrestler(slug: string) {
     )
   `
 
-  const [recordRes, reignsRes, directRes, teamRes, currentTeamsRes] = await Promise.all([
+  const [recordRes, reignsRes, directRes, teamRes, currentTeamsRes, finesRes] = await Promise.all([
     supabase.from('wrestler_records').select('*').eq('id', wrestler.id).single(),
     supabase
       .from('title_reigns')
@@ -82,6 +82,12 @@ async function getWrestler(slug: string) {
       .select('teams(id, name, active)')
       .eq('wrestler_id', wrestler.id)
       .is('end_date', null),
+
+    supabase
+      .from('fines')
+      .select('id, amount, reason, issued_date, paid, shows(name, ppv_name), matches(match_number)')
+      .eq('wrestler_id', wrestler.id)
+      .order('issued_date', { ascending: false }),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,6 +124,8 @@ async function getWrestler(slug: string) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentTeams = (currentTeamsRes.data ?? []).map((m: any) => m.teams).filter((t: any) => t?.active)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fines = (finesRes.data ?? []) as any[]
 
   const matchHistory = [...allParticipations].sort((a: any, b: any) =>
     (b.matches?.shows?.show_date ?? '').localeCompare(a.matches?.shows?.show_date ?? '')
@@ -130,6 +138,7 @@ async function getWrestler(slug: string) {
     matchHistory,
     breakdown,
     currentTeams,
+    fines,
   }
 }
 
@@ -148,7 +157,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
   const data = await getWrestler(slug)
   if (!data) notFound()
 
-  const { wrestler, record, reigns, matchHistory, breakdown, currentTeams } = data
+  const { wrestler, record, reigns, matchHistory, breakdown, currentTeams, fines } = data
 
   const winPct    = record?.win_pct ?? 0
   const avgRating = record?.avg_rating ?? null
@@ -299,7 +308,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
             </div>
 
             {/* Win % and rating */}
-            <div style={{ display: 'flex', gap: '2rem', marginTop: '1.5rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${accentColor}` }}>
+            <div style={{ display: 'flex', gap: '2rem', marginTop: '1.5rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${accentColor}`, flexWrap: 'wrap' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Win %</p>
                 <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--purple-hot)', lineHeight: 1 }}>{winPct}%</p>
@@ -310,7 +319,39 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                   <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--gold)', lineHeight: 1 }}>{avgRating}/5</p>
                 </div>
               )}
+              {fines.length > 0 && (() => {
+                const unpaid = fines.filter((f: any) => !f.paid).reduce((s: number, f: any) => s + f.amount, 0)
+                return (
+                  <div style={{ marginLeft: 'auto' }}>
+                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Fines</p>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--accent-red)', lineHeight: 1 }}>${unpaid.toLocaleString()}</p>
+                  </div>
+                )
+              })()}
             </div>
+
+            {/* Fines list — only shown if wrestler has fines */}
+            {fines.length > 0 && (
+              <div style={{ marginTop: '1.25rem' }}>
+                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Fine History</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {fines.map((f: any) => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', padding: '0.5rem 0.75rem', background: 'var(--surface)', border: `1px solid ${f.paid ? 'var(--border)' : 'rgba(255,51,85,0.25)'}`, flexWrap: 'wrap', opacity: f.paid ? 0.55 : 1 }}>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: f.paid ? 'var(--text-dim)' : 'var(--accent-red)', flexShrink: 0 }}>${f.amount.toLocaleString()}</span>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-muted)', flex: 1, minWidth: 0 }}>{f.reason || '—'}</span>
+                      {f.paid
+                        ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: '#00c864', letterSpacing: '0.12em', fontWeight: 700, flexShrink: 0 }}>PAID</span>
+                        : <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--accent-red)', letterSpacing: '0.12em', fontWeight: 700, flexShrink: 0 }}>UNPAID</span>
+                      }
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', flexShrink: 0 }}>
+                        {new Date(f.issued_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {(f.shows?.ppv_name ?? f.shows?.name) ? ` · ${f.shows.ppv_name ?? f.shows.name}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Faction / Team links */}
             {currentTeams.length > 0 && (

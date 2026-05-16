@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news' | 'fines'
 
 const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'schedule', 'booker', 'results', 'story', 'suggestions']
 const ADMIN_ONLY_SECTIONS = new Set<Section>(['accounts', 'settings', 'permissions'])
@@ -22,6 +22,7 @@ const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
   { id: 'champions',   label: 'Champions',          group: 'Roster & Factions' },
   { id: 'legends',     label: 'Legends',            group: 'Roster & Factions' },
   { id: 'ownership',   label: 'Assign Ownership',   group: 'Roster & Factions' },
+  { id: 'fines',       label: 'Fines',              group: 'Roster & Factions' },
   { id: 'images',      label: 'Roster Images',      group: 'Images' },
   { id: 'titleimages', label: 'Title Images',       group: 'Images' },
   { id: 'story',       label: 'Story Development',  group: 'Creative' },
@@ -56,6 +57,7 @@ interface ShowStub { id: string; name: string; show_date: string; status: string
 interface Participant { mp_id: string; name: string; result: string | null; wrestler_id: string | null; team_id: string | null }
 interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; participants: Participant[] }
 interface MatchResultForm { winner_mp_id: string; defeat_type: string; rating: string; notes: string; add_to_story_board: boolean }
+interface MatchFine { id?: string; wrestler_id: string | null; team_id: string | null; name: string; amount: string; reason: string }
 interface OwnerRow { id: string; name: string; status: string; submitted_by: string | null; owner: { display_name: string | null; twitch_handle: string | null } | null }
 interface ProfileResult { id: string; display_name: string | null; twitch_handle: string | null }
 interface TitleRow { id: string; name: string; category: string; display_order: number }
@@ -691,6 +693,9 @@ function ResultsEntry() {
   const [submitDone, setSubmitDone]     = useState(false)
   const [submitError, setSubmitError]   = useState<string | null>(null)
   const [savingMatch, setSavingMatch]   = useState<string | null>(null)
+  const [matchFines, setMatchFines]     = useState<Record<string, MatchFine[]>>({})
+  const [addingFine, setAddingFine]     = useState<string | null>(null)
+  const [newFine, setNewFine]           = useState({ participant_key: '', amount: '', reason: '' })
   const [savedMatch, setSavedMatch]     = useState<string | null>(null)
   const [streamUrl, setStreamUrl]       = useState('')
   const [savingStream, setSavingStream] = useState(false)
@@ -800,7 +805,21 @@ function ResultsEntry() {
       const existingWinner = c.participants.find((p) => p.result === 'winner' && !p.team_id) ?? c.participants.find((p) => p.result === 'winner')
       initial[c.id] = { winner_mp_id: existingWinner?.mp_id ?? '', defeat_type: c.defeat_type ?? '', rating: c.rating != null ? String(c.rating) : '', notes: c.notes ?? '', add_to_story_board: false }
     }
-    setForms(initial); setLoadingMatches(false)
+    setForms(initial)
+    // Load existing fines for this show's matches
+    const matchIds = cards.map(c => c.id)
+    if (matchIds.length > 0) {
+      const { data: finesData } = await supabase.from('fines').select('id, wrestler_id, team_id, match_id, amount, reason, wrestlers(name), teams(name)').in('match_id', matchIds)
+      const byMatch: Record<string, MatchFine[]> = {}
+      for (const f of finesData ?? []) {
+        const mid = (f as any).match_id
+        if (!mid) continue
+        if (!byMatch[mid]) byMatch[mid] = []
+        byMatch[mid].push({ id: (f as any).id, wrestler_id: (f as any).wrestler_id, team_id: (f as any).team_id, name: (f as any).wrestlers?.name ?? (f as any).teams?.name ?? '?', amount: String((f as any).amount), reason: (f as any).reason })
+      }
+      setMatchFines(byMatch)
+    }
+    setLoadingMatches(false)
   }
 
   function updateForm(matchId: string, patch: Partial<MatchResultForm>) {
@@ -859,6 +878,13 @@ function ResultsEntry() {
         }
       }
       await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', matchId)
+      // Save fines
+      const currentFines = matchFines[matchId] ?? []
+      for (const fine of currentFines) {
+        if (!fine.id && fine.wrestler_id || !fine.id && fine.team_id) {
+          await supabase.from('fines').insert({ wrestler_id: fine.wrestler_id, team_id: fine.team_id, match_id: matchId, show_id: selectedShow!.id, amount: parseInt(fine.amount) || 0, reason: fine.reason, issued_date: selectedShow!.show_date })
+        }
+      }
       setSavedMatch(matchId)
       setTimeout(() => setSavedMatch(null), 3000)
     } finally {
@@ -1170,6 +1196,59 @@ function ResultsEntry() {
                     <textarea className="form-input form-textarea" placeholder="Key moments, angles, post-match happenings…" value={form.notes} onChange={(e) => updateForm(match.id, { notes: e.target.value })} style={{ fontSize:'0.72rem', minHeight:64, resize:'vertical' }} />
                   </div>
                 </div>
+                {/* Fines panel */}
+                {(() => {
+                  const fines = matchFines[match.id] ?? []
+                  const allParts = match.participants.filter(p => !p.team_id)
+                  const factionParts = match.participants.filter(p => !!p.team_id)
+                  return (
+                    <div style={{ marginTop:'0.75rem', padding:'0.75rem', background:'rgba(255,51,85,0.04)', border:'1px solid rgba(255,51,85,0.2)' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: fines.length > 0 || addingFine === match.id ? '0.5rem' : 0 }}>
+                        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'rgba(255,51,85,0.8)', letterSpacing:'0.15em', fontWeight:700 }}>FINES{fines.length > 0 ? ` (${fines.length})` : ''}</p>
+                        {addingFine !== match.id && (
+                          <button onClick={() => { setAddingFine(match.id); setNewFine({ participant_key: '', amount: '', reason: '' }) }} style={{ padding:'0.2rem 0.6rem', background:'transparent', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.8)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Add Fine</button>
+                        )}
+                      </div>
+                      {fines.length > 0 && (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.3rem', marginBottom: addingFine === match.id ? '0.5rem' : 0 }}>
+                          {fines.map((f, i) => (
+                            <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.3rem 0.5rem', background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,51,85,0.15)' }}>
+                              <span style={{ fontFamily:'var(--font-display)', fontSize:'0.78rem', color:'var(--accent-red)', textTransform:'uppercase', flexShrink:0 }}>${f.amount}</span>
+                              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)', fontWeight:700, flexShrink:0 }}>{f.name}</span>
+                              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.reason}</span>
+                              {!f.id && (
+                                <button onClick={() => setMatchFines(prev => ({ ...prev, [match.id]: (prev[match.id] ?? []).filter((_, j) => j !== i) }))} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'pointer', flexShrink:0, lineHeight:1 }}>×</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {addingFine === match.id && (
+                        <div style={{ display:'flex', gap:'0.4rem', alignItems:'center', flexWrap:'wrap' }}>
+                          <select className="form-input form-select" value={newFine.participant_key} onChange={e => setNewFine(p => ({ ...p, participant_key: e.target.value }))} style={{ padding:'0.3rem 1.8rem 0.3rem 0.5rem', fontSize:'0.65rem', flex:'0 0 auto', minWidth:120 }}>
+                            <option value="">— Person —</option>
+                            {allParts.map(p => <option key={p.mp_id} value={`w:${p.wrestler_id}:${p.name}`}>{p.name}</option>)}
+                            {factionParts.map(p => <option key={p.mp_id} value={`t:${p.team_id}:${p.name}`}>{p.name} (Faction)</option>)}
+                          </select>
+                          <div style={{ display:'flex', alignItems:'center', gap:'0.15rem', flexShrink:0 }}>
+                            <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--text-dim)' }}>$</span>
+                            <input className="form-input" type="number" min="0" placeholder="Amount" value={newFine.amount} onChange={e => setNewFine(p => ({ ...p, amount: e.target.value }))} style={{ fontSize:'0.65rem', width:70 }} />
+                          </div>
+                          <input className="form-input" placeholder="Reason…" value={newFine.reason} onChange={e => setNewFine(p => ({ ...p, reason: e.target.value }))} style={{ fontSize:'0.65rem', flex:1, minWidth:120 }} />
+                          <button onClick={() => {
+                            if (!newFine.participant_key || !newFine.amount) return
+                            const [kind, id, name] = newFine.participant_key.split(':')
+                            const fine: MatchFine = { wrestler_id: kind === 'w' ? id : null, team_id: kind === 't' ? id : null, name, amount: newFine.amount, reason: newFine.reason }
+                            setMatchFines(prev => ({ ...prev, [match.id]: [...(prev[match.id] ?? []), fine] }))
+                            setNewFine({ participant_key: '', amount: '', reason: '' }); setAddingFine(null)
+                          }} style={{ padding:'0.3rem 0.65rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.9)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>Add</button>
+                          <button onClick={() => setAddingFine(null)} style={{ padding:'0.3rem 0.65rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer', flexShrink:0 }}>Cancel</button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 {/* Add Participant panel */}
                 {addingTo === match.id ? (
                   <div style={{ marginTop:'0.75rem', padding:'0.75rem', background:'rgba(128,0,218,0.06)', border:'1px solid var(--purple)' }}>
@@ -4308,6 +4387,7 @@ export default function AdminDashboard() {
           {section === 'edits'       && canAccess('edits')       && <RosterEdits />}
           {section === 'factions'    && canAccess('factions')    && <FactionEdits />}
           {section === 'legends'     && canAccess('legends')     && <LegendsSection />}
+          {section === 'fines'       && canAccess('fines')       && <FinesSection />}
           {section === 'story'       && canAccess('story')       && <StoryDevelopment />}
           {section === 'suggestions' && canAccess('suggestions') && <StorySuggestions />}
           {section === 'support'     && canAccess('support')     && <SupportTickets />}
@@ -4390,6 +4470,155 @@ function SupportTickets() {
               <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-muted)', letterSpacing:'0.05em', lineHeight:1.7, whiteSpace:'pre-wrap' }}>{t.message}</p>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Fines Management ────────────────────────────────────────── */
+
+interface FineRow { id: string; wrestler_id: string | null; team_id: string | null; match_id: string | null; show_id: string | null; amount: number; reason: string; issued_date: string; paid: boolean; wrestlers: { name: string } | null; teams: { name: string } | null; shows: { name: string; ppv_name: string | null } | null; matches: { match_number: number } | null }
+
+function FinesSection() {
+  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const [fines, setFines]           = useState<FineRow[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
+  const [showPaid, setShowPaid]     = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [wrestlers, setWrestlers]   = useState<{ id: string; name: string }[]>([])
+  const [teams, setTeams]           = useState<{ id: string; name: string }[]>([])
+  const [form, setForm]             = useState({ entity_key: '', amount: '', reason: '', issued_date: new Date().toISOString().slice(0, 10) })
+  const [addOpen, setAddOpen]       = useState(false)
+
+  useEffect(() => {
+    load()
+    supabase.from('wrestlers').select('id, name').eq('brand', 'DAW').order('name').then(r => setWrestlers(r.data ?? []))
+    supabase.from('teams').select('id, name').order('name').then(r => setTeams(r.data ?? []))
+  }, [])
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase.from('fines').select('*, wrestlers(name), teams(name), shows(name, ppv_name), matches(match_number)').order('issued_date', { ascending: false }).order('created_at', { ascending: false })
+    setFines((data ?? []) as FineRow[]); setLoading(false)
+  }
+
+  async function addFine() {
+    if (!form.entity_key || !form.amount) return
+    setSaving(true)
+    const [kind, id] = form.entity_key.split(':')
+    await supabase.from('fines').insert({ wrestler_id: kind === 'w' ? id : null, team_id: kind === 't' ? id : null, amount: parseInt(form.amount) || 0, reason: form.reason, issued_date: form.issued_date })
+    setForm({ entity_key: '', amount: '', reason: '', issued_date: new Date().toISOString().slice(0, 10) })
+    setAddOpen(false); setSaving(false); load()
+  }
+
+  async function togglePaid(fine: FineRow) {
+    await supabase.from('fines').update({ paid: !fine.paid }).eq('id', fine.id)
+    setFines(prev => prev.map(f => f.id === fine.id ? { ...f, paid: !f.paid } : f))
+  }
+
+  async function deleteFine(id: string) {
+    await supabase.from('fines').delete().eq('id', id)
+    setFines(prev => prev.filter(f => f.id !== id))
+  }
+
+  const displayed = fines.filter(f => {
+    const name = f.wrestlers?.name ?? f.teams?.name ?? ''
+    if (search && !name.toLowerCase().includes(search.toLowerCase())) return false
+    if (!showPaid && f.paid) return false
+    return true
+  })
+  const totalUnpaid = fines.filter(f => !f.paid).reduce((s, f) => s + f.amount, 0)
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.25rem', flexWrap:'wrap', gap:'0.75rem' }}>
+        <div>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1 }}>Fines</h2>
+          {totalUnpaid > 0 && (
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--accent-red)', letterSpacing:'0.15em', marginTop:'0.25rem' }}>
+              ${totalUnpaid.toLocaleString()} OUTSTANDING
+            </p>
+          )}
+        </div>
+        <button onClick={() => setAddOpen(o => !o)} style={{ padding:'0.5rem 1rem', background: addOpen ? 'rgba(255,51,85,0.15)' : 'rgba(255,51,85,0.1)', border:'1px solid rgba(255,51,85,0.4)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+          {addOpen ? '✕ Cancel' : '+ Add Fine'}
+        </button>
+      </div>
+
+      {addOpen && (
+        <div style={{ padding:'1rem', background:'rgba(255,51,85,0.06)', border:'1px solid rgba(255,51,85,0.25)', marginBottom:'1.25rem', display:'flex', gap:'0.75rem', flexWrap:'wrap', alignItems:'flex-end' }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem', flex:'1 1 160px' }}>
+            <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>PERSON</label>
+            <select className="form-input form-select" value={form.entity_key} onChange={e => setForm(p => ({ ...p, entity_key: e.target.value }))} style={{ fontSize:'0.68rem', padding:'0.35rem 2rem 0.35rem 0.6rem' }}>
+              <option value="">— Select —</option>
+              <optgroup label="Wrestlers">
+                {wrestlers.map(w => <option key={w.id} value={`w:${w.id}`}>{w.name}</option>)}
+              </optgroup>
+              <optgroup label="Factions">
+                {teams.map(t => <option key={t.id} value={`t:${t.id}`}>{t.name}</option>)}
+              </optgroup>
+            </select>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem', flex:'0 0 90px' }}>
+            <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>AMOUNT ($)</label>
+            <input className="form-input" type="number" min="0" placeholder="500" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={{ fontSize:'0.68rem' }} />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem', flex:'2 1 200px' }}>
+            <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>REASON</label>
+            <input className="form-input" placeholder="Conduct unbecoming…" value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} style={{ fontSize:'0.68rem' }} />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem', flex:'0 0 130px' }}>
+            <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>DATE</label>
+            <input className="form-input" type="date" value={form.issued_date} onChange={e => setForm(p => ({ ...p, issued_date: e.target.value }))} style={{ fontSize:'0.68rem' }} />
+          </div>
+          <button onClick={addFine} disabled={saving || !form.entity_key || !form.amount} style={{ padding:'0.45rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.5)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+            {saving ? 'Saving…' : 'Issue Fine'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap' }}>
+        <input className="form-input" placeholder="Search by name…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
+        <label style={{ display:'flex', alignItems:'center', gap:'0.35rem', cursor:'pointer' }}>
+          <input type="checkbox" checked={showPaid} onChange={e => setShowPaid(e.target.checked)} style={{ accentColor:'var(--purple-hot)' }} />
+          <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>Show Paid</span>
+        </label>
+      </div>
+
+      {loading ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>Loading…</p>
+      ) : displayed.length === 0 ? (
+        <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No fines found.</p>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+          {displayed.map(f => {
+            const holderName = f.wrestlers?.name ?? f.teams?.name ?? '?'
+            const showName   = f.shows?.ppv_name ?? f.shows?.name ?? null
+            return (
+              <div key={f.id} style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'0.75rem', alignItems:'center', padding:'0.7rem 1rem', background:'var(--surface)', border:`1px solid ${f.paid ? 'var(--border)' : 'rgba(255,51,85,0.2)'}`, opacity: f.paid ? 0.55 : 1 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:'0.6rem', flexWrap:'wrap' }}>
+                    <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color: f.paid ? 'var(--text-dim)' : 'var(--accent-red)', textTransform:'uppercase', lineHeight:1 }}>${f.amount.toLocaleString()}</span>
+                    <span style={{ fontFamily:'var(--font-display)', fontSize:'0.85rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{holderName}</span>
+                    {f.paid && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.5rem', color:'#00c864', letterSpacing:'0.12em', fontWeight:700, border:'1px solid #00c864', padding:'1px 5px' }}>PAID</span>}
+                  </div>
+                  <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.08em', marginTop:'0.15rem' }}>
+                    {f.reason || '—'} · {new Date(f.issued_date + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
+                    {showName ? ` · ${showName}` : ''}
+                    {f.matches?.match_number ? ` · Match #${f.matches.match_number}` : ''}
+                  </p>
+                </div>
+                <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
+                  <button onClick={() => togglePaid(f)} style={{ padding:'0.25rem 0.6rem', background: f.paid ? 'rgba(0,200,100,0.1)' : 'transparent', border:`1px solid ${f.paid ? '#00c864' : 'var(--border)'}`, color: f.paid ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>
+                    {f.paid ? 'Paid ✓' : 'Mark Paid'}
+                  </button>
+                  <button onClick={() => deleteFine(f.id)} style={{ padding:'0.25rem 0.5rem', background:'transparent', border:'1px solid var(--border)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer' }}>✕</button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
