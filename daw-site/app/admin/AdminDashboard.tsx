@@ -934,7 +934,7 @@ function ResultsEntry() {
       }
       const { count: matchCount } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('show_id', showId)
       const matchNumber = (matchCount ?? 0) + 1
-      const { data: match, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: matchNumber, match_type: qmType, scheme: 'Match' }).select('id').single()
+      const { data: match, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: matchNumber, match_type: qmType, scheme: 'Match', is_title_match: qmTitleChange && !!qmTitleId, title_id: qmTitleChange && qmTitleId ? qmTitleId : null }).select('id').single()
       if (matchErr || !match) throw matchErr ?? new Error('Could not create match')
       const participants = [
         ...qmSide1.map(p => ({ ...p, side: 1 as const })),
@@ -948,21 +948,6 @@ function ResultsEntry() {
           team_id:     p.kind === 'team'     ? p.id : null,
           result,
         })
-      }
-      if (qmTitleChange && qmTitleId && qmWinner !== 0) {
-        const winnerSide = qmWinner === 1 ? qmSide1 : qmSide2
-        await supabase.from('title_reigns').update({ lost_date: qmDate }).eq('title_id', qmTitleId).is('lost_date', null)
-        const { data: prevReign } = await supabase.from('title_reigns').select('reign_number').eq('title_id', qmTitleId).order('reign_number', { ascending: false }).limit(1)
-        const nextNum = ((prevReign?.[0]?.reign_number ?? 0) as number) + 1
-        let reignPayload: Record<string, unknown>
-        if (winnerSide.length === 1 && winnerSide[0].kind === 'team') {
-          const members = teamMemberships.filter(m => m.teamId === winnerSide[0].id).map(m => m.wrestlerId)
-          reignPayload = { title_id: qmTitleId, holder_team_id: winnerSide[0].id, holder_wrestler_id: members[0] ?? null, holder_wrestler_id_2: members[1] ?? null, won_date: qmDate, reign_number: nextNum }
-        } else {
-          reignPayload = { title_id: qmTitleId, holder_wrestler_id: winnerSide[0]?.id ?? null, holder_wrestler_id_2: winnerSide[1]?.id ?? null, won_date: qmDate, reign_number: nextNum }
-        }
-        const { error: reignErr } = await supabase.from('title_reigns').insert(reignPayload)
-        if (reignErr) throw reignErr
       }
       setQmDone(true)
     } catch (e: any) {
@@ -1150,20 +1135,17 @@ function ResultsEntry() {
             </div>
           </div>
 
-          {/* Title Change */}
+          {/* Title Match */}
           <div style={{ borderTop:'1px solid var(--border)', paddingTop:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
             <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'pointer', userSelect:'none' }}>
               <input type="checkbox" checked={qmTitleChange} onChange={e => { setQmTitleChange(e.target.checked); setQmTitleId('') }} style={{ accentColor:'var(--gold)', width:15, height:15, flexShrink:0 }} />
-              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE CHANGE</span>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE MATCH</span>
             </label>
             {qmTitleChange && (
               <select className="form-input form-select" value={qmTitleId} onChange={e => setQmTitleId(e.target.value)} style={{ fontSize:'0.72rem' }}>
                 <option value=''>— Select Title —</option>
                 {qmAvailTitles.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-            )}
-            {qmTitleChange && qmWinner === 0 && (
-              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--accent-red)', letterSpacing:'0.08em', margin:0 }}>Title change cannot be applied to a Draw result.</p>
             )}
           </div>
 
