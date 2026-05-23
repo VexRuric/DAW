@@ -56,7 +56,8 @@ interface BookerSlot { id: number; matchType: string; stipulation: string; isTit
 interface ShowStub { id: string; name: string; show_date: string; status: string; stream_url: string | null }
 interface Participant { mp_id: string; name: string; result: string | null; wrestler_id: string | null; team_id: string | null }
 interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; participants: Participant[] }
-interface MatchResultForm { winner_mp_id: string; defeat_type: string; rating: string; notes: string; add_to_story_board: boolean }
+interface MatchResultForm { winner_mp_id: string; defeat_type: string; rating: string; notes: string; add_to_story_board: boolean; cash_in_title_id: string }
+interface MitBHolder { titleId: string; titleName: string; holderName: string; holderWrestlerId: string | null; holderTeamId: string | null }
 interface MatchFine { id?: string; wrestler_id: string | null; team_id: string | null; name: string; amount: string; reason: string }
 interface OwnerRow { id: string; name: string; status: string; submitted_by: string | null; owner: { display_name: string | null; twitch_handle: string | null } | null }
 interface ProfileResult { id: string; display_name: string | null; twitch_handle: string | null }
@@ -702,6 +703,7 @@ function ResultsEntry() {
   const [streamSaved, setStreamSaved]   = useState(false)
   const [rosterEntries, setRosterEntries]   = useState<RosterAddEntry[]>([])
   const [teamMemberships, setTeamMemberships] = useState<{ teamId: string; wrestlerId: string }[]>([])
+  const [mitbTitles, setMitbTitles]         = useState<MitBHolder[]>([])
   const [quickMatchOpen, setQuickMatchOpen] = useState(false)
   const [qmDate, setQmDate]               = useState(new Date().toISOString().slice(0, 10))
   const [qmType, setQmType]               = useState('Singles')
@@ -716,6 +718,7 @@ function ResultsEntry() {
   const [qmTitleChange, setQmTitleChange] = useState(false)
   const [qmTitleId, setQmTitleId]         = useState('')
   const [qmAvailTitles, setQmAvailTitles] = useState<BookerTitle[]>([])
+  const [qmCashInTitleId, setQmCashInTitleId] = useState('')
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -738,17 +741,20 @@ function ResultsEntry() {
 
   useEffect(() => {
     async function loadRoster() {
-      const [wRes, tRes, mRes, titlesRes] = await Promise.all([
+      const [wRes, tRes, mRes, titlesRes, champsRes] = await Promise.all([
         supabase.from('wrestlers').select('id, name').eq('active', true).order('name'),
         supabase.from('teams').select('id, name').eq('active', true).order('name'),
         supabase.from('team_memberships').select('team_id, wrestler_id'),
-        supabase.from('titles').select('id, name').eq('active', true).order('display_order'),
+        supabase.from('titles').select('id, name, category').eq('active', true).order('display_order'),
+        supabase.from('current_champions').select('title_id, title_name, holder_name, holder_wrestler_id, holder_team_id'),
       ])
       const wrestlers = (wRes.data ?? []).map((w: any) => ({ id: w.id, name: w.name, kind: 'wrestler' as const }))
       const teams     = (tRes.data ?? []).map((t: any) => ({ id: t.id, name: t.name, kind: 'team' as const }))
       setRosterEntries([...wrestlers, ...teams])
       setTeamMemberships((mRes.data ?? []).map((m: any) => ({ teamId: m.team_id, wrestlerId: m.wrestler_id })))
       setQmAvailTitles((titlesRes.data ?? []) as BookerTitle[])
+      const mitbIds = new Set((titlesRes.data ?? []).filter((t: any) => t.category === 'MitB').map((t: any) => t.id))
+      setMitbTitles((champsRes.data ?? []).filter((c: any) => mitbIds.has(c.title_id)).map((c: any) => ({ titleId: c.title_id, titleName: c.title_name, holderName: c.holder_name, holderWrestlerId: c.holder_wrestler_id, holderTeamId: c.holder_team_id })))
     }
     loadRoster()
   }, [])
@@ -819,7 +825,7 @@ function ResultsEntry() {
     const initial: Record<string, MatchResultForm> = {}
     for (const c of cards) {
       const existingWinner = c.participants.find((p) => p.result === 'winner' && !p.team_id) ?? c.participants.find((p) => p.result === 'winner')
-      initial[c.id] = { winner_mp_id: existingWinner?.mp_id ?? '', defeat_type: c.defeat_type ?? '', rating: c.rating != null ? String(c.rating) : '', notes: c.notes ?? '', add_to_story_board: false }
+      initial[c.id] = { winner_mp_id: existingWinner?.mp_id ?? '', defeat_type: c.defeat_type ?? '', rating: c.rating != null ? String(c.rating) : '', notes: c.notes ?? '', add_to_story_board: false, cash_in_title_id: '' }
     }
     setForms(initial)
     // Load existing fines for this show's matches
@@ -893,7 +899,12 @@ function ResultsEntry() {
           }
         }
       }
-      await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', matchId)
+      await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '', mitb_cashin: !!form.cash_in_title_id }).eq('id', matchId)
+      // Cash In: end the briefcase reign
+      if (form.cash_in_title_id) {
+        await supabase.from('title_reigns').update({ lost_date: selectedShow!.show_date, cashed_in: true }).eq('title_id', form.cash_in_title_id).is('lost_date', null)
+        setMitbTitles(prev => prev.filter(t => t.titleId !== form.cash_in_title_id))
+      }
       // Save fines
       const currentFines = matchFines[matchId] ?? []
       for (const fine of currentFines) {
@@ -914,6 +925,7 @@ function ResultsEntry() {
     setQmWinner(null); setQmSearch1(''); setQmSearch2('')
     setQmDone(false); setQmError(null)
     setQmTitleChange(false); setQmTitleId('')
+    setQmCashInTitleId('')
     setQuickMatchOpen(true)
   }
 
@@ -934,7 +946,7 @@ function ResultsEntry() {
       }
       const { count: matchCount } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('show_id', showId)
       const matchNumber = (matchCount ?? 0) + 1
-      const { data: match, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: matchNumber, match_type: qmType, scheme: 'Match', is_title_match: qmTitleChange && !!qmTitleId, title_id: qmTitleChange && qmTitleId ? qmTitleId : null }).select('id').single()
+      const { data: match, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: matchNumber, match_type: qmType, scheme: 'Match', is_title_match: qmTitleChange && !!qmTitleId, title_id: qmTitleChange && qmTitleId ? qmTitleId : null, mitb_cashin: !!qmCashInTitleId }).select('id').single()
       if (matchErr || !match) throw matchErr ?? new Error('Could not create match')
       const participants = [
         ...qmSide1.map(p => ({ ...p, side: 1 as const })),
@@ -948,6 +960,10 @@ function ResultsEntry() {
           team_id:     p.kind === 'team'     ? p.id : null,
           result,
         })
+      }
+      if (qmCashInTitleId) {
+        await supabase.from('title_reigns').update({ lost_date: qmDate, cashed_in: true }).eq('title_id', qmCashInTitleId).is('lost_date', null)
+        setMitbTitles(prev => prev.filter(t => t.titleId !== qmCashInTitleId))
       }
       setQmDone(true)
     } catch (e: any) {
@@ -1010,8 +1026,11 @@ function ResultsEntry() {
             }
           }
         }
-        const { error: matchErr } = await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '' }).eq('id', match.id)
+        const { error: matchErr } = await supabase.from('matches').update({ defeat_type: form.defeat_type || null, rating: form.rating ? parseFloat(form.rating) : null, notes: form.notes || null, is_draw: form.winner_mp_id === '', mitb_cashin: !!form.cash_in_title_id }).eq('id', match.id)
         if (matchErr) throw matchErr
+        if (form.cash_in_title_id) {
+          await supabase.from('title_reigns').update({ lost_date: selectedShow.show_date, cashed_in: true }).eq('title_id', form.cash_in_title_id).is('lost_date', null)
+        }
         if (form.add_to_story_board && form.notes.trim()) {
           await supabase.from('story_notes').insert({ note_type: 'angle', title: `${selectedShow.name} — Match ${match.match_number}`, body: form.notes.trim(), show_id: selectedShow.id })
         }
@@ -1135,17 +1154,29 @@ function ResultsEntry() {
             </div>
           </div>
 
-          {/* Title Match */}
-          <div style={{ borderTop:'1px solid var(--border)', paddingTop:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
-            <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'pointer', userSelect:'none' }}>
-              <input type="checkbox" checked={qmTitleChange} onChange={e => { setQmTitleChange(e.target.checked); setQmTitleId('') }} style={{ accentColor:'var(--gold)', width:15, height:15, flexShrink:0 }} />
-              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE MATCH</span>
-            </label>
-            {qmTitleChange && (
-              <select className="form-input form-select" value={qmTitleId} onChange={e => setQmTitleId(e.target.value)} style={{ fontSize:'0.72rem' }}>
-                <option value=''>— Select Title —</option>
-                {qmAvailTitles.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+          {/* Title Match + Cash In */}
+          <div style={{ borderTop:'1px solid var(--border)', paddingTop:'1rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+              <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'pointer', userSelect:'none' }}>
+                <input type="checkbox" checked={qmTitleChange} onChange={e => { setQmTitleChange(e.target.checked); setQmTitleId('') }} style={{ accentColor:'var(--gold)', width:15, height:15, flexShrink:0 }} />
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE MATCH</span>
+              </label>
+              {qmTitleChange && (
+                <select className="form-input form-select" value={qmTitleId} onChange={e => setQmTitleId(e.target.value)} style={{ fontSize:'0.72rem' }}>
+                  <option value=''>— Select Title —</option>
+                  {qmAvailTitles.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              )}
+            </div>
+            {mitbTitles.length > 0 && (
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmCashInTitleId ? 'var(--gold)' : 'var(--text-dim)', flexShrink:0 }}>💼 CASH IN</span>
+                <select className="form-input form-select" value={qmCashInTitleId} onChange={e => setQmCashInTitleId(e.target.value)} style={{ fontSize:'0.72rem', flex:1, minWidth:180 }}>
+                  <option value=''>— No Cash In —</option>
+                  {mitbTitles.map(t => <option key={t.titleId} value={t.titleId}>{t.titleName} ({t.holderName})</option>)}
+                </select>
+                {qmCashInTitleId && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--gold)', letterSpacing:'0.08em' }}>Briefcase will be vacated</span>}
+              </div>
             )}
           </div>
 
@@ -1460,6 +1491,23 @@ function ResultsEntry() {
                     </div>
                   )
                 })()}
+
+                {/* Cash In panel */}
+                {mitbTitles.length > 0 && (
+                  <div style={{ marginTop:'0.75rem', padding:'0.65rem 0.85rem', background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.25)', display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--gold)', flexShrink:0 }}>💼 CASH IN</span>
+                    <select
+                      className="form-input form-select"
+                      value={form.cash_in_title_id}
+                      onChange={e => updateForm(match.id, { cash_in_title_id: e.target.value })}
+                      style={{ fontSize:'0.68rem', flex:1, minWidth:180, padding:'0.3rem 2rem 0.3rem 0.6rem' }}
+                    >
+                      <option value=''>— No Cash In —</option>
+                      {mitbTitles.map(t => <option key={t.titleId} value={t.titleId}>{t.titleName} ({t.holderName})</option>)}
+                    </select>
+                    {form.cash_in_title_id && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--gold)', letterSpacing:'0.08em' }}>Briefcase will be vacated on save</span>}
+                  </div>
+                )}
 
                 {/* Add Participant panel */}
                 {addingTo === match.id ? (

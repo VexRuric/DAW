@@ -42,7 +42,7 @@ async function getData(slug: string) {
   const { data: reigns } = await supabase
     .from('title_reigns')
     .select(`
-      id, won_date, lost_date, reign_number, notes,
+      id, won_date, lost_date, reign_number, notes, cashed_in,
       wrestlers:holder_wrestler_id(id, name, render_url, division, role),
       teams:holder_team_id(id, name, render_url),
       won_match:won_at_match_id(id, match_type, shows:show_id(name, show_date)),
@@ -76,8 +76,9 @@ export default async function TitleHistoryPage({ params }: PageProps) {
   const vacantReigns  = reigns.filter((r: any) => isVacant(r))
   const visibleReigns = reigns.filter((r: any) => !isVacant(r) && (r.wrestlers || r.teams))
 
-  // Tag reigns that ended with the title going Vacant (cash-in / surrendered)
+  // Tag reigns that ended via cash-in: use the cashed_in column, fall back to vacant-reign heuristic for legacy data
   const cashedInIds = new Set<string>()
+  for (const r of visibleReigns) { if (r.cashed_in) cashedInIds.add(r.id) }
   for (const vr of vacantReigns) {
     const source = visibleReigns.find((r: any) => r.lost_date === vr.won_date)
     if (source) cashedInIds.add(source.id)
