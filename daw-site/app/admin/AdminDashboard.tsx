@@ -702,6 +702,17 @@ function ResultsEntry() {
   const [streamSaved, setStreamSaved]   = useState(false)
   const [rosterEntries, setRosterEntries]   = useState<RosterAddEntry[]>([])
   const [teamMemberships, setTeamMemberships] = useState<{ teamId: string; wrestlerId: string }[]>([])
+  const [quickMatchOpen, setQuickMatchOpen] = useState(false)
+  const [qmDate, setQmDate]               = useState(new Date().toISOString().slice(0, 10))
+  const [qmType, setQmType]               = useState('Singles')
+  const [qmSide1, setQmSide1]             = useState<RosterAddEntry[]>([])
+  const [qmSide2, setQmSide2]             = useState<RosterAddEntry[]>([])
+  const [qmWinner, setQmWinner]           = useState<1 | 2 | 0 | null>(null)
+  const [qmSearch1, setQmSearch1]         = useState('')
+  const [qmSearch2, setQmSearch2]         = useState('')
+  const [qmSaving, setQmSaving]           = useState(false)
+  const [qmDone, setQmDone]               = useState(false)
+  const [qmError, setQmError]             = useState<string | null>(null)
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -892,6 +903,54 @@ function ResultsEntry() {
     }
   }
 
+  function openQuickMatch() {
+    setQmDate(new Date().toISOString().slice(0, 10))
+    setQmType('Singles'); setQmSide1([]); setQmSide2([])
+    setQmWinner(null); setQmSearch1(''); setQmSearch2('')
+    setQmDone(false); setQmError(null)
+    setQuickMatchOpen(true)
+  }
+
+  async function createQuickMatch() {
+    if (qmSide1.length === 0 || qmSide2.length === 0) { setQmError('Add at least one participant to each side.'); return }
+    if (qmWinner === null) { setQmError('Select a winner (or Draw).'); return }
+    setQmSaving(true); setQmError(null)
+    try {
+      const showName = `Twitch Showcase — ${qmDate}`
+      const { data: existingShows } = await supabase.from('shows').select('id').eq('name', showName).limit(1)
+      let showId: string
+      if (existingShows && existingShows.length > 0) {
+        showId = existingShows[0].id
+      } else {
+        const { data: newShow, error: showErr } = await supabase.from('shows').insert({ name: showName, show_date: qmDate, show_type: 'twitch', status: 'completed' }).select('id').single()
+        if (showErr || !newShow) throw showErr ?? new Error('Could not create show')
+        showId = newShow.id
+      }
+      const { count: matchCount } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('show_id', showId)
+      const matchNumber = (matchCount ?? 0) + 1
+      const { data: match, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: matchNumber, match_type: qmType, scheme: 'Match' }).select('id').single()
+      if (matchErr || !match) throw matchErr ?? new Error('Could not create match')
+      const participants = [
+        ...qmSide1.map(p => ({ ...p, side: 1 as const })),
+        ...qmSide2.map(p => ({ ...p, side: 2 as const })),
+      ]
+      for (const p of participants) {
+        const result = qmWinner === 0 ? 'draw' : p.side === qmWinner ? 'winner' : 'loser'
+        await supabase.from('match_participants').insert({
+          match_id: match.id,
+          wrestler_id: p.kind === 'wrestler' ? p.id : null,
+          team_id:     p.kind === 'team'     ? p.id : null,
+          result,
+        })
+      }
+      setQmDone(true)
+    } catch (e: any) {
+      setQmError(e?.message ?? 'Failed to record match.')
+    } finally {
+      setQmSaving(false)
+    }
+  }
+
   async function submitResults() {
     if (!selectedShow) return
     setSubmitting(true); setSubmitError(null)
@@ -963,6 +1022,131 @@ function ResultsEntry() {
     }
   }
 
+  const qmMaxPerSide = qmType === 'Tag Team' ? 2 : 1
+  const qmRosterFiltered1 = rosterEntries.filter(e => !qmSearch1 || e.name.toLowerCase().includes(qmSearch1.toLowerCase())).filter(e => !qmSide1.find(s => s.id === e.id) && !qmSide2.find(s => s.id === e.id)).slice(0, 8)
+  const qmRosterFiltered2 = rosterEntries.filter(e => !qmSearch2 || e.name.toLowerCase().includes(qmSearch2.toLowerCase())).filter(e => !qmSide1.find(s => s.id === e.id) && !qmSide2.find(s => s.id === e.id)).slice(0, 8)
+
+  const quickMatchModal = quickMatchOpen ? (
+    <div onClick={() => { if (!qmSaving) setQuickMatchOpen(false) }} style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', padding:'1.5rem' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--purple)', width:'100%', maxWidth:600, display:'flex', flexDirection:'column', maxHeight:'90vh', overflowY:'auto' }}>
+        {/* Header */}
+        <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+          <div>
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.56rem', color:'var(--purple-hot)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.15rem' }}>TWITCH SHOWCASE</p>
+            <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>⚡ Quick Match</h3>
+          </div>
+          <button onClick={() => setQuickMatchOpen(false)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+        </div>
+
+        <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+          {/* Date + Type */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+            <div className="form-field" style={{ marginBottom:0 }}>
+              <label className="form-label">Date</label>
+              <input type="date" className="form-input" value={qmDate} onChange={e => setQmDate(e.target.value)} style={{ fontSize:'0.72rem' }} />
+            </div>
+            <div className="form-field" style={{ marginBottom:0 }}>
+              <label className="form-label">Match Type</label>
+              <select className="form-input form-select" value={qmType} onChange={e => { setQmType(e.target.value); setQmSide1([]); setQmSide2([]) }} style={{ fontSize:'0.72rem' }}>
+                {['Singles','Tag Team','Triple Threat','Handicap'].map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Sides */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', gap:'0.75rem', alignItems:'start' }}>
+            {/* Side 1 */}
+            <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', padding:'0.85rem' }}>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--purple-hot)', marginBottom:'0.6rem' }}>SIDE 1</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.3rem', marginBottom:'0.6rem', minHeight:32 }}>
+                {qmSide1.map(p => (
+                  <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.3rem 0.5rem', background:'rgba(128,0,218,0.12)', border:'1px solid rgba(128,0,218,0.3)' }}>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)' }}>{p.name}</span>
+                    <button onClick={() => setQmSide1(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              {qmSide1.length < qmMaxPerSide && (
+                <div style={{ position:'relative' }}>
+                  <input className="form-input" placeholder="Search…" value={qmSearch1} onChange={e => setQmSearch1(e.target.value)} style={{ fontSize:'0.68rem', width:'100%', boxSizing:'border-box' }} />
+                  {qmSearch1 && qmRosterFiltered1.length > 0 && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--surface)', border:'1px solid var(--border)', maxHeight:160, overflowY:'auto' }}>
+                      {qmRosterFiltered1.map(e => (
+                        <button key={e.id} onClick={() => { setQmSide1(prev => [...prev, e]); setQmSearch1('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'pointer' }}>
+                          {e.name} <span style={{ color:'var(--text-dim)', fontSize:'0.58rem' }}>{e.kind}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ fontFamily:'var(--font-display)', fontSize:'1.1rem', color:'var(--text-dim)', textAlign:'center', paddingTop:'1.5rem', letterSpacing:'0.1em' }}>VS</div>
+
+            {/* Side 2 */}
+            <div style={{ background:'var(--surface-2)', border:'1px solid var(--border)', padding:'0.85rem' }}>
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--accent-red)', marginBottom:'0.6rem' }}>SIDE 2</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.3rem', marginBottom:'0.6rem', minHeight:32 }}>
+                {qmSide2.map(p => (
+                  <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.3rem 0.5rem', background:'rgba(255,51,85,0.1)', border:'1px solid rgba(255,51,85,0.3)' }}>
+                    <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)' }}>{p.name}</span>
+                    <button onClick={() => setQmSide2(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              {qmSide2.length < qmMaxPerSide && (
+                <div style={{ position:'relative' }}>
+                  <input className="form-input" placeholder="Search…" value={qmSearch2} onChange={e => setQmSearch2(e.target.value)} style={{ fontSize:'0.68rem', width:'100%', boxSizing:'border-box' }} />
+                  {qmSearch2 && qmRosterFiltered2.length > 0 && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--surface)', border:'1px solid var(--border)', maxHeight:160, overflowY:'auto' }}>
+                      {qmRosterFiltered2.map(e => (
+                        <button key={e.id} onClick={() => { setQmSide2(prev => [...prev, e]); setQmSearch2('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'pointer' }}>
+                          {e.name} <span style={{ color:'var(--text-dim)', fontSize:'0.58rem' }}>{e.kind}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Winner */}
+          <div>
+            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.15em', color:'var(--text-dim)', marginBottom:'0.6rem' }}>RESULT</p>
+            <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+              {([
+                { val: 1, label: qmSide1.length ? qmSide1.map(p => p.name).join(' & ') + ' Win' : 'Side 1 Wins', color: 'var(--purple)', bg: 'rgba(128,0,218,0.15)' },
+                { val: 0, label: 'Draw',                                                                              color: 'var(--gold)',   bg: 'rgba(255,201,51,0.12)' },
+                { val: 2, label: qmSide2.length ? qmSide2.map(p => p.name).join(' & ') + ' Win' : 'Side 2 Wins', color: 'var(--accent-red)', bg: 'rgba(255,51,85,0.12)' },
+              ] as const).map(({ val, label, color, bg }) => (
+                <button key={val} onClick={() => setQmWinner(val)}
+                  style={{ flex:1, minWidth:100, padding:'0.6rem 0.75rem', background: qmWinner === val ? bg : 'transparent', border:`1px solid ${qmWinner === val ? color : 'var(--border)'}`, color: qmWinner === val ? color : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', textAlign:'center', transition:'all 0.15s', wordBreak:'break-word', lineHeight:1.3 }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {qmError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{qmError}</p>}
+
+          {qmDone ? (
+            <div style={{ padding:'1rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'#00c864', fontWeight:700, letterSpacing:'0.1em' }}>✓ Match Recorded!</span>
+              <button onClick={openQuickMatch} style={{ padding:'0.4rem 0.9rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Another Match</button>
+            </div>
+          ) : (
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem' }}>
+              <button onClick={() => setQuickMatchOpen(false)} style={{ padding:'0.5rem 1.1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
+              <button onClick={createQuickMatch} disabled={qmSaving} style={{ padding:'0.5rem 1.5rem', background:'rgba(128,0,218,0.2)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: qmSaving ? 0.6 : 1 }}>{qmSaving ? 'Recording…' : 'Record Match'}</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null
+
   if (!selectedShow) {
     const allYears  = [...new Set(shows.map(s => s.show_date.slice(0, 4)))].sort().reverse()
     const filteredShows = shows.filter(s => {
@@ -991,7 +1175,11 @@ function ResultsEntry() {
 
     return (
       <div>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', marginBottom:'1.25rem' }}>Results Entry</h2>
+        {quickMatchModal}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.25rem', flexWrap:'wrap', gap:'0.75rem' }}>
+          <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Results Entry</h2>
+          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1.1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
+        </div>
 
         {/* Search mode tabs */}
         <div style={{ display:'flex', gap:'0.25rem', borderBottom:'1px solid var(--border)', marginBottom:'1.25rem' }}>
@@ -1076,13 +1264,17 @@ function ResultsEntry() {
 
   return (
     <div>
+      {quickMatchModal}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
         <div>
           <button onClick={() => { setSelectedShow(null); setMatches([]) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em', background:'none', border:'none', cursor:'pointer', padding:0, marginBottom:'0.5rem' }}>← All Shows</button>
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1 }}>{selectedShow.name}</h2>
           <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.25rem' }}>{new Date(selectedShow.show_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
         </div>
-        <button className="btn btn-primary" onClick={submitResults} disabled={submitting || submitDone} style={{ padding:'0.65rem 1.5rem' }}>{submitting ? 'Saving…' : submitDone ? '✓ Results Saved' : 'Submit All Results'}</button>
+        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
+          <button className="btn btn-primary" onClick={submitResults} disabled={submitting || submitDone} style={{ padding:'0.65rem 1.5rem' }}>{submitting ? 'Saving…' : submitDone ? '✓ Results Saved' : 'Submit All Results'}</button>
+        </div>
       </div>
 
       <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:'1.25rem', padding:'1rem', background:'var(--surface)', border:'1px solid var(--border)', flexWrap:'wrap' }}>
