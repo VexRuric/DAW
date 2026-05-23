@@ -713,6 +713,9 @@ function ResultsEntry() {
   const [qmSaving, setQmSaving]           = useState(false)
   const [qmDone, setQmDone]               = useState(false)
   const [qmError, setQmError]             = useState<string | null>(null)
+  const [qmTitleChange, setQmTitleChange] = useState(false)
+  const [qmTitleId, setQmTitleId]         = useState('')
+  const [qmAvailTitles, setQmAvailTitles] = useState<BookerTitle[]>([])
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -735,15 +738,17 @@ function ResultsEntry() {
 
   useEffect(() => {
     async function loadRoster() {
-      const [wRes, tRes, mRes] = await Promise.all([
+      const [wRes, tRes, mRes, titlesRes] = await Promise.all([
         supabase.from('wrestlers').select('id, name').eq('active', true).order('name'),
         supabase.from('teams').select('id, name').eq('active', true).order('name'),
         supabase.from('team_memberships').select('team_id, wrestler_id'),
+        supabase.from('titles').select('id, name').eq('active', true).order('display_order'),
       ])
       const wrestlers = (wRes.data ?? []).map((w: any) => ({ id: w.id, name: w.name, kind: 'wrestler' as const }))
       const teams     = (tRes.data ?? []).map((t: any) => ({ id: t.id, name: t.name, kind: 'team' as const }))
       setRosterEntries([...wrestlers, ...teams])
       setTeamMemberships((mRes.data ?? []).map((m: any) => ({ teamId: m.team_id, wrestlerId: m.wrestler_id })))
+      setQmAvailTitles((titlesRes.data ?? []) as BookerTitle[])
     }
     loadRoster()
   }, [])
@@ -908,6 +913,7 @@ function ResultsEntry() {
     setQmType('Singles'); setQmSide1([]); setQmSide2([])
     setQmWinner(null); setQmSearch1(''); setQmSearch2('')
     setQmDone(false); setQmError(null)
+    setQmTitleChange(false); setQmTitleId('')
     setQuickMatchOpen(true)
   }
 
@@ -942,6 +948,21 @@ function ResultsEntry() {
           team_id:     p.kind === 'team'     ? p.id : null,
           result,
         })
+      }
+      if (qmTitleChange && qmTitleId && qmWinner !== 0) {
+        const winnerSide = qmWinner === 1 ? qmSide1 : qmSide2
+        await supabase.from('title_reigns').update({ lost_date: qmDate }).eq('title_id', qmTitleId).is('lost_date', null)
+        const { data: prevReign } = await supabase.from('title_reigns').select('reign_number').eq('title_id', qmTitleId).order('reign_number', { ascending: false }).limit(1)
+        const nextNum = ((prevReign?.[0]?.reign_number ?? 0) as number) + 1
+        let reignPayload: Record<string, unknown>
+        if (winnerSide.length === 1 && winnerSide[0].kind === 'team') {
+          const members = teamMemberships.filter(m => m.teamId === winnerSide[0].id).map(m => m.wrestlerId)
+          reignPayload = { title_id: qmTitleId, holder_team_id: winnerSide[0].id, holder_wrestler_id: members[0] ?? null, holder_wrestler_id_2: members[1] ?? null, won_date: qmDate, reign_number: nextNum }
+        } else {
+          reignPayload = { title_id: qmTitleId, holder_wrestler_id: winnerSide[0]?.id ?? null, holder_wrestler_id_2: winnerSide[1]?.id ?? null, won_date: qmDate, reign_number: nextNum }
+        }
+        const { error: reignErr } = await supabase.from('title_reigns').insert(reignPayload)
+        if (reignErr) throw reignErr
       }
       setQmDone(true)
     } catch (e: any) {
@@ -1127,6 +1148,23 @@ function ResultsEntry() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Title Change */}
+          <div style={{ borderTop:'1px solid var(--border)', paddingTop:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+            <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'pointer', userSelect:'none' }}>
+              <input type="checkbox" checked={qmTitleChange} onChange={e => { setQmTitleChange(e.target.checked); setQmTitleId('') }} style={{ accentColor:'var(--gold)', width:15, height:15, flexShrink:0 }} />
+              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE CHANGE</span>
+            </label>
+            {qmTitleChange && (
+              <select className="form-input form-select" value={qmTitleId} onChange={e => setQmTitleId(e.target.value)} style={{ fontSize:'0.72rem' }}>
+                <option value=''>— Select Title —</option>
+                {qmAvailTitles.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+            {qmTitleChange && qmWinner === 0 && (
+              <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--accent-red)', letterSpacing:'0.08em', margin:0 }}>Title change cannot be applied to a Draw result.</p>
+            )}
           </div>
 
           {qmError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{qmError}</p>}
