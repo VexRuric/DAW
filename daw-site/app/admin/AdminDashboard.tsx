@@ -860,20 +860,15 @@ function ResultsEntry() {
     if (!file) return
     setUploadingMatchImage(matchId)
     setMatchImageError(null)
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `matches/${matchId}.${ext}`
-    const { error: uploadErr } = await supabase.storage.from('renders').upload(path, file, { upsert: true, contentType: file.type })
-    if (uploadErr) {
-      setMatchImageError(uploadErr.message)
-      setUploadingMatchImage(null)
-      return
-    }
-    const { data: { publicUrl } } = supabase.storage.from('renders').getPublicUrl(path)
-    const { error: updateErr } = await supabase.from('matches').update({ winner_image_url: publicUrl }).eq('id', matchId)
-    if (updateErr) {
-      setMatchImageError(updateErr.message)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('matchId', matchId)
+    const res = await fetch('/api/admin/upload-match-image', { method: 'POST', body: fd })
+    const json = await res.json()
+    if (!res.ok) {
+      setMatchImageError(json.error ?? 'Upload failed')
     } else {
-      setMatchWinnerImages(prev => ({ ...prev, [matchId]: publicUrl + `?t=${Date.now()}` }))
+      setMatchWinnerImages(prev => ({ ...prev, [matchId]: json.publicUrl + `?t=${Date.now()}` }))
     }
     setUploadingMatchImage(null)
   }
