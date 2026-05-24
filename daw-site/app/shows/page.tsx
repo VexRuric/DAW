@@ -20,6 +20,13 @@ function participantName(p: any): string {
 function participantImage(p: any): string | null {
   return p.wrestlers?.render_url ?? p.teams?.render_url ?? null
 }
+function winnerForImage(participants: any[]): any | null {
+  const winners = (participants ?? []).filter((p: any) => p.result === 'winner')
+  return winners.find((p: any) => p.wrestlers?.render_url)
+    ?? winners.find((p: any) => p.wrestlers)
+    ?? winners[0]
+    ?? null
+}
 function formatDateLong(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
@@ -135,7 +142,7 @@ export default async function ShowsPage({ searchParams }: PageProps) {
       .from('matches')
       .select(`
         id, show_id, match_number, match_type, scheme, stipulation, is_title_match,
-        match_participants(result, write_in_name, wrestlers(id, name, render_url), teams(id, name, render_url, team_memberships(wrestler_id, wrestlers(name, render_url)))),
+        match_participants(wrestler_id, team_id, result, write_in_name, wrestlers(name, render_url), teams(name, render_url)),
         titles(id, name)
       `)
       .in('show_id', showIds)
@@ -208,9 +215,11 @@ export default async function ShowsPage({ searchParams }: PageProps) {
                     const hashtag = deriveHashtag(match, andNewIds)
                     const headline = buildHeadline(match, andNewIds, tplMap)
                     const excerpt  = buildExcerpt(match, andNewIds, tplMap)
-                    const winner   = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
-                    const firstP   = (match.match_participants ?? [])[0] ?? null
-                    const imgSrc   = winner ? participantImage(winner) : (match.scheme === 'Promo' ? participantImage(firstP) : null)
+                    const imageWinner = winnerForImage(match.match_participants ?? [])
+                    const firstP   = (match.match_participants ?? []).find((p: any) => p.wrestlers?.render_url)
+                      ?? (match.match_participants ?? [])[0]
+                      ?? null
+                    const imgSrc   = imageWinner ? participantImage(imageWinner) : (match.scheme === 'Promo' ? participantImage(firstP) : null)
 
                     return (
                       <div key={match.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

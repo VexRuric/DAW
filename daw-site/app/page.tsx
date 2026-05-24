@@ -34,6 +34,17 @@ function participantImage(p: any): string | null {
   return p.wrestlers?.render_url ?? p.teams?.render_url ?? null
 }
 
+// Prefer an individual wrestler with a render image over a faction representative (team logo).
+// Faction matches produce multiple winners: the faction rep (team_id set, wrestlers=null)
+// AND individual members (wrestler_id set). Always show a person, not a logo.
+function winnerForImage(participants: any[]): any | null {
+  const winners = (participants ?? []).filter((p: any) => p.result === 'winner')
+  return winners.find((p: any) => p.wrestlers?.render_url)
+    ?? winners.find((p: any) => p.wrestlers)
+    ?? winners[0]
+    ?? null
+}
+
 function deriveHashtag(match: any, andNewIds: Set<string>): 'ANDNEW' | 'ANDSTILL' | 'WINNER' {
   if (match.is_title_match) return andNewIds.has(match.id) ? 'ANDNEW' : 'ANDSTILL'
   return 'WINNER'
@@ -262,7 +273,7 @@ export default async function HomePage() {
       fetches.push((async () => {
         const { data } = await supabase
           .from('matches')
-          .select('*, match_participants(*, wrestlers(*), teams(*, team_memberships(*, wrestlers(*)))), titles(*)')
+          .select('id, match_number, match_type, scheme, stipulation, is_title_match, match_participants(wrestler_id, team_id, result, write_in_name, wrestlers(name, render_url), teams(name, render_url)), titles(name)')
           .eq('show_id', lastShow.id)
           .order('match_number', { ascending: true })
         lastShowMatches = data ?? []
@@ -330,9 +341,11 @@ export default async function HomePage() {
 
     const newsCards: NewsCard[] = lastShow
       ? newsMatches.map(m => {
-          const winner = (m.match_participants ?? []).find((p: any) => p.result === 'winner')
-          const firstParticipant = (m.match_participants ?? [])[0] ?? null
-          const imageSource = winner ?? (m.scheme === 'Promo' ? firstParticipant : null)
+          const imageWinner = winnerForImage(m.match_participants ?? [])
+          const firstParticipant = (m.match_participants ?? []).find((p: any) => p.wrestlers?.render_url)
+            ?? (m.match_participants ?? [])[0]
+            ?? null
+          const imageSource = imageWinner ?? (m.scheme === 'Promo' ? firstParticipant : null)
           return {
             id: m.id,
             hashtag: deriveHashtag(m, andNewIds),
