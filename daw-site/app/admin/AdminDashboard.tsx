@@ -721,6 +721,7 @@ function ResultsEntry() {
   const [qmCashInTitleId, setQmCashInTitleId] = useState('')
   const [matchWinnerImages, setMatchWinnerImages] = useState<Record<string, string | null>>({})
   const [uploadingMatchImage, setUploadingMatchImage] = useState<string | null>(null)
+  const [matchImageError, setMatchImageError] = useState<string | null>(null)
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -858,14 +859,21 @@ function ResultsEntry() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingMatchImage(matchId)
+    setMatchImageError(null)
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `matches/${matchId}.${ext}`
-    const { error } = await supabase.storage.from('renders').upload(path, file, { upsert: true })
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('renders').getPublicUrl(path)
-      const url = urlData.publicUrl + `?t=${Date.now()}`
-      await supabase.from('matches').update({ winner_image_url: url }).eq('id', matchId)
-      setMatchWinnerImages(prev => ({ ...prev, [matchId]: url }))
+    const { error: uploadErr } = await supabase.storage.from('renders').upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadErr) {
+      setMatchImageError(uploadErr.message)
+      setUploadingMatchImage(null)
+      return
+    }
+    const { data: { publicUrl } } = supabase.storage.from('renders').getPublicUrl(path)
+    const { error: updateErr } = await supabase.from('matches').update({ winner_image_url: publicUrl }).eq('id', matchId)
+    if (updateErr) {
+      setMatchImageError(updateErr.message)
+    } else {
+      setMatchWinnerImages(prev => ({ ...prev, [matchId]: publicUrl + `?t=${Date.now()}` }))
     }
     setUploadingMatchImage(null)
   }
@@ -1542,6 +1550,7 @@ function ResultsEntry() {
                     </span>
                   </label>
                   <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.08em' }}>Overrides wrestler render in news</span>
+                  {matchImageError && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--accent-red)', letterSpacing:'0.05em' }}>{matchImageError}</span>}
                 </div>
 
                 {/* Add Participant panel */}
