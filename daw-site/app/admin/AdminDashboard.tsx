@@ -55,7 +55,7 @@ interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | n
 interface BookerSlot { id: number; matchType: string; stipulation: string; isTitleMatch: boolean; titleId: string; participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[] }
 interface ShowStub { id: string; name: string; show_date: string; status: string; stream_url: string | null }
 interface Participant { mp_id: string; name: string; result: string | null; wrestler_id: string | null; team_id: string | null }
-interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; participants: Participant[] }
+interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; winner_image_url: string | null; participants: Participant[] }
 interface MatchResultForm { winner_mp_id: string; defeat_type: string; rating: string; notes: string; add_to_story_board: boolean; cash_in_title_id: string }
 interface MitBHolder { titleId: string; titleName: string; holderName: string; holderWrestlerId: string | null; holderTeamId: string | null }
 interface MatchFine { id?: string; wrestler_id: string | null; team_id: string | null; name: string; amount: string; reason: string }
@@ -719,6 +719,8 @@ function ResultsEntry() {
   const [qmTitleId, setQmTitleId]         = useState('')
   const [qmAvailTitles, setQmAvailTitles] = useState<BookerTitle[]>([])
   const [qmCashInTitleId, setQmCashInTitleId] = useState('')
+  const [matchWinnerImages, setMatchWinnerImages] = useState<Record<string, string | null>>({})
+  const [uploadingMatchImage, setUploadingMatchImage] = useState<string | null>(null)
   const [addingTo, setAddingTo]           = useState<string | null>(null)
   const [addSearch, setAddSearch]         = useState('')
   const [addWriteIn, setAddWriteIn]       = useState('')
@@ -819,8 +821,8 @@ function ResultsEntry() {
 
   async function selectShow(show: ShowStub) {
     setSelectedShow(show); setStreamUrl(show.stream_url ?? ''); setStreamSaved(false); setLoadingMatches(true); setSubmitDone(false); setSubmitError(null)
-    const { data } = await supabase.from('matches').select('id, match_number, match_type, stipulation, is_title_match, is_draw, defeat_type, rating, notes, match_participants(id, wrestler_id, team_id, write_in_name, result, wrestlers(name), teams(name))').eq('show_id', show.id).order('match_number')
-    const cards: MatchCard[] = (data ?? []).map((m: any) => ({ id: m.id, match_number: m.match_number, match_type: m.match_type, stipulation: m.stipulation, is_title_match: m.is_title_match, is_draw: m.is_draw, defeat_type: m.defeat_type, rating: m.rating, notes: m.notes, participants: (m.match_participants ?? []).map((mp: any) => ({ mp_id: mp.id, name: mp.write_in_name ?? mp.wrestlers?.name ?? mp.teams?.name ?? 'Unknown', result: mp.result, wrestler_id: mp.wrestler_id ?? null, team_id: mp.team_id ?? null })) }))
+    const { data } = await supabase.from('matches').select('id, match_number, match_type, stipulation, is_title_match, is_draw, defeat_type, rating, notes, winner_image_url, match_participants(id, wrestler_id, team_id, write_in_name, result, wrestlers(name), teams(name))').eq('show_id', show.id).order('match_number')
+    const cards: MatchCard[] = (data ?? []).map((m: any) => ({ id: m.id, match_number: m.match_number, match_type: m.match_type, stipulation: m.stipulation, is_title_match: m.is_title_match, is_draw: m.is_draw, defeat_type: m.defeat_type, rating: m.rating, notes: m.notes, winner_image_url: m.winner_image_url ?? null, participants: (m.match_participants ?? []).map((mp: any) => ({ mp_id: mp.id, name: mp.write_in_name ?? mp.wrestlers?.name ?? mp.teams?.name ?? 'Unknown', result: mp.result, wrestler_id: mp.wrestler_id ?? null, team_id: mp.team_id ?? null })) }))
     setMatches(cards)
     const initial: Record<string, MatchResultForm> = {}
     for (const c of cards) {
@@ -828,6 +830,9 @@ function ResultsEntry() {
       initial[c.id] = { winner_mp_id: existingWinner?.mp_id ?? '', defeat_type: c.defeat_type ?? '', rating: c.rating != null ? String(c.rating) : '', notes: c.notes ?? '', add_to_story_board: false, cash_in_title_id: '' }
     }
     setForms(initial)
+    const imageMap: Record<string, string | null> = {}
+    for (const c of cards) { imageMap[c.id] = c.winner_image_url ?? null }
+    setMatchWinnerImages(imageMap)
     // Load existing fines for this show's matches
     const matchIds = cards.map(c => c.id)
     if (matchIds.length > 0) {
@@ -847,6 +852,22 @@ function ResultsEntry() {
   function updateForm(matchId: string, patch: Partial<MatchResultForm>) {
     setForms((prev) => ({ ...prev, [matchId]: { ...prev[matchId], ...patch } }))
     setSavedMatch(null)
+  }
+
+  async function uploadMatchImage(matchId: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingMatchImage(matchId)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `matches/${matchId}.${ext}`
+    const { error } = await supabase.storage.from('renders').upload(path, file, { upsert: true })
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('renders').getPublicUrl(path)
+      const url = urlData.publicUrl + `?t=${Date.now()}`
+      await supabase.from('matches').update({ winner_image_url: url }).eq('id', matchId)
+      setMatchWinnerImages(prev => ({ ...prev, [matchId]: url }))
+    }
+    setUploadingMatchImage(null)
   }
 
   async function saveMatch(matchId: string) {
@@ -1508,6 +1529,20 @@ function ResultsEntry() {
                     {form.cash_in_title_id && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--gold)', letterSpacing:'0.08em' }}>Briefcase will be vacated on save</span>}
                   </div>
                 )}
+
+                {/* Winner Image Upload */}
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginTop:'0.75rem', flexWrap:'wrap', padding:'0.5rem 0.85rem', background:'rgba(128,0,218,0.04)', border:'1px solid rgba(128,0,218,0.18)' }}>
+                  {matchWinnerImages[match.id] && (
+                    <img src={matchWinnerImages[match.id]!} alt="winner" style={{ width:48, height:48, objectFit:'cover', objectPosition:'top', border:'1px solid var(--border)', flexShrink:0 }} />
+                  )}
+                  <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', flexShrink:0 }}>
+                    <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => uploadMatchImage(match.id, e)} disabled={uploadingMatchImage === match.id} />
+                    <span style={{ padding:'0.3rem 0.75rem', background:'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', opacity: uploadingMatchImage === match.id ? 0.6 : 1 }}>
+                      {uploadingMatchImage === match.id ? 'Uploading…' : matchWinnerImages[match.id] ? 'Change Winner Image' : 'Upload Winner Image'}
+                    </span>
+                  </label>
+                  <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.08em' }}>Overrides wrestler render in news</span>
+                </div>
 
                 {/* Add Participant panel */}
                 {addingTo === match.id ? (

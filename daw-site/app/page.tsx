@@ -217,6 +217,7 @@ export default async function HomePage() {
     // - settingsRes, templatesRes: site config
     const [lastShowRes, streamLockedRes, recentAiredLockedRes, upcomingAllRes, settingsRes, templatesRes] = await Promise.all([
       supabase.from('shows').select('*').in('status', ['completed', 'committed'])
+        .neq('show_type', 'twitch')
         .lte('show_date', today).order('show_date', { ascending: false }).limit(1),
       supabase.from('shows').select('*').eq('status', 'committed').eq('matchcard_locked', true)
         .gte('show_date', today).order('show_date', { ascending: true }).limit(1),
@@ -273,7 +274,7 @@ export default async function HomePage() {
       fetches.push((async () => {
         const { data } = await supabase
           .from('matches')
-          .select('id, match_number, match_type, scheme, stipulation, is_title_match, match_participants(wrestler_id, team_id, result, write_in_name, wrestlers(name, render_url), teams(name, render_url)), titles(name)')
+          .select('id, match_number, match_type, scheme, stipulation, is_title_match, winner_image_url, match_participants(wrestler_id, team_id, result, write_in_name, wrestlers(name, render_url), teams(name, render_url)), titles(name)')
           .eq('show_id', lastShow.id)
           .order('match_number', { ascending: true })
         lastShowMatches = data ?? []
@@ -354,7 +355,7 @@ export default async function HomePage() {
             title: buildHeadline(m, andNewIds, tplMap),
             excerpt: buildExcerpt(m, andNewIds, tplMap),
             href: `/shows`,
-            image_url: imageSource ? participantImage(imageSource) : null,
+            image_url: m.winner_image_url ?? (imageSource ? participantImage(imageSource) : null),
           }
         })
       : []
