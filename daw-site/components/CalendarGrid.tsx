@@ -105,6 +105,7 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
 
   const embedUrl = show.stream_url ? getYouTubeEmbedUrl(show.stream_url) : null
   const isCompleted = show.status === 'completed'
+  const isTwitch = show.show_type === 'twitch'
   const showDateFormatted = new Date(show.show_date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   })
@@ -136,8 +137,8 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
         <div style={{ padding: '1.5rem 1.5rem 1rem', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: show.show_type === 'ppv' ? 'var(--gold)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.3rem' }}>
-                {show.show_type === 'ppv' ? '★ PPV EVENT' : 'WEEKLY SHOW'}
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: show.show_type === 'ppv' ? 'var(--gold)' : isTwitch ? 'var(--accent-red)' : 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.3rem' }}>
+                {show.show_type === 'ppv' ? '★ PPV EVENT' : isTwitch ? '📺 TWITCH SHOWCASE' : 'WEEKLY SHOW'}
               </p>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 0.95, marginBottom: '0.4rem' }}>
                 {show.ppv_name ?? show.name}
@@ -278,12 +279,13 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
 /* ── Calendar cell ─────────────────────────────────── */
 
 function CalendarCell({
-  date, ppvMap, today, showMap, onShowClick,
+  date, ppvMap, today, showMap, altShowMap, onShowClick,
 }: {
   date: Date | null
   ppvMap: Record<string, DbPPV>
   today: Date
   showMap: Record<string, ShowStub>
+  altShowMap: Record<string, ShowStub>
   onShowClick: (show: ShowStub) => void
 }) {
   if (!date) return <div style={{ aspectRatio: '1', minHeight: 36 }} />
@@ -295,9 +297,11 @@ function CalendarCell({
   const ppv         = ppvMap[dateStr]
   const hasPPV      = !!ppv
   const dbShow      = showMap[dateStr]
+  const hasAlt      = !!altShowMap[dateStr]
   const isSkip      = dbShow?.show_type === 'skip'
+  const isTwitch    = dbShow?.show_type === 'twitch'
   const isCompleted = !isSkip && dbShow?.status === 'completed'
-  const isClickable = (isFri || hasPPV) && !!dbShow && !isSkip
+  const isClickable = (isFri || hasPPV || isTwitch) && !!dbShow && !isSkip
 
   const bgColor = hasPPV && !isSkip ? ppv.color : (isPast && isCompleted ? 'rgba(0,200,100,0.05)' : undefined)
 
@@ -313,7 +317,7 @@ function CalendarCell({
         justifyContent: 'center',
         position: 'relative',
         backgroundColor: bgColor,
-        borderBottom: isFri && !hasPPV ? `2px solid ${isSkip ? 'rgba(255,255,255,0.08)' : isCompleted ? 'rgba(0,200,100,0.4)' : 'var(--purple)'}` : undefined,
+        borderBottom: (isFri || isTwitch) && !hasPPV ? `2px solid ${isSkip ? 'rgba(255,255,255,0.08)' : isCompleted ? 'rgba(0,200,100,0.4)' : isTwitch ? 'rgba(255,51,85,0.6)' : 'var(--purple)'}` : undefined,
         outline: isToday ? '2px solid var(--purple-hot)' : undefined,
         outlineOffset: -2,
         opacity: isPast && !hasPPV && !dbShow ? 0.35 : 1,
@@ -328,23 +332,23 @@ function CalendarCell({
         fontFamily: 'var(--font-meta)',
         fontSize: '0.62rem',
         fontWeight: isToday ? 700 : 400,
-        color: hasPPV ? '#fff' : isFri ? (isCompleted ? '#00c864' : 'var(--purple-hot)') : 'var(--text-dim)',
+        color: hasPPV ? '#fff' : (isFri || isTwitch) ? (isCompleted ? '#00c864' : isTwitch ? 'var(--accent-red)' : 'var(--purple-hot)') : 'var(--text-dim)',
         letterSpacing: '0.05em',
         lineHeight: 1,
       }}>
         {date.getDate()}
       </span>
 
-      {isFri && !hasPPV && (
+      {(isFri || isTwitch) && !hasPPV && (
         <span style={{
           fontFamily: 'var(--font-meta)',
           fontSize: '0.42rem',
           fontWeight: 700,
           letterSpacing: '0.15em',
-          color: isSkip ? 'rgba(255,255,255,0.2)' : isCompleted ? '#00c864' : dbShow ? 'var(--purple-hot)' : 'var(--text-dim)',
+          color: isSkip ? 'rgba(255,255,255,0.2)' : isCompleted ? '#00c864' : dbShow ? (isTwitch ? 'var(--accent-red)' : 'var(--purple-hot)') : 'var(--text-dim)',
           marginTop: '1px',
         }}>
-          {isSkip ? 'BRK' : isCompleted ? '✓' : dbShow ? 'DAW' : ''}
+          {isSkip ? 'BRK' : isCompleted ? '✓' : dbShow ? (isTwitch ? 'TW' : 'DAW') : ''}
         </span>
       )}
       {hasPPV && (
@@ -352,15 +356,19 @@ function CalendarCell({
           {ppv.abbr}
         </span>
       )}
+      {/* Indicator dot when this date also has a show in the other view */}
+      {hasAlt && (
+        <span style={{ position: 'absolute', bottom: 2, right: 3, width: 4, height: 4, borderRadius: '50%', background: isTwitch ? 'var(--purple-hot)' : 'var(--accent-red)', opacity: 0.85 }} />
+      )}
     </div>
   )
 }
 
 /* ── Month grid ────────────────────────────────────── */
 
-function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
+function MonthGrid({ year, month, ppvMap, today, showMap, altShowMap, onShowClick }: {
   year: number; month: number; ppvMap: Record<string, DbPPV>; today: Date
-  showMap: Record<string, ShowStub>; onShowClick: (show: ShowStub) => void
+  showMap: Record<string, ShowStub>; altShowMap: Record<string, ShowStub>; onShowClick: (show: ShowStub) => void
 }) {
   const firstDay    = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -402,7 +410,7 @@ function MonthGrid({ year, month, ppvMap, today, showMap, onShowClick }: {
       {/* Date cells */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
         {cells.map((date, i) => (
-          <CalendarCell key={i} date={date} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={onShowClick} />
+          <CalendarCell key={i} date={date} ppvMap={ppvMap} today={today} showMap={showMap} altShowMap={altShowMap} onShowClick={onShowClick} />
         ))}
       </div>
     </div>
@@ -422,6 +430,7 @@ function SidebarShowRow({
   isSkip?: boolean
 }) {
   const isCompleted = show?.status === 'completed'
+  const isTwitch    = show?.show_type === 'twitch'
   const clickable   = !!show && !isSkip
   return (
     <div
@@ -432,9 +441,10 @@ function SidebarShowRow({
         opacity: dimmed ? 0.55 : isSkip ? 0.45 : 1,
         ...(ppv && !isSkip ? { borderLeftColor: ppv.color } : {}),
         ...(isSkip ? { borderLeftColor: 'rgba(255,255,255,0.1)' } : {}),
+        ...(isTwitch && !ppv ? { borderLeftColor: 'rgba(255,51,85,0.5)' } : {}),
       }}
-      onMouseEnter={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = isCompleted ? '#00c864' : 'var(--purple-hot)' }}
-      onMouseLeave={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : 'var(--border)' }}
+      onMouseEnter={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = isCompleted ? '#00c864' : isTwitch ? 'var(--accent-red)' : 'var(--purple-hot)' }}
+      onMouseLeave={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.borderLeftColor = ppv ? ppv.color : isTwitch ? 'rgba(255,51,85,0.5)' : 'var(--border)' }}
     >
       {isSkip && (
         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.18rem 0.5rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
@@ -444,6 +454,11 @@ function SidebarShowRow({
       {ppv && !isSkip && (
         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.2rem 0.5rem', background: ppv.color, color: '#fff', flexShrink: 0 }}>
           PPV
+        </span>
+      )}
+      {isTwitch && !ppv && !isSkip && (
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.18rem 0.5rem', background: 'rgba(255,51,85,0.12)', color: 'var(--accent-red)', border: '1px solid rgba(255,51,85,0.3)', flexShrink: 0 }}>
+          TWITCH
         </span>
       )}
       <div style={{ flex: 1 }}>
@@ -482,21 +497,27 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
 
   const [year, setYear]               = useState(initialYear)
   const [viewMonth, setViewMonth]     = useState(today.getMonth())
-  const [showMap, setShowMap]         = useState<Record<string, ShowStub>>({})
+  const [mainShowMap, setMainShowMap] = useState<Record<string, ShowStub>>({})
+  const [twitchShowMap, setTwitchShowMap] = useState<Record<string, ShowStub>>({})
+  const [showTwitch, setShowTwitch]   = useState(false)
   const [recentShows, setRecentShows] = useState<ShowStub[]>([])
   const [upcomingDbShows, setUpcomingDbShows] = useState<ShowStub[]>([])
   const [activeModal, setActiveModal] = useState<ShowStub | null>(null)
   const [sidebarTab, setSidebarTab]   = useState<'upcoming' | 'recent'>('upcoming')
 
-  // Build ppvMap from DB shows for the selected year (fully DB-driven, no static data)
+  // Active map switches with toggle
+  const showMap = showTwitch ? twitchShowMap : mainShowMap
+  const altShowMap = showTwitch ? mainShowMap : twitchShowMap
+
+  // PPV map always from main shows
   const ppvMap: Record<string, DbPPV> = {}
-  Object.values(showMap)
+  Object.values(mainShowMap)
     .filter(s => s.show_type === 'ppv')
     .forEach(s => { ppvMap[s.show_date] = showToDbPpv(s) })
 
   const ppvList = Object.values(ppvMap).sort((a, b) => a.date.localeCompare(b.date))
 
-  // Shows for selected year (calendar)
+  // Shows for selected year (calendar) — split into main and twitch maps
   useEffect(() => {
     async function load() {
       const start = `${year}-01-01`
@@ -507,9 +528,17 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         .gte('show_date', start)
         .lte('show_date', end)
         .in('status', ['committed', 'completed'])
-      const map: Record<string, ShowStub> = {}
-      ;(data ?? []).forEach((s: any) => { map[s.show_date] = s })
-      setShowMap(map)
+      const main: Record<string, ShowStub> = {}
+      const twitch: Record<string, ShowStub> = {}
+      ;(data ?? []).forEach((s: any) => {
+        if (s.show_type === 'twitch') {
+          twitch[s.show_date] = s
+        } else {
+          main[s.show_date] = s
+        }
+      })
+      setMainShowMap(main)
+      setTwitchShowMap(twitch)
     }
     load()
   }, [year])
@@ -524,13 +553,13 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         .eq('status', 'completed')
         .lt('show_date', todayStr)
         .order('show_date', { ascending: false })
-        .limit(12)
+        .limit(20)
       setRecentShows(data ?? [])
     }
     loadRecent()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Upcoming DB shows — master list driven by admin schedule editor
+  // Upcoming DB shows
   useEffect(() => {
     const todayStr = toDateStr(today)
     supabase
@@ -539,13 +568,22 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
       .eq('status', 'committed')
       .gte('show_date', todayStr)
       .order('show_date', { ascending: true })
-      .limit(12)
+      .limit(20)
       .then(({ data }) => setUpcomingDbShows(data ?? []))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeModal = useCallback(() => setActiveModal(null), [])
 
   const ppvCount = ppvList.length
+
+  // Sidebar show filtering based on toggle
+  const filteredUpcoming = showTwitch
+    ? upcomingDbShows.filter(s => s.show_type === 'twitch')
+    : upcomingDbShows.filter(s => s.show_type !== 'twitch')
+
+  const filteredRecent = showTwitch
+    ? recentShows.filter(s => s.show_type === 'twitch')
+    : recentShows.filter(s => s.show_type !== 'twitch')
 
   const tabBtn = (id: 'upcoming' | 'recent', label: string) => (
     <button
@@ -575,6 +613,38 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
     flex: 1,
   }
 
+  // Shared toggle pill
+  const viewToggle = (
+    <div style={{ display: 'flex', border: '1px solid var(--border)', background: 'var(--surface-2)', alignSelf: 'flex-start' }}>
+      <button
+        onClick={() => setShowTwitch(false)}
+        style={{
+          fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
+          textTransform: 'uppercase', padding: '0.4rem 0.85rem',
+          background: !showTwitch ? 'var(--purple)' : 'transparent',
+          color: !showTwitch ? 'var(--text-strong)' : 'var(--text-muted)',
+          border: 'none', borderRight: '1px solid var(--border)',
+          cursor: 'none', transition: 'all 0.15s',
+        }}
+      >
+        Live Shows
+      </button>
+      <button
+        onClick={() => setShowTwitch(true)}
+        style={{
+          fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
+          textTransform: 'uppercase', padding: '0.4rem 0.85rem',
+          background: showTwitch ? 'rgba(255,51,85,0.25)' : 'transparent',
+          color: showTwitch ? 'var(--accent-red)' : 'var(--text-muted)',
+          border: 'none',
+          cursor: 'none', transition: 'all 0.15s',
+        }}
+      >
+        📺 Twitch
+      </button>
+    </div>
+  )
+
   const sharedSidebar = (
     <>
       <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
@@ -584,9 +654,11 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
       {sidebarTab === 'upcoming' ? (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {upcomingDbShows.length === 0 ? (
-              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No upcoming shows scheduled.</p>
-            ) : upcomingDbShows.map((show) => {
+            {filteredUpcoming.length === 0 ? (
+              <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
+                {showTwitch ? 'No upcoming Twitch showcases.' : 'No upcoming shows scheduled.'}
+              </p>
+            ) : filteredUpcoming.map((show) => {
               const d = new Date(show.show_date + 'T00:00:00')
               const isSkip = show.show_type === 'skip'
               const ppv = (!isSkip && show.show_type === 'ppv') ? showToDbPpv(show) : null
@@ -602,28 +674,34 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
               )
             })}
           </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>{year} PPVs</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {ppvList.map((ppv) => {
-              const ppvShow = showMap[ppv.date]
-              return (
-                <div key={ppv.date} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
-                    <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>{new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
-                  </div>
-                  {ppvShow?.status === 'completed' ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: '#00c864', letterSpacing: '0.1em', flexShrink: 0 }}>✓ RESULTS</span> : <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />}
-                </div>
-              )
-            })}
-          </div>
+          {!showTwitch && (
+            <>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--text-strong)', textTransform: 'uppercase', margin: '2rem 0 1rem' }}>{year} PPVs</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                {ppvList.map((ppv) => {
+                  const ppvShow = mainShowMap[ppv.date]
+                  return (
+                    <div key={ppv.date} onClick={() => { if (ppvShow) setActiveModal(ppvShow) }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', borderLeft: `3px solid ${ppv.color}`, cursor: ppvShow ? 'none' : 'default', transition: 'filter 0.15s' }} onMouseEnter={(e) => { if (ppvShow) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.25)' }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', fontWeight: 700, letterSpacing: '0.08em' }}>{ppv.name}</p>
+                        <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.1rem' }}>{new Date(ppv.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
+                      </div>
+                      {ppvShow?.status === 'completed' ? <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.48rem', color: '#00c864', letterSpacing: '0.1em', flexShrink: 0 }}>✓ RESULTS</span> : <span style={{ width: 10, height: 10, borderRadius: '50%', background: ppv.color, flexShrink: 0 }} />}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {recentShows.length === 0 ? (
-            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>No completed shows yet.</p>
+          {filteredRecent.length === 0 ? (
+            <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
+              {showTwitch ? 'No completed Twitch showcases.' : 'No completed shows yet.'}
+            </p>
           ) : (
-            recentShows.map((show) => {
+            filteredRecent.map((show) => {
               const d = new Date(show.show_date + 'T00:00:00')
               const ppv = show.show_type === 'ppv' ? showToDbPpv(show) : null
               return <SidebarShowRow key={show.id} show={show} ppv={ppv} dateLabel={d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} onShowClick={setActiveModal} />
@@ -656,7 +734,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
 
       {/* ── DESKTOP: year tabs + 12-month grid + sidebar ── */}
       <div className="schedule-desktop">
-        <div style={{ padding: '0 3rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-3)', paddingBottom: '1rem' }}>
+        <div style={{ padding: '0 3rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-3)', paddingBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
             {[...YEARS].reverse().map((y) => (
               <button key={y} onClick={() => setYear(y)} style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: year === y ? 'white' : 'var(--text-dim)', background: 'transparent', border: 'none', borderBottom: year === y ? '2px solid var(--purple-hot)' : '2px solid transparent', paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s' }}>
@@ -664,8 +742,9 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
               </button>
             ))}
           </div>
+          {viewToggle}
         </div>
-        {ppvList.length > 0 && (
+        {!showTwitch && ppvList.length > 0 && (
           <div style={{ padding: '0 3rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.2rem', textTransform: 'uppercase', marginRight: '1rem' }}>PPV EVENTS</span>
             {ppvList.map((ppv) => (
@@ -675,11 +754,18 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
             ))}
           </div>
         )}
+        {showTwitch && (
+          <div style={{ padding: '0 3rem', marginBottom: '2rem' }}>
+            <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--accent-red)', letterSpacing: '0.15em', opacity: 0.8 }}>
+              Showing Twitch Showcase matches · Small dot on a date means a Live Show also occurred that day
+            </span>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 0, borderTop: '1px solid var(--border)' }}>
           <div style={{ padding: '2rem 3rem', borderRight: '1px solid var(--border)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
               {MONTHS.map((_, monthIdx) => (
-                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+                <MonthGrid key={monthIdx} year={year} month={monthIdx} ppvMap={showTwitch ? {} : ppvMap} today={today} showMap={showMap} altShowMap={altShowMap} onShowClick={setActiveModal} />
               ))}
             </div>
           </div>
@@ -689,8 +775,8 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
 
       {/* ── MOBILE: month/year pickers + single month + shows ── */}
       <div className="schedule-mobile" style={{ padding: '1rem clamp(1.25rem,4vw,2rem) 2rem' }}>
-        {/* Pickers */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        {/* Pickers + toggle */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.85rem' }}>
           <select value={viewMonth} onChange={e => setViewMonth(Number(e.target.value))} style={selectStyle}>
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
@@ -698,9 +784,10 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
             {[...YEARS].reverse().map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
+        <div style={{ marginBottom: '1rem' }}>{viewToggle}</div>
 
         {/* Single month calendar */}
-        <MonthGrid year={year} month={viewMonth} ppvMap={ppvMap} today={today} showMap={showMap} onShowClick={setActiveModal} />
+        <MonthGrid year={year} month={viewMonth} ppvMap={showTwitch ? {} : ppvMap} today={today} showMap={showMap} altShowMap={altShowMap} onShowClick={setActiveModal} />
 
         {/* Upcoming / recent below calendar */}
         <div style={{ marginTop: '1.5rem' }}>{sharedSidebar}</div>
