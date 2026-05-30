@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   const body = await request.json()
   const { id, status } = body as { id?: string; status?: string }
-  if (!id || !['approved', 'rejected', 'pending'].includes(status ?? '')) {
+  if (!id || !['approved', 'rejected', 'pending', 'acknowledged'].includes(status ?? '')) {
     return Response.json({ error: 'Invalid input' }, { status: 400 })
   }
 

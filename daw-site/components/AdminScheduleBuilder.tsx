@@ -157,6 +157,8 @@ function BookerModal({
   const [copied, setCopied]                 = useState(false)
   const [factionPickerOpen, setFactionPickerOpen] = useState<string | null>(null)
   const [checkedMemberIds, setCheckedMemberIds]   = useState<Set<string>>(new Set())
+  const [dragSlotId, setDragSlotId]               = useState<number | null>(null)
+  const [dragOverSlotId, setDragOverSlotId]       = useState<number | null>(null)
 
   // Auto-switch sidebar to Factions when a tag-type slot is selected; reset picker on change
   useEffect(() => {
@@ -366,6 +368,19 @@ function BookerModal({
       }
       return updated
     }))
+  }
+
+  function moveSlot(fromId: number, toId: number) {
+    if (fromId === toId) return
+    setSlots(prev => {
+      const fromIdx = prev.findIndex(s => s.id === fromId)
+      const toIdx   = prev.findIndex(s => s.id === toId)
+      if (fromIdx === -1 || toIdx === -1) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, moved)
+      return next.map((s, i) => ({ ...s, id: i + 1, isMainEvent: i === next.length - 1 }))
+    })
   }
 
   function toggleStipTag(slotId: number, tag: string) {
@@ -821,15 +836,31 @@ function BookerModal({
                 const count      = participantCount(slot.matchType, slot.matchSize)
                 const isSelected = selectedSlot === slot.id
                 const isMass     = slot.matchType === 'Battle Royal' || slot.matchType === 'Royal Rumble'
+                const isDragging = dragSlotId === slot.id
+                const isDragOver = dragOverSlotId === slot.id
                 return (
-                  <div key={slot.id} onClick={() => setSelectedSlot(isSelected ? null : slot.id)}
-                    style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : isSelected ? 'var(--purple)' : 'var(--border)'}`, padding: '0.85rem 1rem', cursor: 'pointer' }}
+                  <div key={slot.id}
+                    onClick={() => setSelectedSlot(isSelected ? null : slot.id)}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (dragSlotId !== null && dragSlotId !== slot.id) setDragOverSlotId(slot.id) }}
+                    onDragLeave={e => { e.stopPropagation(); setDragOverSlotId(v => v === slot.id ? null : v) }}
+                    onDrop={e => { e.preventDefault(); e.stopPropagation(); if (dragSlotId !== null) { moveSlot(dragSlotId, slot.id) } setDragSlotId(null); setDragOverSlotId(null) }}
+                    style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : isDragOver ? 'rgba(128,0,218,0.6)' : isSelected ? 'var(--purple)' : 'var(--border)'}`, padding: '0.85rem 1rem', cursor: 'pointer', opacity: isDragging ? 0.45 : 1, transition: 'border-color 0.1s, opacity 0.1s' }}
                   >
                     {/* Slot header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.45rem' }}>
-                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform: 'uppercase' }}>
-                        {slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span
+                          draggable
+                          onDragStart={e => { e.stopPropagation(); setDragSlotId(slot.id) }}
+                          onDragEnd={() => { setDragSlotId(null); setDragOverSlotId(null) }}
+                          onClick={e => e.stopPropagation()}
+                          title="Drag to reorder"
+                          style={{ cursor: 'grab', color: 'var(--text-dim)', fontSize: '1rem', lineHeight: 1, userSelect: 'none', flexShrink: 0, padding: '0 0.1rem' }}
+                        >⠿</span>
+                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform: 'uppercase' }}>
+                          {slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}
+                        </span>
+                      </div>
                       <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <select className="form-input form-select" style={{ padding: '0.28rem 1.8rem 0.28rem 0.55rem', fontSize: '0.6rem', width: 'auto', accentColor: slot.scheme === 'Promo' ? 'var(--gold)' : slot.scheme === 'Write-In' ? 'var(--accent-red)' : undefined, color: slot.scheme === 'Promo' ? 'var(--gold)' : slot.scheme === 'Write-In' ? 'var(--accent-red)' : undefined }}
                           value={slot.scheme} onChange={e => { e.stopPropagation(); updateSlotField(slot.id, 'scheme', e.target.value) }} onClick={e => e.stopPropagation()}>

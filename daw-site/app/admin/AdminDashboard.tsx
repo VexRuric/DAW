@@ -3555,23 +3555,43 @@ function StoryDevelopment() {
 
 /* ── Story Suggestions (Admin) ───────────────────────── */
 
-interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; image_url?: string | null; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null }
+interface SuggestionMessage { id: string; user_id: string; display_name: string; message: string; created_at: string }
+interface SuggestionRow { id: string; submitted_by: string | null; wrestler_id: string | null; team_id: string | null; body: string; status: string; created_at: string; image_url?: string | null; submitter_name?: string | null; wrestler_name?: string | null; team_name?: string | null; messages?: SuggestionMessage[] }
 
 const suggMetaStyle: React.CSSProperties = { fontFamily: 'var(--font-meta)', fontSize: '0.6rem', letterSpacing: '0.12em' }
 const suggDimStyle: React.CSSProperties  = { ...suggMetaStyle, color: 'var(--text-dim)' }
 
-function SuggestionCard({ s, inDumpster, acting, onApprove, onReject, onRecall }: {
+function SuggestionCard({ s, inDumpster, acting, chatEnabled, onApprove, onReject, onRecall, onAcknowledge, onSendMessage }: {
   s: SuggestionRow
   inDumpster?: boolean
   acting: string | null
+  chatEnabled?: boolean
   onApprove: (s: SuggestionRow) => void
   onReject: (s: SuggestionRow) => void
   onRecall: (s: SuggestionRow) => void
+  onAcknowledge?: (s: SuggestionRow) => void
+  onSendMessage?: (suggId: string, body: string) => Promise<void>
 }) {
-  const isApproved = s.status === 'approved'
-  const isRejected = s.status === 'rejected'
+  const [chatOpen, setChatOpen]   = useState(false)
+  const [msgDraft, setMsgDraft]   = useState('')
+  const [sendingMsg, setSendingMsg] = useState(false)
+
+  const isApproved     = s.status === 'approved'
+  const isRejected     = s.status === 'rejected'
+  const isAcknowledged = s.status === 'acknowledged'
   const bodyColor  = inDumpster ? (isApproved ? '#00c864' : 'var(--purple-hot)') : 'var(--text-muted)'
-  const leftBorder = inDumpster ? (isApproved ? '#00c864' : 'var(--purple)') : 'var(--gold)'
+  const leftBorder = inDumpster
+    ? (isApproved ? '#00c864' : 'var(--purple)')
+    : isAcknowledged ? '#3b82f6' : 'var(--gold)'
+
+  async function handleSend() {
+    if (!msgDraft.trim() || sendingMsg) return
+    setSendingMsg(true)
+    await onSendMessage?.(s.id, msgDraft.trim())
+    setMsgDraft('')
+    setSendingMsg(false)
+  }
+
   return (
     <div style={{ padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftBorder}`, opacity: inDumpster ? 0.82 : 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
@@ -3579,6 +3599,11 @@ function SuggestionCard({ s, inDumpster, acting, onApprove, onReject, onRecall }
           {s.submitter_name && <span style={{ ...suggMetaStyle, color: 'var(--gold)', fontWeight: 700 }}>{s.submitter_name}</span>}
           {s.wrestler_name && <span style={{ ...suggDimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.wrestler_name}</span>}
           {s.team_name && <span style={{ ...suggDimStyle, padding: '0.1rem 0.4rem', background: 'rgba(128,0,218,0.1)', border: '1px solid var(--border)' }}>{s.team_name}</span>}
+          {isAcknowledged && !inDumpster && (
+            <span style={{ ...suggMetaStyle, fontWeight: 700, letterSpacing: '0.15em', color: '#3b82f6', padding: '0.1rem 0.45rem', border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)' }}>
+              💬 IN DISCUSSION
+            </span>
+          )}
           {inDumpster && (
             <span style={{ ...suggMetaStyle, fontWeight: 700, letterSpacing: '0.15em', color: isApproved ? '#00c864' : 'var(--purple-hot)', padding: '0.1rem 0.45rem', border: `1px solid ${isApproved ? '#00c864' : 'var(--purple)'}`, background: isApproved ? 'rgba(0,200,100,0.08)' : 'rgba(128,0,218,0.1)' }}>
               {isApproved ? '✓ APPROVED' : '✕ REJECTED'}
@@ -3593,17 +3618,66 @@ function SuggestionCard({ s, inDumpster, acting, onApprove, onReject, onRecall }
           <img src={s.image_url} alt="Suggestion attachment" style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }} />
         </div>
       )}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         {!inDumpster && (<>
           <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem' }} disabled={acting === s.id} onClick={() => onApprove(s)}>Approve → Story Board</button>
           <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(200,0,0,0.12)', border: '1px solid rgba(200,0,0,0.4)', color: 'var(--accent-red)' }} disabled={acting === s.id} onClick={() => onReject(s)}>Reject</button>
+          {chatEnabled && !isAcknowledged && (
+            <button className="btn" style={{ fontSize: '0.65rem', padding: '0.4rem 0.85rem', background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6', color: '#3b82f6' }} disabled={acting === s.id} onClick={() => onAcknowledge?.(s)}>
+              💬 Open Discussion
+            </button>
+          )}
         </>)}
         {inDumpster && (
           <button className="btn" style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: 'rgba(128,0,218,0.08)', border: '1px solid var(--border)', color: 'var(--text-dim)' }} disabled={acting === s.id} onClick={() => onRecall(s)}>
             {acting === s.id ? '…' : '↩ Recall to Queue'}
           </button>
         )}
+        {chatEnabled && isAcknowledged && !inDumpster && (
+          <button onClick={() => setChatOpen(v => !v)} style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}>
+            💬 {chatOpen ? 'Hide Chat' : `Chat${(s.messages?.length ?? 0) > 0 ? ` (${s.messages!.length})` : ''}`}
+          </button>
+        )}
       </div>
+
+      {/* Chat thread */}
+      {chatEnabled && isAcknowledged && chatOpen && !inDumpster && (
+        <div style={{ marginTop: '0.85rem', borderTop: '1px solid rgba(59,130,246,0.2)', paddingTop: '0.75rem' }}>
+          {(s.messages ?? []).length === 0 ? (
+            <p style={{ ...suggDimStyle, marginBottom: '0.65rem' }}>No messages yet — start the discussion below.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.65rem' }}>
+              {(s.messages ?? []).map(m => {
+                const isAdminMsg = m.user_id !== s.submitted_by
+                return (
+                  <div key={m.id} style={{ padding: '0.5rem 0.75rem', background: isAdminMsg ? 'rgba(128,0,218,0.08)' : 'rgba(59,130,246,0.07)', border: `1px solid ${isAdminMsg ? 'rgba(128,0,218,0.2)' : 'rgba(59,130,246,0.2)'}`, borderLeft: `3px solid ${isAdminMsg ? 'var(--purple)' : '#3b82f6'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                      <span style={{ ...suggMetaStyle, color: isAdminMsg ? 'var(--purple-hot)' : '#3b82f6', fontWeight: 700 }}>{isAdminMsg ? '★ Creative Team' : m.display_name}</span>
+                      <span style={suggDimStyle}>{new Date(m.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                    </div>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{m.message}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              className="form-input"
+              placeholder="Reply to fan…"
+              value={msgDraft}
+              onChange={e => setMsgDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              style={{ flex: 1, fontSize: '0.72rem' }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!msgDraft.trim() || sendingMsg}
+              style={{ padding: '0.4rem 0.85rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', opacity: (!msgDraft.trim() || sendingMsg) ? 0.5 : 1, flexShrink: 0 }}
+            >{sendingMsg ? '…' : 'Send'}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3614,11 +3688,18 @@ function StorySuggestions() {
   const [loading, setLoading]           = useState(true)
   const [acting, setActing]             = useState<string | null>(null)
   const [showDumpster, setShowDumpster] = useState(false)
+  const [chatEnabled, setChatEnabled]   = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('story_suggestions').select('*').order('created_at', { ascending: true })
+    const [{ data }, { data: chatSetting }] = await Promise.all([
+      supabase.from('story_suggestions').select('*').order('created_at', { ascending: true }),
+      supabase.from('site_settings').select('value').eq('key', 'suggestion_chat_enabled').maybeSingle(),
+    ])
     if (!data) { setLoading(false); return }
+
+    const chatOn = chatSetting?.value === 'true'
+    setChatEnabled(chatOn)
 
     const submitterIds = [...new Set(data.map((s) => s.submitted_by).filter(Boolean))] as string[]
     const wrestlerIds  = [...new Set(data.map((s) => s.wrestler_id).filter(Boolean))] as string[]
@@ -3642,19 +3723,62 @@ function StorySuggestions() {
       submitter_name: s.submitted_by ? (profileMap[s.submitted_by] ?? null) : null,
       wrestler_name:  s.wrestler_id  ? (wrestlerMap[s.wrestler_id]  ?? null) : null,
       team_name:      s.team_id      ? (teamMap[s.team_id]          ?? null) : null,
+      messages: [] as SuggestionMessage[],
     }))
 
-    setPending(enriched.filter((s) => s.status === 'pending'))
-    setDumpster(enriched.filter((s) => s.status !== 'pending').reverse())
+    // Load messages for acknowledged suggestions
+    if (chatOn) {
+      const acknowledgedIds = enriched.filter(s => s.status === 'acknowledged').map(s => s.id)
+      if (acknowledgedIds.length > 0) {
+        const { data: msgs } = await supabase
+          .from('suggestion_messages')
+          .select('id, user_id, display_name, message, created_at, suggestion_id')
+          .in('suggestion_id', acknowledgedIds)
+          .order('created_at', { ascending: true })
+        const msgMap: Record<string, SuggestionMessage[]> = {}
+        for (const m of msgs ?? []) {
+          if (!msgMap[m.suggestion_id]) msgMap[m.suggestion_id] = []
+          msgMap[m.suggestion_id].push(m)
+        }
+        for (const s of enriched) { s.messages = msgMap[s.id] ?? [] }
+      }
+    }
+
+    setPending(enriched.filter((s) => s.status === 'pending' || s.status === 'acknowledged'))
+    setDumpster(enriched.filter((s) => s.status !== 'pending' && s.status !== 'acknowledged').reverse())
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
   async function updateSuggestionStatus(id: string, status: string): Promise<boolean> {
-    const { error } = await supabase.rpc('update_suggestion_status', { p_id: id, p_status: status })
-    return !error
+    const res = await fetch('/api/admin/update-suggestion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    return res.ok
   }
+
+  const acknowledge = useCallback(async (s: SuggestionRow) => {
+    setActing(s.id)
+    const ok = await updateSuggestionStatus(s.id, 'acknowledged')
+    if (ok) setPending(prev => prev.map(x => x.id === s.id ? { ...x, status: 'acknowledged' } : x))
+    setActing(null)
+  }, [])
+
+  const sendAdminMessage = useCallback(async (suggId: string, body: string) => {
+    const res = await fetch('/api/suggestion-message', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suggestion_id: suggId, message: body, from_admin: true }),
+    })
+    if (res.ok) {
+      const newMsg: SuggestionMessage = {
+        id: `tmp-${Date.now()}`, user_id: 'admin', display_name: 'Creative Team',
+        message: body, created_at: new Date().toISOString(),
+      }
+      setPending(prev => prev.map(s => s.id === suggId ? { ...s, messages: [...(s.messages ?? []), newMsg] } : s))
+    }
+  }, [])
 
   const approve = useCallback(async (s: SuggestionRow) => {
     setActing(s.id)
@@ -3709,7 +3833,7 @@ function StorySuggestions() {
             <p style={suggDimStyle}>No pending suggestions.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {pending.map((s) => <SuggestionCard key={s.id} s={s} acting={acting} onApprove={approve} onReject={reject} onRecall={recall} />)}
+              {pending.map((s) => <SuggestionCard key={s.id} s={s} acting={acting} chatEnabled={chatEnabled} onApprove={approve} onReject={reject} onRecall={recall} onAcknowledge={acknowledge} onSendMessage={sendAdminMessage} />)}
             </div>
           )}
         </div>
@@ -3736,7 +3860,7 @@ function StorySuggestions() {
                   Approved shown in green · Rejected shown in purple with strikethrough · Recall sends a suggestion back to the pending queue.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {dumpster.map((s) => <SuggestionCard key={s.id} s={s} inDumpster acting={acting} onApprove={approve} onReject={reject} onRecall={recall} />)}
+                  {dumpster.map((s) => <SuggestionCard key={s.id} s={s} inDumpster acting={acting} chatEnabled={chatEnabled} onApprove={approve} onReject={reject} onRecall={recall} onAcknowledge={acknowledge} onSendMessage={sendAdminMessage} />)}
                 </div>
               </>
             )}
@@ -4264,6 +4388,7 @@ function SiteSettings() {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [matchcardShowImages, setMatchcardShowImages] = useState(true)
   const [matchcardShowFactionLogos, setMatchcardShowFactionLogos] = useState(true)
+  const [suggestionChatEnabled, setSuggestionChatEnabled] = useState(false)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
@@ -4283,6 +4408,7 @@ function SiteSettings() {
       setYoutubeUrl(map.youtube_url ?? '')
       setMatchcardShowImages(map.matchcard_show_images !== 'false')
       setMatchcardShowFactionLogos(map.matchcard_show_faction_logos !== 'false')
+      setSuggestionChatEnabled(map.suggestion_chat_enabled === 'true')
       setLoading(false)
     })
   }, [])
@@ -4297,6 +4423,7 @@ function SiteSettings() {
       supabase.from('site_settings').upsert({ key: 'youtube_url', value: youtubeUrl }),
       supabase.from('site_settings').upsert({ key: 'matchcard_show_images', value: matchcardShowImages ? 'true' : 'false' }),
       supabase.from('site_settings').upsert({ key: 'matchcard_show_faction_logos', value: matchcardShowFactionLogos ? 'true' : 'false' }),
+      supabase.from('site_settings').upsert({ key: 'suggestion_chat_enabled', value: suggestionChatEnabled ? 'true' : 'false' }),
     ])
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -4424,6 +4551,16 @@ function SiteSettings() {
               </label>
             </div>
             <p style={hint}>Controls images shown on the home page matchcard.</p>
+          </div>
+
+          {/* Suggestion Chat */}
+          <div>
+            <span style={label}>Story Suggestion Chat</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={suggestionChatEnabled} onChange={e => setSuggestionChatEnabled(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+              <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-strong)', letterSpacing: '0.04em' }}>Enable back-and-forth chat on suggestions</span>
+            </label>
+            <p style={hint}>When enabled, admins can acknowledge a suggestion to open a discussion thread. Fans can reply to refine their idea before it is approved or rejected.</p>
           </div>
 
           {/* Save */}

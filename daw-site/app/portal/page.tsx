@@ -720,7 +720,11 @@ export default function PortalPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<'fan' | 'subscriber'>('fan')
 
   // Story suggestions state
-  const [suggestions, setSuggestions]         = useState<{ id: string; body: string; status: string; created_at: string; image_url?: string | null }[]>([])
+  const [suggestions, setSuggestions]         = useState<{ id: string; body: string; status: string; created_at: string; image_url?: string | null; messages?: { id: string; user_id: string; display_name: string; message: string; created_at: string }[] }[]>([])
+  const [suggChatEnabled, setSuggChatEnabled] = useState(false)
+  const [openChatId, setOpenChatId]           = useState<string | null>(null)
+  const [chatMsg, setChatMsg]                 = useState('')
+  const [sendingChatMsg, setSendingChatMsg]   = useState(false)
   const [suggBody, setSuggBody]               = useState('')
   const [suggWrestlerId, setSuggWrestlerId]   = useState('')
   const [suggTeamId, setSuggTeamId]           = useState('')
@@ -848,12 +852,34 @@ export default function PortalPage() {
 
   const fetchSuggestions = useCallback(async () => {
     if (!user) return
-    const { data } = await supabase
-      .from('story_suggestions')
-      .select('id, body, status, created_at, image_url')
-      .eq('submitted_by', user.id)
-      .order('created_at', { ascending: false })
-    setSuggestions(data ?? [])
+    const [{ data }, { data: chatSetting }] = await Promise.all([
+      supabase.from('story_suggestions')
+        .select('id, body, status, created_at, image_url')
+        .eq('submitted_by', user.id)
+        .order('created_at', { ascending: false }),
+      supabase.from('site_settings').select('value').eq('key', 'suggestion_chat_enabled').maybeSingle(),
+    ])
+    const chatOn = chatSetting?.value === 'true'
+    setSuggChatEnabled(chatOn)
+    const suggs = data ?? []
+    if (chatOn && suggs.length > 0) {
+      const ackIds = suggs.filter(s => s.status === 'acknowledged').map(s => s.id)
+      if (ackIds.length > 0) {
+        const { data: msgs } = await supabase
+          .from('suggestion_messages')
+          .select('id, suggestion_id, user_id, display_name, message, created_at')
+          .in('suggestion_id', ackIds)
+          .order('created_at', { ascending: true })
+        const msgMap: Record<string, any[]> = {}
+        for (const m of msgs ?? []) {
+          if (!msgMap[m.suggestion_id]) msgMap[m.suggestion_id] = []
+          msgMap[m.suggestion_id].push(m)
+        }
+        setSuggestions(suggs.map(s => ({ ...s, messages: msgMap[s.id] ?? [] })))
+        return
+      }
+    }
+    setSuggestions(suggs)
   }, [user])
 
   useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
@@ -886,6 +912,18 @@ export default function PortalPage() {
     setTimeout(() => setSuggToast(false), 3000)
     setSuggBody(''); setSuggWrestlerId(''); setSuggTeamId(''); setSuggImageFile(null)
     fetchSuggestions()
+  }
+
+  async function sendFanMessage(suggestionId: string) {
+    if (!chatMsg.trim() || sendingChatMsg) return
+    setSendingChatMsg(true)
+    await fetch('/api/suggestion-message', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suggestion_id: suggestionId, message: chatMsg.trim(), from_admin: false }),
+    })
+    setChatMsg('')
+    await fetchSuggestions()
+    setSendingChatMsg(false)
   }
 
   if (loading || !isFan || !user) return null
@@ -1156,18 +1194,79 @@ export default function PortalPage() {
             <div>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--purple-hot)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '0.75rem' }}>PAST SUBMISSIONS</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {suggestions.map((s) => (
-                  <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--purple)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.14em' }}>SUBMITTED</span>
-                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                {suggestions.map((s) => {
+                  const isAcknowledged = s.status === 'acknowledged'
+                  const chatOpen = openChatId === s.id
+                  const leftBorder = isAcknowledged ? '#3b82f6' : 'var(--purple)'
+                  return (
+                    <div key={s.id} style={{ padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${leftBorder}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: isAcknowledged ? '#3b82f6' : 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.14em' }}>
+                            {isAcknowledged ? '💬 IN DISCUSSION' : 'SUBMITTED'}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : 0 }}>{s.body}</p>
+                      {s.image_url && (
+                        <img src={s.image_url} alt="Attachment" style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'cover', border: '1px solid var(--border)', display: 'block', marginTop: '0.4rem' }} />
+                      )}
+                      {/* Chat toggle for acknowledged suggestions */}
+                      {suggChatEnabled && isAcknowledged && (
+                        <div style={{ marginTop: '0.65rem' }}>
+                          <button
+                            onClick={() => setOpenChatId(chatOpen ? null : s.id)}
+                            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '0.3rem 0.7rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', cursor: 'pointer' }}
+                          >
+                            💬 {chatOpen ? 'Hide' : `View Discussion${(s.messages?.length ?? 0) > 0 ? ` (${s.messages!.length})` : ''}`}
+                          </button>
+                          {chatOpen && (
+                            <div style={{ marginTop: '0.65rem', borderTop: '1px solid rgba(59,130,246,0.2)', paddingTop: '0.65rem' }}>
+                              {(s.messages ?? []).length === 0 ? (
+                                <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>The creative team will reply here. Check back soon!</p>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.6rem' }}>
+                                  {(s.messages ?? []).map(m => {
+                                    const isAdminMsg = m.user_id !== user?.id
+                                    return (
+                                      <div key={m.id} style={{ padding: '0.45rem 0.7rem', background: isAdminMsg ? 'rgba(128,0,218,0.07)' : 'rgba(59,130,246,0.06)', border: `1px solid ${isAdminMsg ? 'rgba(128,0,218,0.2)' : 'rgba(59,130,246,0.18)'}`, borderLeft: `3px solid ${isAdminMsg ? 'var(--purple)' : '#3b82f6'}` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.15rem' }}>
+                                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, color: isAdminMsg ? 'var(--purple-hot)' : '#3b82f6', letterSpacing: '0.1em' }}>
+                                            {isAdminMsg ? '★ Creative Team' : 'You'}
+                                          </span>
+                                          <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.54rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
+                                            {new Date(m.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                          </span>
+                                        </div>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{m.message}</p>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                  className="form-input"
+                                  placeholder="Add to your idea…"
+                                  value={chatMsg}
+                                  onChange={e => setChatMsg(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') sendFanMessage(s.id) }}
+                                  style={{ flex: 1, fontSize: '0.72rem' }}
+                                />
+                                <button
+                                  onClick={() => sendFanMessage(s.id)}
+                                  disabled={!chatMsg.trim() || sendingChatMsg}
+                                  style={{ padding: '0.4rem 0.85rem', background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', opacity: (!chatMsg.trim() || sendingChatMsg) ? 0.5 : 1, flexShrink: 0 }}
+                                >{sendingChatMsg ? '…' : 'Send'}</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: s.image_url ? '0.5rem' : 0 }}>{s.body}</p>
-                    {s.image_url && (
-                      <img src={s.image_url} alt="Attachment" style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'cover', border: '1px solid var(--border)', display: 'block', marginTop: '0.4rem' }} />
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
