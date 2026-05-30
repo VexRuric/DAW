@@ -297,11 +297,14 @@ export default async function HomePage() {
       ...streamMatches.map(m => m.id),
     ])]
     if (allRelevantMatchIds.length > 0) {
-      const { data: reigns } = await supabase
-        .from('title_reigns')
-        .select('won_at_match_id')
-        .in('won_at_match_id', allRelevantMatchIds)
-      andNewIds = new Set((reigns ?? []).map((r: any) => r.won_at_match_id))
+      const [{ data: wonReigns }, { data: lostReigns }] = await Promise.all([
+        supabase.from('title_reigns').select('won_at_match_id').in('won_at_match_id', allRelevantMatchIds),
+        supabase.from('title_reigns').select('lost_at_match_id').in('lost_at_match_id', allRelevantMatchIds),
+      ])
+      andNewIds = new Set((wonReigns ?? []).map((r: any) => r.won_at_match_id))
+      for (const r of lostReigns ?? []) {
+        if (r.lost_at_match_id) andNewIds.add(r.lost_at_match_id)
+      }
     }
 
     const streamShowInfo: StreamShowInfo | null = streamShowRaw
