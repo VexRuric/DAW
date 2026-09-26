@@ -270,7 +270,12 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
 
     if (error || !newRow) {
       setSubmitting(false)
-      setSubmitError(error?.code === '23505' ? 'That ring name is already taken. Try a different name.' : 'Submission failed — please try again.')
+      setSubmitError(
+        error?.code === '23505' ? 'That ring name is already taken. Try a different name.' :
+        error?.code === '23503' ? 'Your account is not ready to submit yet. Please refresh and try again; contact support if this continues.' :
+        error?.code === '42501' ? 'Your submission could not be accepted right now. Please refresh and try again; contact support if this continues.' :
+        'Submission failed — please try again.'
+      )
       return
     }
 
