@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { CurrentChampion, Wrestler, WrestlerRecord } from '@/lib/types'
 import ChampionStrip from '@/components/ChampionStrip'
 import RosterClient from '@/components/RosterClient'
+import { withChampionNames } from '@/lib/title-holders'
 
 export const metadata: Metadata = {
   title: 'Roster',
@@ -62,16 +63,18 @@ async function getData() {
       alumniCount: (alumniRes.data ?? []).length,
       records:     (recordRes.data  ?? []) as WrestlerRecord[],
       champions:   (champRes.data   ?? []) as CurrentChampion[],
+      // One card per title, naming both co-holders of tag titles
+      stripChampions: await withChampionNames(supabase, (champRes.data ?? []) as CurrentChampion[]),
       titleImageById,
       tagChampWrestlerMap,
     }
   } catch {
-    return { wrestlers: [], alumniCount: 0, records: [], champions: [], titleImageById: new Map(), tagChampWrestlerMap: new Map<string, { title_name: string; title_id: string }>() }
+    return { wrestlers: [], alumniCount: 0, records: [], champions: [], stripChampions: [], titleImageById: new Map(), tagChampWrestlerMap: new Map<string, { title_name: string; title_id: string }>() }
   }
 }
 
 export default async function RosterPage() {
-  const { wrestlers, alumniCount, records, champions, titleImageById, tagChampWrestlerMap } = await getData()
+  const { wrestlers, alumniCount, records, champions, stripChampions, titleImageById, tagChampWrestlerMap } = await getData()
 
   const totalMens   = wrestlers.filter(w => w.gender === 'Male').length
   const totalWomens = wrestlers.filter(w => w.gender === 'Female').length
@@ -110,10 +113,10 @@ export default async function RosterPage() {
 
       <div style={{ padding: '0 clamp(1.25rem,4vw,3rem)' }}>
         {/* Current Champions */}
-        {champions.length > 0 && (
+        {stripChampions.length > 0 && (
           <div style={{ marginBottom: '2.5rem' }}>
             <ChampionStrip
-              champions={champions}
+              champions={stripChampions}
               renderMap={new Map(wrestlers.map(w => [w.id, w.render_url ?? null]))}
               titleImageById={titleImageById}
             />

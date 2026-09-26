@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { toSlug } from '@/lib/slug'
+import { holderNames, loadWrestlers, mergeTagPartnerRows, withHolders, type Holder } from '@/lib/title-holders'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -39,7 +40,7 @@ async function getData(slug: string) {
   const { data: reigns } = await supabase
     .from('title_reigns')
     .select(`
-      id, won_date, lost_date, reign_number, notes, cashed_in,
+      id, won_date, lost_date, reign_number, notes, cashed_in, holder_wrestler_id_2,
       wrestlers:holder_wrestler_id(id, name, render_url, division, role),
       teams:holder_team_id(id, name, render_url),
       won_match:won_at_match_id(id, match_type, shows:show_id(name, show_date)),
@@ -48,9 +49,10 @@ async function getData(slug: string) {
     .eq('title_id', title.id)
     .order('won_date', { ascending: false })
 
-  // A team reign may also record its winning members; show it as the team's reign
-  const normalized = (reigns ?? []).map((r: any) => (r.teams ? { ...r, wrestlers: null } : r))
-  return { title, reigns: normalized as any[] }
+  // Resolve every holder: the team, one wrestler, or both co-holders of a tag reign
+  const partners = await loadWrestlers(supabase, (reigns ?? []).map((r: any) => r.holder_wrestler_id_2))
+  const withNames = (reigns ?? []).map((r: any) => withHolders(r, partners))
+  return { title, reigns: mergeTagPartnerRows(withNames) as any[] }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -71,9 +73,9 @@ export default async function TitleHistoryPage({ params }: PageProps) {
   const { title, reigns } = data
 
   // Partition: "Vacant" holder entries vs real reigns
-  const isVacant = (r: any) => (r.wrestlers?.name ?? r.teams?.name ?? '').toLowerCase() === 'vacant'
+  const isVacant = (r: any) => holderNames(r.holders).toLowerCase() === 'vacant'
   const vacantReigns  = reigns.filter((r: any) => isVacant(r))
-  const visibleReigns = reigns.filter((r: any) => !isVacant(r) && (r.wrestlers || r.teams))
+  const visibleReigns = reigns.filter((r: any) => !isVacant(r) && r.holders.length > 0)
 
   // Tag reigns that ended via cash-in: use the cashed_in column, fall back to vacant-reign heuristic for legacy data
   const cashedInIds = new Set<string>()
@@ -84,7 +86,7 @@ export default async function TitleHistoryPage({ params }: PageProps) {
   }
 
   const currentReign  = visibleReigns.find((r: any) => !r.lost_date)
-  const currentHolder = currentReign?.wrestlers ?? currentReign?.teams ?? null
+  const currentHolders: Holder[] = currentReign?.holders ?? []
   const totalReigns   = visibleReigns.length
   const longestReign  = visibleReigns.reduce((best: any, r: any) => {
     const days = daysBetween(r.won_date, r.lost_date)
@@ -180,55 +182,54 @@ export default async function TitleHistoryPage({ params }: PageProps) {
       </section>
 
       {/* Current champion */}
-      {currentReign && currentHolder && (
+      {currentReign && currentHolders.length > 0 && (
         <section style={{ padding: '2rem 3rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,201,51,0.04)' }}>
           <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.25em', fontWeight: 700, marginBottom: '1rem' }}>
-            ★ CURRENT CHAMPION
+            ★ CURRENT CHAMPION{currentHolders.length > 1 ? 'S' : ''}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-            {/* Portrait */}
-            <Link href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : `/roster/factions`} style={{ textDecoration: 'none', flexShrink: 0 }}>
-              <div
-                style={{
-                  width: 120,
-                  height: 160,
-                  border: '2px solid var(--gold)',
-                  overflow: 'hidden',
-                  background: 'var(--surface)',
-                  position: 'relative',
-                }}
-              >
-                {(currentHolder as any).render_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={(currentHolder as any).render_url}
-                    alt={currentHolder.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
-                  />
-                ) : (
-                  <SilhouettePlaceholder />
-                )}
-              </div>
-            </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
+            {/* Portraits — one per holder (both partners for co-held tag titles) */}
+            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              {currentHolders.flatMap(h => (h.kind === 'team' ? [h, ...(h.members ?? [])] : [h])).map(h => (
+                <Link key={h.id} href={holderHref(h)} style={{ textDecoration: 'none' }}>
+                  <div
+                    style={{
+                      width: 120,
+                      height: 160,
+                      border: '2px solid var(--gold)',
+                      overflow: 'hidden',
+                      background: 'var(--surface)',
+                      position: 'relative',
+                    }}
+                  >
+                    {h.render_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={h.render_url}
+                        alt={h.name}
+                        style={{ width: '100%', height: '100%', objectFit: h.kind === 'team' ? 'contain' : 'cover', objectPosition: 'top' }}
+                      />
+                    ) : (
+                      <SilhouettePlaceholder />
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
 
             <div>
-              <Link
-                href={currentReign.wrestlers ? `/roster/${toSlug(currentHolder.name)}` : `/roster/factions`}
-                style={{ textDecoration: 'none' }}
+              <h2
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 'clamp(2rem, 5vw, 4rem)',
+                  color: 'var(--gold)',
+                  textTransform: 'uppercase',
+                  lineHeight: 0.9,
+                  marginBottom: '0.75rem',
+                }}
               >
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'clamp(2rem, 5vw, 4rem)',
-                    color: 'var(--gold)',
-                    textTransform: 'uppercase',
-                    lineHeight: 0.9,
-                    marginBottom: '0.75rem',
-                  }}
-                >
-                  {currentHolder.name}
-                </h2>
-              </Link>
+                <HolderLinks holders={currentHolders} color="var(--gold)" />
+              </h2>
               <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-dim)', letterSpacing: '0.12em' }}>
                 Won {formatDate(currentReign.won_date)}
                 {(currentReign as any).won_match?.shows?.name
@@ -276,7 +277,6 @@ export default async function TitleHistoryPage({ params }: PageProps) {
             </div>
 
             {visibleReigns.map((reign: any, idx: number) => {
-              const holder = reign.wrestlers ?? reign.teams
               const isCurrent  = !reign.lost_date
               const isCashedIn = cashedInIds.has(reign.id)
               const days = daysBetween(reign.won_date, reign.lost_date)
@@ -302,35 +302,9 @@ export default async function TitleHistoryPage({ params }: PageProps) {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {isCurrent && <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>★</span>}
-                    {reign.wrestlers ? (
-                      <Link
-                        href={`/roster/${toSlug(holder.name)}`}
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '1rem',
-                          color: isCurrent ? 'var(--gold)' : 'var(--text-strong)',
-                          textTransform: 'uppercase',
-                          textDecoration: 'none',
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        {holder.name}
-                      </Link>
-                    ) : (
-                      <Link
-                        href={`/roster/factions`}
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '1rem',
-                          color: isCurrent ? 'var(--gold)' : 'var(--text-strong)',
-                          textTransform: 'uppercase',
-                          textDecoration: 'none',
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        {holder.name}
-                      </Link>
-                    )}
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', textTransform: 'uppercase', lineHeight: 1.1 }}>
+                      <HolderLinks holders={reign.holders} color={isCurrent ? 'var(--gold)' : 'var(--text-strong)'} />
+                    </span>
                   </div>
 
                   <div>
@@ -384,6 +358,24 @@ export default async function TitleHistoryPage({ params }: PageProps) {
         )}
       </section>
     </div>
+  )
+}
+
+function holderHref(h: Holder) {
+  return h.kind === 'team' ? `/roster/factions/${toSlug(h.name)}` : `/roster/${toSlug(h.name)}`
+}
+
+// "A & B" with each holder linked to their own page
+function HolderLinks({ holders, color }: { holders: Holder[]; color: string }) {
+  return (
+    <>
+      {holders.map((h, i) => (
+        <span key={h.id}>
+          {i > 0 && <span style={{ color: 'var(--text-dim)' }}> &amp; </span>}
+          <Link href={holderHref(h)} style={{ color, textDecoration: 'none' }}>{h.name}</Link>
+        </span>
+      ))}
+    </>
   )
 }
 

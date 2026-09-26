@@ -24,7 +24,7 @@ interface ChampionCardProps {
 function ChampionCard({ champion, renderUrl, titleImageUrl }: ChampionCardProps) {
   const titleSlug    = toSlug(champion.title_name)
   // Team reigns may also record members, so only link individual champions
-  const wrestlerSlug = champion.holder_wrestler_id && !champion.holder_team_id ? toSlug(champion.holder_name) : null
+  const wrestlerSlug = champion.holder_wrestler_id && !champion.holder_team_id && !champion.holder_wrestler_id_2 ? toSlug(champion.holder_name) : null
 
   return (
     <div style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', background: 'rgb(8,6,2)', border: '1px solid rgba(255,201,51,0.4)' }}>
