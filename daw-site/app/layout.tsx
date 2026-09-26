@@ -14,6 +14,7 @@ const jetbrains = JetBrains_Mono({ weight: ['400', '700'], subsets: ['latin'], d
 const archivo   = Archivo({ weight: ['400', '500', '600', '700', '800', '900'], subsets: ['latin'], display: 'swap', variable: '--ff-archivo' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://daw.wtf'),
   title: {
     default: 'DAW Warehouse LIVE',
     template: '%s | DAW Warehouse LIVE',
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'DAW Warehouse LIVE',
     description: 'The official home of DAW Warehouse LIVE — results, roster, championships.',
-    url: 'https://ruric.gg',
+    url: 'https://daw.wtf',
     siteName: 'DAW Warehouse LIVE',
     locale: 'en_US',
     type: 'website',
