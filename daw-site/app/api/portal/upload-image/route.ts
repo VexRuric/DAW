@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { isUuid, validateImage } from '@/lib/upload'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
   if (!['wrestlers', 'teams'].includes(targetType)) {
     return Response.json({ error: 'Invalid targetType' }, { status: 400 })
   }
+  if (!isUuid(targetId)) return Response.json({ error: 'Invalid targetId' }, { status: 400 })
+  const image = validateImage(file)
+  if ('error' in image) return Response.json({ error: image.error }, { status: 400 })
 
   // Verify the user owns this wrestler/team
   const { data: row } = await supabase.from(targetType).select('submitted_by').eq('id', targetId).single()
@@ -29,11 +33,10 @@ export async function POST(request: Request) {
   const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
 
   const folder = targetType === 'wrestlers' ? 'wrestlers' : 'factions'
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const path = `${folder}/${targetId}.${ext}`
+  const path = `${folder}/${targetId}.${image.ext}`
 
   const bytes = await file.arrayBuffer()
-  const { error: uploadErr } = await admin.storage.from('renders').upload(path, bytes, { upsert: true, contentType: file.type })
+  const { error: uploadErr } = await admin.storage.from('renders').upload(path, bytes, { upsert: true, contentType: image.contentType })
   if (uploadErr) return Response.json({ error: uploadErr.message }, { status: 500 })
 
   const { data: { publicUrl } } = admin.storage.from('renders').getPublicUrl(path)

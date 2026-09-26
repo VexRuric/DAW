@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { isUuid, validateImage } from '@/lib/upload'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -15,18 +16,20 @@ export async function POST(request: Request) {
   const file = formData.get('file') as File | null
   const matchId = formData.get('matchId') as string | null
   if (!file || !matchId) return Response.json({ error: 'Missing file or matchId' }, { status: 400 })
+  if (!isUuid(matchId)) return Response.json({ error: 'Invalid matchId' }, { status: 400 })
+  const image = validateImage(file)
+  if ('error' in image) return Response.json({ error: image.error }, { status: 400 })
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) return Response.json({ error: 'Service key not configured' }, { status: 500 })
   const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const path = `matches/${matchId}.${ext}`
+  const path = `matches/${matchId}.${image.ext}`
 
   const bytes = await file.arrayBuffer()
   const { error: uploadErr } = await admin.storage
     .from('renders')
-    .upload(path, bytes, { upsert: true, contentType: file.type })
+    .upload(path, bytes, { upsert: true, contentType: image.contentType })
   if (uploadErr) return Response.json({ error: uploadErr.message }, { status: 500 })
 
   const { data: { publicUrl } } = admin.storage.from('renders').getPublicUrl(path)

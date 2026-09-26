@@ -1,6 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getStreamStatus } from '@/lib/site-data'
+
+const RESULTS_POLL_MS = 30_000
 
 export interface CompactMatch {
   id: string
@@ -90,16 +94,27 @@ export default function HomeStreamSection({
   const [chatSrc, setChatSrc]       = useState('')
   const [isLive, setIsLive]         = useState<boolean | null>(null)
   const [streamTitle, setStreamTitle] = useState<string | null>(null)
+  const router = useRouter()
+
+  // While the show's results are still being entered (or it's show day), re-fetch the
+  // server-rendered matchcard periodically so newly recorded winners appear without a
+  // reload. router.refresh() keeps client state, so the Twitch/YouTube embeds don't restart.
+  const today = new Date().toISOString().slice(0, 10)
+  const resultsPending = !!show && show.show_date <= today && (show.status !== 'completed' || show.show_date === today)
+  useEffect(() => {
+    if (!resultsPending) return
+    const tick = () => { if (document.visibilityState === 'visible') router.refresh() }
+    const id = setInterval(tick, RESULTS_POLL_MS)
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick) }
+  }, [resultsPending, router])
 
   useEffect(() => {
     const host = window.location.hostname
     setTwitchSrc(`https://player.twitch.tv/?channel=${channel}&parent=${host}&autoplay=false`)
     setChatSrc(`https://www.twitch.tv/embed/${channel}/chat?parent=${host}&darkpopout`)
 
-    fetch('/api/stream-status')
-      .then(r => r.json())
-      .then(d => { setIsLive(!!d.live); setStreamTitle(d.title ?? null) })
-      .catch(() => setIsLive(false))
+    getStreamStatus().then(d => { setIsLive(!!d.live); setStreamTitle(d.title ?? null) })
   }, [channel])
 
   const { src: ytSrc, href: ytLink, isPlaylist } = resolveYouTube(youtubeUrl)

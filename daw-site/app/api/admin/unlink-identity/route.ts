@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const res = await fetch(
-    `${supabaseUrl}/auth/v1/admin/users/${userId}/identities/${identityId}`,
+    `${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}/identities/${encodeURIComponent(identityId)}`,
     {
       method: 'DELETE',
       headers: {

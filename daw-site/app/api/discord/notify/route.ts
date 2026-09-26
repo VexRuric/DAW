@@ -3,6 +3,8 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 const DISCORD_API = 'https://discord.com/api/v10'
+// Must match the discord_* columns on user_alert_prefs
+const ALERT_TYPES = ['results', 'reminder', 'booked', 'title_win', 'fed_news']
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -19,6 +21,7 @@ export async function POST(req: Request) {
 
   const { type, title, body, userIds } = await req.json()
   if (!type || !title) return NextResponse.json({ error: 'type and title required' }, { status: 400 })
+  if (!ALERT_TYPES.includes(type)) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

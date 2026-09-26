@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { getSocialLinks } from '@/lib/site-data'
 
 export default function HomeCommunityStrip() {
   const [twitchUrl, setTwitchUrl]   = useState('https://twitch.tv/daware')
@@ -8,14 +9,11 @@ export default function HomeCommunityStrip() {
   const [twitterUrl, setTwitterUrl] = useState('')
 
   useEffect(() => {
-    fetch('/api/social-links')
-      .then(r => r.json())
-      .then(d => {
-        if (d.twitch_url)  setTwitchUrl(d.twitch_url)
-        if (d.discord_url) setDiscordUrl(d.discord_url)
-        if (d.twitter_url) setTwitterUrl(d.twitter_url)
-      })
-      .catch(() => {})
+    getSocialLinks().then(d => {
+      if (d.twitch_url)  setTwitchUrl(d.twitch_url)
+      if (d.discord_url) setDiscordUrl(d.discord_url)
+      if (d.twitter_url) setTwitterUrl(d.twitter_url)
+    })
   }, [])
 
   return (

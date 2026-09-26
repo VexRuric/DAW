@@ -47,8 +47,9 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse
 }
 
+// Only run on pages that need an auth gate. Public pages and API routes skip the
+// Supabase auth round trip; API routes verify the user themselves, and the browser
+// client keeps the session refreshed.
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/admin/:path*', '/portal/:path*', '/settings/:path*'],
 }

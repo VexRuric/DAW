@@ -1,10 +1,17 @@
 import type { Metadata } from 'next'
+import { Anton, Archivo, Bebas_Neue, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import CursorGlow from '@/components/CursorGlow'
 import TopBar from '@/components/TopBar'
 import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
+
+// Self-hosted at build time — no render-blocking request to Google Fonts
+const anton     = Anton({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--ff-anton' })
+const bebas     = Bebas_Neue({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--ff-bebas' })
+const jetbrains = JetBrains_Mono({ weight: ['400', '700'], subsets: ['latin'], display: 'swap', variable: '--ff-mono' })
+const archivo   = Archivo({ weight: ['400', '500', '600', '700', '800', '900'], subsets: ['latin'], display: 'swap', variable: '--ff-archivo' })
 
 export const metadata: Metadata = {
   title: {
@@ -35,11 +42,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${anton.variable} ${bebas.variable} ${jetbrains.variable} ${archivo.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
         <AuthProvider>

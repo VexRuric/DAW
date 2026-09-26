@@ -71,14 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        // Force refresh to pick up latest app_metadata (e.g. admin role set server-side)
+      if (!session) { setUser(null); setLoading(false); return }
+      // Force a refresh once per tab to pick up latest app_metadata (e.g. admin role
+      // set server-side). Later page loads use the stored session with no round trip.
+      let refreshedThisTab = false
+      try { refreshedThisTab = sessionStorage.getItem('daw-auth-refreshed') === '1' } catch {}
+      if (refreshedThisTab) {
+        setUser(mapUser(session.user))
+      } else {
         const { data: refreshed } = await supabase.auth.refreshSession()
         setUser(mapUser(refreshed.session?.user ?? session.user))
-      } else {
-        setUser(null)
+        try { sessionStorage.setItem('daw-auth-refreshed', '1') } catch {}
       }
-      setLoading(false)  // only set here, after refresh completes
+      setLoading(false)  // only set here, after role is resolved
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

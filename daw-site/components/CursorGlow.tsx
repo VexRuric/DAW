@@ -11,17 +11,28 @@ export default function CursorGlow() {
     const dot = dotRef.current
     if (!glow || !dot) return
 
-    let rafId: number
+    // Touch devices have no cursor — skip the effect entirely
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      glow.style.display = 'none'; dot.style.display = 'none'
+      return
+    }
+
+    let rafId = 0
     let mouseX = -500
     let mouseY = -500
     let glowX = -500
     let glowY = -500
 
+    // transform (not left/top) so moving the cursor never triggers page layout
+    const place = (el: HTMLElement, x: number, y: number) => {
+      el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
+    }
+
     const onMove = (e: MouseEvent) => {
       mouseX = e.clientX
       mouseY = e.clientY
-      dot.style.left = `${mouseX}px`
-      dot.style.top = `${mouseY}px`
+      place(dot, mouseX, mouseY)
+      if (!rafId) rafId = requestAnimationFrame(loop)
     }
 
     const onEnter = () => {
@@ -33,17 +44,16 @@ export default function CursorGlow() {
       }
     }
 
+    // Eases the glow toward the cursor, then stops until the mouse moves again
     const loop = () => {
       glowX += (mouseX - glowX) * 0.08
       glowY += (mouseY - glowY) * 0.08
-      glow.style.left = `${glowX}px`
-      glow.style.top = `${glowY}px`
-      rafId = requestAnimationFrame(loop)
+      place(glow, glowX, glowY)
+      rafId = Math.abs(mouseX - glowX) + Math.abs(mouseY - glowY) > 0.5 ? requestAnimationFrame(loop) : 0
     }
 
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseover', onEnter)
-    rafId = requestAnimationFrame(loop)
+    document.addEventListener('mousemove', onMove, { passive: true })
+    document.addEventListener('mouseover', onEnter, { passive: true })
 
     return () => {
       document.removeEventListener('mousemove', onMove)

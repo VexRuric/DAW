@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getSocialLinks, getStreamStatus } from '@/lib/site-data'
 
 interface NextShow {
   name: string
@@ -26,28 +27,23 @@ export default function TopBar() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase
-        .from('shows')
-        .select('name, show_date, show_type, ppv_name')
-        .gte('show_date', new Date().toISOString().split('T')[0])
-        .order('show_date', { ascending: true })
-        .limit(1)
-        .single()
+      const [{ data }, stream, social] = await Promise.all([
+        supabase
+          .from('shows')
+          .select('name, show_date, show_type, ppv_name')
+          .gte('show_date', new Date().toISOString().split('T')[0])
+          .order('show_date', { ascending: true })
+          .limit(1)
+          .single(),
+        getStreamStatus(),
+        getSocialLinks(),
+      ])
       setNextShow(data ?? null)
-
-      try {
-        const [streamRes, socialRes] = await Promise.all([
-          fetch('/api/stream-status'),
-          fetch('/api/social-links'),
-        ])
-        const stream = await streamRes.json()
-        const social = await socialRes.json()
-        setLive(!!stream.live)
-        if (stream.channel) setChannel(stream.channel)
-        setStreamTitle(stream.title ?? null)
-        setDiscordUrl(social.discord_url || '')
-        setTwitterUrl(social.twitter_url || '')
-      } catch { /* offline fallback */ }
+      setLive(!!stream.live)
+      if (stream.channel) setChannel(stream.channel)
+      setStreamTitle(stream.title ?? null)
+      setDiscordUrl(social.discord_url || '')
+      setTwitterUrl(social.twitter_url || '')
     }
     init()
   }, [])
