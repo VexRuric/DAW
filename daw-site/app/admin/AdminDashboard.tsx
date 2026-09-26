@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
+import { MATCH_TYPES, getParticipantsPerSide } from '@/lib/match-format'
 
 type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news' | 'fines'
 
@@ -30,8 +31,6 @@ const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
   { id: 'news',        label: 'News Templates',     group: 'Creative' },
 ]
 
-const MATCH_TYPES  = ['Singles','Tag Team','Triple Threat','Fatal 4-Way','Gauntlet','Battle Royal','Handicap']
-const STIPULATIONS = ['Standard','Last Man Standing','No DQ','Cage','Ladder','Table','Elimination','Ironman','Submission','Falls Count Anywhere']
 const DEFEAT_TYPES = ['', 'Pin', 'Submission', 'DQ', 'Count Out', 'No Contest', 'TKO']
 const RATINGS      = ['', '0.5','1.0','1.5','2.0','2.5','3.0','3.5','4.0','4.5','5.0']
 const NOTE_TYPES   = ['Feud Idea','Storyline Arc','PPV Idea','Character Note','Faction Note','Other']
@@ -49,10 +48,7 @@ const PERSONALITY_TRAITS = [
 
 interface DBStoryNote { id: string; note_type: string; title: string; body: string; wrestler_ids: string[]; team_ids: string[]; priority: string; resolved: boolean; created_by: string | null; created_at: string; author_name?: string | null }
 interface PendingItem { id: string; table: 'wrestlers' | 'teams'; type: 'Wrestler' | 'Faction'; name: string; submittedAt: string; bio: string | null; isEdit: boolean; editOf: string | null; render_url: string | null; gender: string | null; role: string | null; country: string | null; gimmick: string | null }
-interface BookerRosterEntry { id: string; name: string; isChamp: boolean; champTitle: string | null; role: string | null; injured: boolean }
 interface BookerTitle { id: string; name: string }
-interface BookerParticipant { type: 'roster' | 'writein'; wrestlerId: string | null; name: string }
-interface BookerSlot { id: number; matchType: string; stipulation: string; isTitleMatch: boolean; titleId: string; participants: BookerParticipant[]; isMainEvent: boolean; sideNames: string[] }
 interface ShowStub { id: string; name: string; show_date: string; status: string; stream_url: string | null }
 interface Participant { mp_id: string; name: string; result: string | null; wrestler_id: string | null; team_id: string | null }
 interface MatchCard { id: string; match_number: number; match_type: string; stipulation: string | null; is_title_match: boolean; is_draw: boolean; defeat_type: string | null; rating: number | null; notes: string | null; winner_image_url: string | null; participants: Participant[] }
@@ -70,45 +66,6 @@ interface ScheduleShowRow { id: string; name: string; show_date: string; show_ty
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-function participantCount(matchType: string): number {
-  switch (matchType) {
-    case 'Tag Team':      return 4
-    case 'Triple Threat': return 3
-    case 'Fatal 4-Way':   return 4
-    case 'Gauntlet':      return 6
-    case 'Battle Royal':  return 8
-    case 'Handicap':      return 3
-    default:              return 2
-  }
-}
-
-function getParticipantsPerSide(matchType: string, wrestlerCount?: number): number[] {
-  switch (matchType) {
-    case 'Tag Team':      return wrestlerCount === 6 ? [3, 3] : [2, 2]
-    case 'Triple Threat': return [1, 1, 1]
-    case 'Fatal 4-Way':   return [1, 1, 1, 1]
-    case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
-    case 'Battle Royal':  return [1, 1, 1, 1, 1, 1, 1, 1]
-    case 'Handicap':      return [2, 1]
-    default:              return [1, 1]
-  }
-}
-
-function buildSideGroups(participants: BookerParticipant[], matchType: string): { side: BookerParticipant[]; startIdx: number }[] {
-  const perSide = getParticipantsPerSide(matchType)
-  let idx = 0
-  return perSide.map(n => { const s = { side: participants.slice(idx, idx + n), startIdx: idx }; idx += n; return s })
-}
-
-function emptyParticipant(): BookerParticipant { return { type: 'roster', wrestlerId: null, name: '' } }
-
-function makeBookerSlots(count: number): BookerSlot[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: i + 1, matchType: 'Singles', stipulation: 'Standard',
-    isTitleMatch: false, titleId: '', participants: [emptyParticipant(), emptyParticipant()],
-    isMainEvent: i === count - 1, sideNames: ['', ''],
-  }))
-}
 
 /* ── Admin Drop Zone ─────────────────────────────────── */
 
@@ -430,253 +387,6 @@ function ShowBooker() {
   return <AdminScheduleBuilder />
 }
 
-function _ShowBookerOld({ notes: _notes }: { notes: DBStoryNote[] }) {
-  const [mode, setMode]         = useState<'weekly' | 'ppv'>('weekly')
-  const [showName, setShowName] = useState('')
-  const [showDate, setShowDate] = useState('')
-  const [ppvName, setPpvName]   = useState('')
-  const [slots, setSlots]       = useState<BookerSlot[]>(makeBookerSlots(9))
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
-  const [roster, setRoster]     = useState<BookerRosterEntry[]>([])
-  const [titles, setTitles]     = useState<BookerTitle[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [search, setSearch]     = useState('')
-  const [showWriteIn, setShowWriteIn] = useState(false)
-  const [writeInName, setWriteInName] = useState('')
-  const [committing, setCommitting]   = useState(false)
-  const [commitDone, setCommitDone]   = useState(false)
-  const [commitError, setCommitError] = useState<string | null>(null)
-  const [copied, setCopied]           = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      const [rosterRes, champRes, titleRes] = await Promise.all([
-        supabase.from('roster_wrestlers').select('id, name, role, injured'),
-        supabase.from('current_champions').select('holder_wrestler_id, title_name'),
-        supabase.from('titles').select('id, name').eq('active', true).order('display_order'),
-      ])
-      const champMap = new Map<string, string>()
-      ;(champRes.data ?? []).forEach((c: any) => { if (c.holder_wrestler_id) champMap.set(c.holder_wrestler_id, c.title_name) })
-      const entries: BookerRosterEntry[] = (rosterRes.data ?? []).map((w: any) => ({ id: w.id, name: w.name, isChamp: champMap.has(w.id), champTitle: champMap.get(w.id) ?? null, role: w.role, injured: w.injured }))
-      entries.sort((a, b) => { if (a.isChamp !== b.isChamp) return a.isChamp ? -1 : 1; return a.name.localeCompare(b.name) })
-      setRoster(entries)
-      setTitles((titleRes.data ?? []) as BookerTitle[])
-      setLoading(false)
-    }
-    load()
-  }, [])
-
-  function changeMode(m: 'weekly' | 'ppv') { setMode(m); setSlots(makeBookerSlots(m === 'weekly' ? 9 : 12)); setSelectedSlot(null) }
-
-  function assignRosterWrestler(entry: BookerRosterEntry) {
-    if (selectedSlot === null) return
-    setSlots((prev) => prev.map((s) => {
-      if (s.id !== selectedSlot) return s
-      if (s.participants.some((p) => p.type === 'roster' && p.wrestlerId === entry.id)) return s
-      const count = participantCount(s.matchType)
-      const parts = [...s.participants]
-      const emptyIdx = parts.slice(0, count).findIndex((p) => !p.name)
-      if (emptyIdx === -1) return s
-      parts[emptyIdx] = { type: 'roster', wrestlerId: entry.id, name: entry.name }
-      return { ...s, participants: parts }
-    }))
-  }
-
-  function addWriteIn() {
-    if (!writeInName.trim() || selectedSlot === null) return
-    setSlots((prev) => prev.map((s) => {
-      if (s.id !== selectedSlot) return s
-      const count = participantCount(s.matchType)
-      const parts = [...s.participants]
-      const emptyIdx = parts.slice(0, count).findIndex((p) => !p.name)
-      if (emptyIdx === -1) return s
-      parts[emptyIdx] = { type: 'writein', wrestlerId: null, name: writeInName.trim() }
-      return { ...s, participants: parts }
-    }))
-    setWriteInName('')
-  }
-
-  function removeParticipant(slotId: number, idx: number) {
-    setSlots((prev) => prev.map((s) => { if (s.id !== slotId) return s; const parts = [...s.participants]; parts[idx] = emptyParticipant(); return { ...s, participants: parts } }))
-  }
-
-  function updateSideName(slotId: number, sideIdx: number, name: string) {
-    setSlots((prev) => prev.map((s) => { if (s.id !== slotId) return s; const sideNames = [...s.sideNames]; sideNames[sideIdx] = name; return { ...s, sideNames } }))
-  }
-
-  function updateSlotField(id: number, key: keyof BookerSlot, value: any) {
-    setSlots((prev) => prev.map((s) => {
-      if (s.id !== id) return s
-      const updated = { ...s, [key]: value }
-      if (key === 'matchType') {
-        const count = participantCount(value as string)
-        const existing = s.participants.slice(0, count)
-        while (existing.length < count) existing.push(emptyParticipant())
-        updated.participants = existing
-        updated.sideNames = Array(getParticipantsPerSide(value as string).length).fill('')
-      }
-      return updated
-    }))
-  }
-
-  async function commitShow() {
-    if (!showName.trim() || !showDate) { setCommitError('Show name and date are required.'); return }
-    setCommitting(true); setCommitError(null)
-    try {
-      const { data: showData, error: showErr } = await supabase.from('shows').insert({ name: showName.trim(), show_date: showDate, show_type: mode, ppv_name: mode === 'ppv' && ppvName.trim() ? ppvName.trim() : null, status: 'committed' }).select('id').single()
-      if (showErr) throw showErr
-      const showId = showData.id
-      for (const slot of slots) {
-        const { data: matchData, error: matchErr } = await supabase.from('matches').insert({ show_id: showId, match_number: slot.id, match_type: slot.matchType, stipulation: slot.stipulation !== 'Standard' ? slot.stipulation : null, is_title_match: slot.isTitleMatch, title_id: slot.isTitleMatch && slot.titleId ? slot.titleId : null, is_mitb: false, mitb_cashin: false, is_draw: false }).select('id').single()
-        if (matchErr) throw matchErr
-        const matchId = matchData.id
-        const count = participantCount(slot.matchType)
-        const filled = slot.participants.slice(0, count).filter((p) => p.name)
-        for (const p of filled) {
-          const { error: mpErr } = await supabase.from('match_participants').insert({ match_id: matchId, wrestler_id: p.type === 'roster' ? p.wrestlerId : null, team_id: null, write_in_name: p.type === 'writein' ? p.name : null, result: 'loser' })
-          if (mpErr) throw mpErr
-        }
-      }
-      setCommitDone(true)
-    } catch (e: any) {
-      setCommitError(e?.message ?? 'Commit failed — please try again.')
-    } finally {
-      setCommitting(false)
-    }
-  }
-
-  function exportToDiscord() {
-    const header = mode === 'ppv' && ppvName ? `**DAW ${ppvName.toUpperCase()} — MATCH CARD**` : `**DAW ${mode === 'ppv' ? 'PPV' : 'WEEKLY'} — MATCH CARD**`
-    const dateStr = showDate ? `📅 ${new Date(showDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''
-    const lines = [header, ...(dateStr ? [dateStr] : []), '```', ...slots.map((s) => { const names = buildSideGroups(s.participants, s.matchType).map(({ side }, sideIdx) => { const faction = s.sideNames[sideIdx]?.trim(); return faction || side.filter((p) => p.name).map((p) => p.name).join(' & ') }).join(' vs '); const label = s.isMainEvent ? '★ MAIN EVENT — ' : `Match ${s.id} — `; const extra = [s.matchType !== 'Singles' ? s.matchType : '', s.stipulation !== 'Standard' ? s.stipulation : '', s.isTitleMatch ? 'TITLE' : ''].filter(Boolean).join(' · '); return `${label}${names || 'TBA'}${extra ? ` (${extra})` : ''}` }), '```']
-    navigator.clipboard.writeText(lines.join('\n'))
-    setCopied(true); setTimeout(() => setCopied(false), 2000)
-  }
-
-  const filteredRoster = roster.filter((w) => w.name.toLowerCase().includes(search.toLowerCase()))
-
-  return (
-    <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
-        <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase' }}>Show Booker</h2>
-        <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', flexWrap:'wrap' }}>
-          <div className="tab-group">
-            <button className={`tab${mode === 'weekly' ? ' active' : ''}`} onClick={() => changeMode('weekly')}>Weekly (9)</button>
-            <button className={`tab${mode === 'ppv' ? ' active' : ''}`} onClick={() => changeMode('ppv')}>PPV (12)</button>
-          </div>
-          <button className="btn" onClick={exportToDiscord} style={{ padding:'0.6rem 1.25rem' }}>{copied ? '✓ Copied!' : '📋 Discord'}</button>
-          <button className="btn btn-primary" onClick={commitShow} disabled={committing || commitDone} style={{ padding:'0.6rem 1.25rem' }}>{committing ? 'Committing…' : commitDone ? '✓ Show Committed!' : 'Commit Show'}</button>
-        </div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:`1fr 180px${mode === 'ppv' ? ' 200px' : ''}`, gap:'0.75rem', marginBottom:'1.5rem', alignItems:'end' }}>
-        <div>
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.3rem' }}>SHOW NAME</p>
-          <input className="form-input" placeholder={mode === 'weekly' ? 'DAW Warehouse LIVE — Apr 26' : 'DAW Clash of Champions'} value={showName} onChange={(e) => setShowName(e.target.value)} style={{ fontSize:'0.75rem' }} />
-        </div>
-        <div>
-          <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.3rem' }}>DATE</p>
-          <input className="form-input" type="date" value={showDate} onChange={(e) => setShowDate(e.target.value)} style={{ fontSize:'0.75rem' }} />
-        </div>
-        {mode === 'ppv' && (
-          <div>
-            <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.3rem' }}>PPV NAME</p>
-            <input className="form-input" placeholder="Clash of Champions" value={ppvName} onChange={(e) => setPpvName(e.target.value)} style={{ fontSize:'0.75rem' }} />
-          </div>
-        )}
-      </div>
-
-      {commitError && <div style={{ padding:'0.65rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✕ {commitError}</div>}
-      {commitDone && <div style={{ padding:'0.65rem 1rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✓ Show committed. Go to Results Entry to record outcomes after the show.</div>}
-
-      <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:'1.5rem' }}>
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', display:'flex', flexDirection:'column', height:'fit-content', maxHeight:'75vh' }}>
-          <div style={{ padding:'0.75rem', borderBottom:'1px solid var(--border)' }}>
-            <input className="form-input" placeholder="Search roster..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ fontSize:'0.72rem', marginBottom:'0.5rem' }} />
-            <button onClick={() => setShowWriteIn(!showWriteIn)} style={{ width:'100%', padding:'0.4rem', background: showWriteIn ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.08)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
-              {showWriteIn ? '▲ Hide Write-In' : '+ Write-In Wrestler'}
-            </button>
-            {showWriteIn && (
-              <div style={{ marginTop:'0.5rem', display:'flex', gap:'0.4rem' }}>
-                <input className="form-input" placeholder="Guest name…" value={writeInName} onChange={(e) => setWriteInName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addWriteIn() }} style={{ fontSize:'0.7rem', flex:1 }} />
-                <button onClick={addWriteIn} disabled={!writeInName.trim() || selectedSlot === null} style={{ padding:'0 0.75rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, cursor:'pointer', flexShrink:0, opacity: (!writeInName.trim() || selectedSlot === null) ? 0.4 : 1 }}>Add</button>
-              </div>
-            )}
-          </div>
-          <div style={{ overflowY:'auto', flex:1 }}>
-            {loading ? (
-              <p style={{ padding:'1rem', fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>Loading roster…</p>
-            ) : filteredRoster.map((w) => (
-              <button key={w.id} onClick={() => assignRosterWrestler(w)} style={{ width:'100%', textAlign:'left', padding:'0.55rem 0.9rem', background:'none', border:'none', borderBottom:'1px solid rgba(42,42,51,0.5)', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', opacity: w.injured ? 0.5 : 1 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-              >
-                <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{w.name}</span>
-                <div style={{ display:'flex', gap:'0.3rem', alignItems:'center', flexShrink:0 }}>
-                  {w.isChamp && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.48rem', color:'var(--bg-top)', background:'var(--gold)', padding:'1px 4px', fontWeight:700, letterSpacing:'0.08em' }}>CHAMP</span>}
-                  {w.injured && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.48rem', color:'var(--accent-red)', border:'1px solid var(--accent-red)', padding:'0px 4px', fontWeight:700, letterSpacing:'0.08em' }}>INJ</span>}
-                  {w.role && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.5rem', fontWeight:700, letterSpacing:'0.1em', color: w.role === 'Face' ? '#00c864' : w.role === 'Heel' ? 'var(--accent-red)' : 'var(--text-dim)' }}>{w.role.charAt(0)}</span>}
-                </div>
-              </button>
-            ))}
-          </div>
-          {selectedSlot !== null && (
-            <div style={{ padding:'0.6rem', background:'rgba(128,0,218,0.1)', borderTop:'1px solid var(--purple)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--purple-hot)', letterSpacing:'0.12em' }}>► Assigning to Match {selectedSlot}</div>
-          )}
-        </div>
-
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
-          {slots.map((slot) => {
-            const count = participantCount(slot.matchType)
-            const isSelected = selectedSlot === slot.id
-            return (
-              <div key={slot.id} onClick={() => setSelectedSlot(isSelected ? null : slot.id)} style={{ background:'var(--surface)', border:`2px solid ${slot.isMainEvent ? 'var(--gold)' : isSelected ? 'var(--purple)' : 'var(--border)'}`, padding:'1rem 1.25rem', cursor:'pointer' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem', flexWrap:'wrap', gap:'0.5rem' }}>
-                  <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color: slot.isMainEvent ? 'var(--gold)' : 'var(--text-dim)', textTransform:'uppercase' }}>{slot.isMainEvent ? '★ Main Event' : `Match ${slot.id}`}</span>
-                  <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
-                    <select className="form-input form-select" style={{ padding:'0.3rem 2rem 0.3rem 0.6rem', fontSize:'0.62rem', width:'auto' }} value={slot.matchType} onChange={(e) => { e.stopPropagation(); updateSlotField(slot.id, 'matchType', e.target.value) }} onClick={(e) => e.stopPropagation()}>{MATCH_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
-                    <select className="form-input form-select" style={{ padding:'0.3rem 2rem 0.3rem 0.6rem', fontSize:'0.62rem', width:'auto' }} value={slot.stipulation} onChange={(e) => { e.stopPropagation(); updateSlotField(slot.id, 'stipulation', e.target.value) }} onClick={(e) => e.stopPropagation()}>{STIPULATIONS.map((s) => <option key={s}>{s}</option>)}</select>
-                    <label style={{ display:'flex', alignItems:'center', gap:'0.35rem', cursor:'pointer' }} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={slot.isTitleMatch} onChange={(e) => updateSlotField(slot.id, 'isTitleMatch', e.target.checked)} style={{ accentColor:'var(--gold)' }} />
-                      <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color: slot.isTitleMatch ? 'var(--gold)' : 'var(--text-dim)', letterSpacing:'0.1em' }}>Title Match</span>
-                    </label>
-                    {slot.isTitleMatch && (
-                      <select className="form-input form-select" style={{ padding:'0.3rem 2rem 0.3rem 0.6rem', fontSize:'0.62rem', width:'auto' }} value={slot.titleId} onChange={(e) => { e.stopPropagation(); updateSlotField(slot.id, 'titleId', e.target.value) }} onClick={(e) => e.stopPropagation()}>
-                        <option value=''>— Select Title —</option>
-                        {titles.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', flexWrap:'wrap' }}>
-                  {buildSideGroups(slot.participants, slot.matchType).map(({ side, startIdx }, sideIdx) => (
-                    <div key={sideIdx} style={{ display:'flex', alignItems:'flex-start', gap:'0.5rem' }}>
-                      {sideIdx > 0 && <span style={{ fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--accent-red)', opacity:0.6, paddingTop:'0.35rem' }}>vs</span>}
-                      <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
-                        {side.map((p, i) => (
-                          <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                            {i > 0 && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)' }}>&amp;</span>}
-                            <div style={{ padding:'0.4rem 0.75rem', background: p.name ? (p.type === 'writein' ? 'rgba(128,0,218,0.1)' : 'var(--surface-2)') : 'transparent', border:`1px solid ${p.name ? (p.type === 'writein' ? 'var(--purple)' : 'var(--border-hot)') : 'rgba(42,42,51,0.5)'}`, display:'flex', alignItems:'center', gap:'0.45rem', minWidth:110 }}>
-                              {p.type === 'writein' && p.name && <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', color:'var(--purple-hot)', fontWeight:700, letterSpacing:'0.08em', background:'rgba(128,0,218,0.2)', padding:'1px 4px', flexShrink:0 }}>GUEST</span>}
-                              <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: p.name ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing:'0.08em', flex:1 }}>{p.name || `Slot ${startIdx + i + 1}`}</span>
-                              {p.name && <button onClick={(e) => { e.stopPropagation(); removeParticipant(slot.id, startIdx + i) }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.7rem', cursor:'pointer', padding:0, lineHeight:1 }}>✕</button>}
-                            </div>
-                          </div>
-                        ))}
-                        <input type="text" placeholder="Faction name…" value={slot.sideNames[sideIdx] ?? ''} onChange={(e) => { e.stopPropagation(); updateSideName(slot.id, sideIdx, e.target.value) }} onClick={(e) => e.stopPropagation()} style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', padding:'0.15rem 0.5rem', background:'transparent', border:'1px dashed rgba(128,0,218,0.3)', color:'var(--purple-hot)', outline:'none', width:'100%', minWidth:110, letterSpacing:'0.05em' }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── Results Entry ───────────────────────────────────── */
 
 type RosterAddEntry = { id: string; name: string; kind: 'wrestler' | 'team' }
@@ -711,10 +421,22 @@ async function syncTitleReign(matchId: string, showDate: string) {
     .select('id, holder_wrestler_id, holder_wrestler_id_2, holder_team_id')
     .eq('title_id', titleId).is('lost_date', null).limit(1)
   const cur = current?.[0]
-  const retained = !!cur && (teamId
-    ? cur.holder_team_id === teamId
-    : !cur.holder_team_id && wrestlerIds.includes(cur.holder_wrestler_id ?? '')
-      && (!cur.holder_wrestler_id_2 || wrestlerIds.includes(cur.holder_wrestler_id_2)))
+  // Retained (#ANDSTILL): the existing reign is left untouched so its won date and
+  // days held keep counting from when the title was first won.
+  let retained = false
+  if (cur?.holder_team_id) {
+    if (teamId) {
+      retained = cur.holder_team_id === teamId
+    } else {
+      // Faction champions defending with only their members listed on the card
+      const { data: mem } = await supabase.from('team_memberships').select('wrestler_id').eq('team_id', cur.holder_team_id)
+      const memberIds = new Set((mem ?? []).map((r: { wrestler_id: string }) => r.wrestler_id))
+      retained = wrestlerIds.length > 0 && wrestlerIds.every(id => memberIds.has(id))
+    }
+  } else if (cur && !teamId) {
+    retained = wrestlerIds.includes(cur.holder_wrestler_id ?? '')
+      && (!cur.holder_wrestler_id_2 || wrestlerIds.includes(cur.holder_wrestler_id_2))
+  }
   if (retained) return
 
   // Insert the new reign before closing the old one, so a failed insert never leaves

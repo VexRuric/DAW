@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getStreamStatus } from '@/lib/site-data'
+import { STIP_COLORS } from '@/lib/match-format'
 
 const RESULTS_POLL_MS = 30_000
 
@@ -40,15 +41,6 @@ const HASHTAG_COLOR: Record<string, string> = {
   ANDNEW:   'var(--accent-red)',
   ANDSTILL: 'var(--gold)',
   WINNER:   'var(--purple-hot)',
-}
-
-const STIP_COLORS: Record<string, string> = {
-  'Extreme': '#ff6b35', 'Weapons': '#ff4444', 'Steel Cage': '#8899aa',
-  'Falls Count Anywhere': '#22cc88', 'No Holds Barred': '#ff3355',
-  'Iron Man': '#ffc933', 'Ladder': '#4488ff', 'TLC': '#6644ff',
-  'Table': '#44aaff', 'No DQ': '#ff2244', 'Elimination Chamber': '#aa44ff',
-  'Hardcore': '#cc2222', 'Ambulance': '#aaaacc', 'War Games': '#882288',
-  'Casket': '#555577',
 }
 
 const DEFAULT_YT_PLAYLIST = 'PLJmTlWB_rLnAUfvozUqtODPuxAE3nC004'

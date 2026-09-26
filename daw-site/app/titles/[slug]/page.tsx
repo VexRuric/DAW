@@ -2,13 +2,10 @@ import { createClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { toSlug } from '@/lib/slug'
 
 interface PageProps {
   params: Promise<{ slug: string }>
-}
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
 function formatDate(dateStr: string) {

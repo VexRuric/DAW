@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { HASHTAG_BG, HASHTAG_FG, type ResultHashtag } from '@/lib/title-hashtag'
 
 export interface NewsCard {
   id: string
-  hashtag: 'ANDNEW' | 'ANDSTILL' | 'WINNER'
+  hashtag: ResultHashtag
   date: string
   dateShort: string
   title: string
@@ -16,17 +17,6 @@ export interface NewsCard {
 
 type Tab = 'ALL' | 'ANDNEW' | 'ANDSTILL' | 'WINNER'
 const TABS: Tab[] = ['ALL', 'ANDNEW', 'ANDSTILL', 'WINNER']
-
-const HASHTAG_BG: Record<NewsCard['hashtag'], string> = {
-  ANDNEW:   'var(--accent-red)',
-  ANDSTILL: 'var(--gold)',
-  WINNER:   'var(--purple)',
-}
-const HASHTAG_FG: Record<NewsCard['hashtag'], string> = {
-  ANDNEW:   'var(--text-strong)',
-  ANDSTILL: 'var(--bg-top)',
-  WINNER:   'var(--text-strong)',
-}
 
 export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
   const [tab, setTab] = useState<Tab>('ALL')

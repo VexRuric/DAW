@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { toSlug } from '@/lib/slug'
 
 export const metadata: Metadata = {
   title: 'Championships',
@@ -34,10 +35,6 @@ async function getData() {
   } catch {
     return { champions: [], titles: [] }
   }
-}
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
 function formatDate(dateStr: string) {

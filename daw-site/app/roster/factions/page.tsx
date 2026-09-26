@@ -3,14 +3,11 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { Team } from '@/lib/types'
 import FactionLogoBadge from '@/components/FactionLogoBadge'
+import { toSlug } from '@/lib/slug'
 
 export const metadata: Metadata = {
   title: 'Factions',
   description: 'All active DAW Warehouse LIVE factions and tag teams.',
-}
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
 interface TeamRecord {

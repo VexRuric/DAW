@@ -1,9 +1,6 @@
 import Link from 'next/link'
 import { CurrentChampion } from '@/lib/types'
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-}
+import { toSlug } from '@/lib/slug'
 
 export function SilhouetteSVG() {
   return (

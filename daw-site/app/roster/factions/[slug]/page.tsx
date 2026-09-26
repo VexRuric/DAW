@@ -4,16 +4,13 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import TitleHistoryTab from '@/components/TitleHistoryTab'
 import FactionHeroImages from '@/components/FactionHeroImages'
+import { toSlug } from '@/lib/slug'
 
 interface PageProps {
   params: Promise<{ slug: string }>
 }
 
 interface StatLine { w: number; l: number; d: number; total: number }
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-}
 
 async function getFaction(slug: string) {
   const supabase = await createClient()

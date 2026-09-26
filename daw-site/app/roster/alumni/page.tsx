@@ -2,14 +2,11 @@ import { createClient } from '@/lib/supabase-server'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { Wrestler, WrestlerRecord } from '@/lib/types'
+import { toSlug } from '@/lib/slug'
 
 export const metadata: Metadata = {
   title: 'Alumni',
   description: 'Former DAW Warehouse LIVE wrestlers — retired superstars.',
-}
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
 async function getData() {

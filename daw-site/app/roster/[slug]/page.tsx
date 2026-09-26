@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import TitleHistoryTab from '@/components/TitleHistoryTab'
+import { toSlug } from '@/lib/slug'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -34,10 +35,6 @@ function calcStat(rows: { result: string; match_type: string }[], types: string[
     d:     filtered.filter(r => r.result === 'draw').length,
     total: filtered.length,
   }
-}
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
 async function getWrestler(slug: string) {

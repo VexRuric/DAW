@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import WrestlerCard from '@/components/WrestlerCard'
 import { Wrestler, WrestlerRecord, CurrentChampion } from '@/lib/types'
+import { toSlug } from '@/lib/slug'
 
 interface RosterClientProps {
   wrestlers:             Wrestler[]
@@ -14,10 +15,6 @@ interface RosterClientProps {
 
 const DIVISIONS = ['All', 'Mens', 'Womens', 'Internet', 'Intercontinental', 'Tag Team']
 const ROLES     = ['All', 'Face', 'Heel', 'Legends']
-
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-}
 
 export default function RosterClient({ wrestlers, records, champions, titleImageById, tagChampWrestlerMap }: RosterClientProps) {
   const [division, setDivision] = useState('All')

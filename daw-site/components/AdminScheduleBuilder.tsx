@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { MATCH_TYPES, STIP_COLORS, getParticipantsPerSide } from '@/lib/match-format'
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -30,17 +31,8 @@ interface BookerSlot {
 
 /* ── Constants ──────────────────────────────────────── */
 
-const MATCH_TYPES = ['Singles', 'Tag Team', 'Triple Threat', 'Fatal 4-Way', 'Gauntlet', 'Battle Royal', 'Royal Rumble', 'Handicap']
 const STIP_TAGS   = ['Extreme', 'Weapons', 'Steel Cage', 'Falls Count Anywhere', 'No Holds Barred', 'Iron Man', 'Ladder', 'TLC', 'Table', 'No DQ', 'Elimination Chamber', 'Hardcore', 'Ambulance', 'War Games', 'Casket']
 const STIP_TAG_SET = new Set(STIP_TAGS)
-const STIP_COLORS: Record<string, string> = {
-  'Extreme': '#ff6b35', 'Weapons': '#ff4444', 'Steel Cage': '#8899aa',
-  'Falls Count Anywhere': '#22cc88', 'No Holds Barred': '#ff3355',
-  'Iron Man': '#ffc933', 'Ladder': '#4488ff', 'TLC': '#6644ff',
-  'Table': '#44aaff', 'No DQ': '#ff2244', 'Elimination Chamber': '#aa44ff',
-  'Hardcore': '#cc2222', 'Ambulance': '#aaaacc', 'War Games': '#882288',
-  'Casket': '#555577',
-}
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -61,19 +53,6 @@ function participantCount(matchType: string, matchSize?: number): number {
     case 'Royal Rumble':  return matchSize ?? 30
     case 'Handicap':      return 3
     default:              return 2
-  }
-}
-
-function getParticipantsPerSide(matchType: string, matchSize?: number): number[] {
-  switch (matchType) {
-    case 'Tag Team':      return matchSize === 6 ? [3, 3] : [2, 2]
-    case 'Triple Threat': return [1, 1, 1]
-    case 'Fatal 4-Way':   return [1, 1, 1, 1]
-    case 'Gauntlet':      return [1, 1, 1, 1, 1, 1]
-    case 'Battle Royal':  return Array(matchSize ?? 8).fill(1)
-    case 'Royal Rumble':  return Array(matchSize ?? 30).fill(1)
-    case 'Handicap':      return [2, 1]
-    default:              return [1, 1]
   }
 }
 
