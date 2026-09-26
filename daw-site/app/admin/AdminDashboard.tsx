@@ -433,7 +433,9 @@ async function syncTitleReign(matchId: string, showDate: string) {
       const memberIds = new Set((mem ?? []).map((r: { wrestler_id: string }) => r.wrestler_id))
       retained = wrestlerIds.length > 0 && wrestlerIds.every(id => memberIds.has(id))
     }
-  } else if (cur && !teamId) {
+  } else if (cur) {
+    // Wrestler champions (solo or co-holders) retain if they're among the winners —
+    // including when they now defend as a faction (e.g. partners who later formed a team)
     retained = wrestlerIds.includes(cur.holder_wrestler_id ?? '')
       && (!cur.holder_wrestler_id_2 || wrestlerIds.includes(cur.holder_wrestler_id_2))
   }
