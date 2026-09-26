@@ -111,7 +111,7 @@ export default function ChampionStrip({
   return (
     <div className="champion-strip">
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <span style={{ display: 'inline-block', background: 'var(--gold)', color: 'var(--bg-top)', fontFamily: 'var(--font-display)', fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.25rem 0.85rem', textTransform: 'uppercase', lineHeight: 1.4 }}>
+        <span style={{ display: 'inline-block', background: 'var(--gold)', color: 'var(--bg-top)', fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 400, letterSpacing: '0.12em', padding: '0.25rem 0.85rem', textTransform: 'uppercase', lineHeight: 1.4 }}>
           Champions
         </span>
         <div style={{ flex: 1, height: 1, background: 'rgba(255,201,51,0.25)' }} />

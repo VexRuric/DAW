@@ -681,6 +681,59 @@ function _ShowBookerOld({ notes: _notes }: { notes: DBStoryNote[] }) {
 
 type RosterAddEntry = { id: string; name: string; kind: 'wrestler' | 'team' }
 
+// Move (or retain) a championship based on a title match's recorded winner.
+// Idempotent per match: re-saving first undoes this match's previous effect, then re-applies.
+async function syncTitleReign(matchId: string, showDate: string) {
+  const { data: m } = await supabase
+    .from('matches')
+    .select('id, is_title_match, title_id, match_participants(wrestler_id, team_id, result)')
+    .eq('id', matchId).single()
+  if (!m?.is_title_match || !m.title_id) return
+  const titleId = m.title_id as string
+
+  // Don't rewrite history if the title has already changed hands after this show
+  const { data: later } = await supabase.from('title_reigns').select('id')
+    .eq('title_id', titleId).gt('won_date', showDate)
+    .or(`won_at_match_id.is.null,won_at_match_id.neq.${matchId}`).limit(1)
+  if (later && later.length > 0) return
+
+  // Undo anything this match did previously
+  await supabase.from('title_reigns').delete().eq('won_at_match_id', matchId)
+  await supabase.from('title_reigns').update({ lost_date: null, lost_at_match_id: null }).eq('lost_at_match_id', matchId)
+
+  const winners = ((m.match_participants ?? []) as { wrestler_id: string | null; team_id: string | null; result: string }[])
+    .filter(p => p.result === 'winner')
+  const teamId = winners.find(p => p.team_id)?.team_id ?? null
+  const wrestlerIds = winners.map(p => p.wrestler_id).filter((id): id is string => !!id)
+  if (!teamId && wrestlerIds.length === 0) return // draw, no result, or write-in winner
+
+  const { data: current } = await supabase.from('title_reigns')
+    .select('id, holder_wrestler_id, holder_wrestler_id_2, holder_team_id')
+    .eq('title_id', titleId).is('lost_date', null).limit(1)
+  const cur = current?.[0]
+  const retained = !!cur && (teamId
+    ? cur.holder_team_id === teamId
+    : !cur.holder_team_id && wrestlerIds.includes(cur.holder_wrestler_id ?? '')
+      && (!cur.holder_wrestler_id_2 || wrestlerIds.includes(cur.holder_wrestler_id_2)))
+  if (retained) return
+
+  if (cur) {
+    const { error } = await supabase.from('title_reigns').update({ lost_date: showDate, lost_at_match_id: matchId }).eq('id', cur.id)
+    if (error) throw error
+  }
+  const { data: prev } = await supabase.from('title_reigns').select('reign_number').eq('title_id', titleId).order('reign_number', { ascending: false }).limit(1)
+  const { error } = await supabase.from('title_reigns').insert({
+    title_id: titleId,
+    holder_team_id: teamId,
+    holder_wrestler_id: wrestlerIds[0] ?? null,
+    holder_wrestler_id_2: wrestlerIds[1] ?? null,
+    won_date: showDate,
+    won_at_match_id: matchId,
+    reign_number: ((prev?.[0]?.reign_number ?? 0) as number) + 1,
+  })
+  if (error) throw error
+}
+
 function ResultsEntry() {
   const [shows, setShows]               = useState<ShowStub[]>([])
   const [loadingShows, setLoadingShows] = useState(true)
@@ -936,12 +989,11 @@ function ResultsEntry() {
           await supabase.from('fines').insert({ wrestler_id: fine.wrestler_id, team_id: fine.team_id, match_id: matchId, show_id: selectedShow!.id, amount: parseInt(fine.amount) || 0, reason: fine.reason, issued_date: selectedShow!.show_date })
         }
       }
+      if (match.is_title_match) await syncTitleReign(matchId, selectedShow!.show_date)
       setSavedMatch(matchId)
       setTimeout(() => setSavedMatch(null), 3000)
-      // Auto-sync championships when editing a completed show
-      if (match.is_title_match && selectedShow?.status === 'completed') {
-        fetch('/api/admin/rebuild-reigns', { method: 'POST' }).catch(() => {})
-      }
+    } catch (e: any) {
+      setSubmitError(e?.message ?? 'Save failed — please try again.')
     } finally {
       setSavingMatch(null)
     }
@@ -993,6 +1045,7 @@ function ResultsEntry() {
         await supabase.from('title_reigns').update({ lost_date: qmDate, cashed_in: true }).eq('title_id', qmCashInTitleId).is('lost_date', null)
         setMitbTitles(prev => prev.filter(t => t.titleId !== qmCashInTitleId))
       }
+      if (qmTitleChange && qmTitleId) await syncTitleReign(match.id, qmDate)
       setQmDone(true)
     } catch (e: any) {
       setQmError(e?.message ?? 'Failed to record match.')
@@ -1059,6 +1112,7 @@ function ResultsEntry() {
         if (form.cash_in_title_id) {
           await supabase.from('title_reigns').update({ lost_date: selectedShow.show_date, cashed_in: true }).eq('title_id', form.cash_in_title_id).is('lost_date', null)
         }
+        if (match.is_title_match) await syncTitleReign(match.id, selectedShow.show_date)
         if (form.add_to_story_board && form.notes.trim()) {
           await supabase.from('story_notes').insert({ note_type: 'angle', title: `${selectedShow.name} — Match ${match.match_number}`, body: form.notes.trim(), show_id: selectedShow.id })
         }
@@ -1068,8 +1122,6 @@ function ResultsEntry() {
       setShows((prev) => prev.map((s) => s.id === selectedShow.id ? { ...s, status: 'completed' } : s))
       setSelectedShow((prev) => prev ? { ...prev, status: 'completed' } : prev)
       setSubmitDone(true)
-      // Auto-rebuild title reigns now that the show is completed
-      fetch('/api/admin/rebuild-reigns', { method: 'POST' }).catch(() => {})
     } catch (e: any) {
       setSubmitError(e?.message ?? 'Submit failed — please try again.')
     } finally {

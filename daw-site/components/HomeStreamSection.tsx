@@ -312,8 +312,6 @@ function MysteryRow({ matchNumber, isMainEvent }: { matchNumber: number; isMainE
   )
 }
 
-const NAME_LIMIT = 4
-
 // size accepts px number or CSS string (e.g. clamp(...)) for responsive sizing
 // contain=true for logos/badges (objectFit contain); false/default for wrestler renders (cover + top crop)
 function WrestlerAvatar({ src, name, size = 34, contain = false }: { src: string | null; name: string; size?: number | string; contain?: boolean }) {
@@ -365,8 +363,6 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
   const isPromo           = match.scheme === 'Promo'
   const isMassMatch       = match.matchType === 'Battle Royal' || match.matchType === 'Royal Rumble'
   const stipParts         = match.stipulation ? match.stipulation.split(', ').map(s => s.trim()).filter(Boolean) : []
-  const hiddenCount       = Math.max(0, sides.length - NAME_LIMIT)
-  const [expanded, setExpanded] = useState(false)
   const hasMembers = sides.some(s => s.members && s.members.length > 0)
 
   function sideNameColor(idx: number): string {
@@ -445,16 +441,19 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
               ))}
             </div>
             {sides.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>
-                {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                {sides.map((s, i) => (
                   <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', flexShrink: 0 }}>
                     {i > 0 && <span style={{ color: 'var(--text-dim)', opacity: 0.35, fontSize: '0.45rem', flexShrink: 0 }}>·</span>}
-                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: sideNameColor(i), letterSpacing: '0.05em', textTransform: 'uppercase', transition: 'color 0.2s' }}>{s.name}</span>
+                    <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: sideNameColor(i), fontWeight: match.winningSideIdx === i ? 700 : 400, letterSpacing: '0.05em', textTransform: 'uppercase', transition: 'color 0.2s' }}>{s.name}</span>
                   </span>
                 ))}
-                {hiddenCount > 0 && !expanded && (
-                  <button onClick={() => setExpanded(true)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', background: 'none', border: 'none', padding: '0 0.25rem', cursor: 'pointer', flexShrink: 0 }}>+{hiddenCount} more</button>
-                )}
+              </div>
+            )}
+            {match.winningSideIdx !== null && sides[match.winningSideIdx] && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.14em', fontWeight: 700 }}>WINNER</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', color: '#22cc66', textTransform: 'uppercase', lineHeight: 1 }}>{sides[match.winningSideIdx].name}</span>
               </div>
             )}
           </>
@@ -528,16 +527,13 @@ function MatchRow({ match, showImages = true, showFactionLogos = true }: { match
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {(expanded ? sides : sides.slice(0, NAME_LIMIT)).map((s, i) => (
+              {sides.map((s, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
                   {i > 0 && <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.6rem', color: 'var(--purple-hot)', opacity: 0.6, flexShrink: 0 }}>vs</span>}
                   {showImages && <WrestlerAvatar src={s.image_url} name={s.name} size="clamp(28px, 7vw, 36px)" />}
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(0.94rem, 3.6vw, 1.14rem)', color: sideNameColor(i), textTransform: 'uppercase', lineHeight: 1, transition: 'color 0.2s' }}>{s.name}</span>
                 </span>
               ))}
-              {hiddenCount > 0 && !expanded && (
-                <button onClick={() => setExpanded(true)} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.44rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', background: 'none', border: 'none', padding: '0 0.25rem', cursor: 'pointer', flexShrink: 0 }}>+{hiddenCount} more</button>
-              )}
             </div>
             <MatchBadges match={match} stipParts={stipParts} center />
           </>
