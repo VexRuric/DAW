@@ -26,7 +26,8 @@ interface ChampionCardProps {
 
 function ChampionCard({ champion, renderUrl, titleImageUrl }: ChampionCardProps) {
   const titleSlug    = toSlug(champion.title_name)
-  const wrestlerSlug = champion.holder_wrestler_id ? toSlug(champion.holder_name) : null
+  // Team reigns may also record members, so only link individual champions
+  const wrestlerSlug = champion.holder_wrestler_id && !champion.holder_team_id ? toSlug(champion.holder_name) : null
 
   return (
     <div style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden', background: 'rgb(8,6,2)', border: '1px solid rgba(255,201,51,0.4)' }}>
@@ -122,7 +123,7 @@ export default function ChampionStrip({
           <ChampionCard
             key={champ.title_id}
             champion={champ}
-            renderUrl={champ.holder_wrestler_id ? (renderMap?.get(champ.holder_wrestler_id) ?? null) : null}
+            renderUrl={champ.holder_wrestler_id && !champ.holder_team_id ? (renderMap?.get(champ.holder_wrestler_id) ?? null) : null}
             titleImageUrl={titleImageById?.get(champ.title_id) ?? null}
           />
         ))}

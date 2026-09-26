@@ -51,7 +51,9 @@ async function getData(slug: string) {
     .eq('title_id', title.id)
     .order('won_date', { ascending: false })
 
-  return { title, reigns: (reigns ?? []) as any[] }
+  // A team reign may also record its winning members; show it as the team's reign
+  const normalized = (reigns ?? []).map((r: any) => (r.teams ? { ...r, wrestlers: null } : r))
+  return { title, reigns: normalized as any[] }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

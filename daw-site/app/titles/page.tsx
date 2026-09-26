@@ -79,10 +79,11 @@ export default async function TitlesPage() {
           category: string
           holder_name: string
           holder_wrestler_id: string | null
+          holder_team_id: string | null
           won_date: string
           days_held: number
         }) => {
-          const slug = champ.holder_wrestler_id ? toSlug(champ.holder_name) : null
+          const slug = champ.holder_wrestler_id && !champ.holder_team_id ? toSlug(champ.holder_name) : null
           return (
             <div
               key={champ.title_id}
@@ -249,9 +250,10 @@ export default async function TitlesPage() {
                   }}
                 >
                   {sortedReigns.map((reign) => {
-                    const holder = reign.wrestlers ?? reign.teams
+                    // Team reigns may also record members — show the team
+                    const holder = reign.teams ?? reign.wrestlers
                     if (!holder) return null
-                    const slug = reign.wrestlers ? toSlug(holder.name) : null
+                    const slug = reign.teams ? null : toSlug(holder.name)
                     const isCurrent = !reign.lost_date
 
                     return (

@@ -717,21 +717,22 @@ async function syncTitleReign(matchId: string, showDate: string) {
       && (!cur.holder_wrestler_id_2 || wrestlerIds.includes(cur.holder_wrestler_id_2)))
   if (retained) return
 
+  // Insert the new reign before closing the old one, so a failed insert never leaves
+  // the title without a champion. Team reigns also record the members who won
+  // (sql/migration_team_title_members.sql).
+  const { data: prev } = await supabase.from('title_reigns').select('reign_number').eq('title_id', titleId).order('reign_number', { ascending: false }).limit(1)
+  const base = { title_id: titleId, won_date: showDate, won_at_match_id: matchId, reign_number: ((prev?.[0]?.reign_number ?? 0) as number) + 1 }
+  const members = { holder_wrestler_id: wrestlerIds[0] ?? null, holder_wrestler_id_2: wrestlerIds[1] ?? null }
+  let { error: insertErr } = await supabase.from('title_reigns').insert({ ...base, holder_team_id: teamId, ...members })
+  if (insertErr?.code === '23514' && teamId) {
+    // Database still has the old team-OR-wrestler constraint — save the team alone
+    ;({ error: insertErr } = await supabase.from('title_reigns').insert({ ...base, holder_team_id: teamId }))
+  }
+  if (insertErr) throw insertErr
   if (cur) {
     const { error } = await supabase.from('title_reigns').update({ lost_date: showDate, lost_at_match_id: matchId }).eq('id', cur.id)
     if (error) throw error
   }
-  const { data: prev } = await supabase.from('title_reigns').select('reign_number').eq('title_id', titleId).order('reign_number', { ascending: false }).limit(1)
-  const { error } = await supabase.from('title_reigns').insert({
-    title_id: titleId,
-    holder_team_id: teamId,
-    holder_wrestler_id: wrestlerIds[0] ?? null,
-    holder_wrestler_id_2: wrestlerIds[1] ?? null,
-    won_date: showDate,
-    won_at_match_id: matchId,
-    reign_number: ((prev?.[0]?.reign_number ?? 0) as number) + 1,
-  })
-  if (error) throw error
 }
 
 function ResultsEntry() {
@@ -1453,8 +1454,23 @@ function ResultsEntry() {
                 <div style={{ marginBottom:'1rem' }}>
                   <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.5rem' }}>WINNER</p>
                   <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem' }}>
-                    {match.participants.filter(p => !p.team_id).map((p) => {
-                      const selected = form.winner_mp_id === p.mp_id
+                    {match.participants.filter(p => !p.team_id).map((p, _i, wrestlerParts) => {
+                      // Highlight everyone who will be saved as a winner: the whole winning side
+                      // (e.g. both tag partners), or all members of a faction picked directly.
+                      const winnerFaction = match.participants.find(fp => fp.team_id && fp.mp_id === form.winner_mp_id)
+                      let selected = form.winner_mp_id === p.mp_id
+                      if (winnerFaction) {
+                        selected = !!p.wrestler_id && teamMemberships.some(m => m.teamId === winnerFaction.team_id && m.wrestlerId === p.wrestler_id)
+                      } else if (form.winner_mp_id) {
+                        const perSide = getParticipantsPerSide(match.match_type, wrestlerParts.length)
+                        const winnerIdx = wrestlerParts.findIndex(w => w.mp_id === form.winner_mp_id)
+                        const myIdx = wrestlerParts.indexOf(p)
+                        let start = 0
+                        for (const n of perSide) {
+                          if (winnerIdx >= start && winnerIdx < start + n) { selected = myIdx >= start && myIdx < start + n; break }
+                          start += n
+                        }
+                      }
                       return editingMatch === match.id ? (
                         <div key={p.mp_id} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', background:'var(--surface-2)', border:'1px solid var(--border)' }}>
                           <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{p.name}</span>
@@ -1732,7 +1748,7 @@ function ChampionsSection() {
   async function save() {
     if (!editId || !holderId) return
     setSaving(true); setSaveError(null)
-    await supabase.from('title_reigns').update({ lost_date: wonDate }).eq('title_id', editId).is('lost_date', null)
+    const { data: current } = await supabase.from('title_reigns').select('id').eq('title_id', editId).is('lost_date', null)
     const { data: prev } = await supabase.from('title_reigns').select('reign_number').eq('title_id', editId).order('reign_number', { ascending: false }).limit(1)
     const nextNum = ((prev?.[0]?.reign_number ?? 0) as number) + 1
 
@@ -1758,8 +1774,16 @@ function ChampionsSection() {
       }
     }
 
+    // Insert first, then close the previous reign — a failed insert leaves the old champion in place
     const { error } = await supabase.from('title_reigns').insert(insertPayload)
-    if (error) { setSaveError(error.message); setSaving(false); return }
+    if (error) {
+      setSaveError(error.code === '23514'
+        ? 'Database does not yet allow a team + members reign — run sql/migration_team_title_members.sql, or save without selecting members.'
+        : error.message)
+      setSaving(false); return
+    }
+    const oldIds = (current ?? []).map((r: { id: string }) => r.id)
+    if (oldIds.length > 0) await supabase.from('title_reigns').update({ lost_date: wonDate }).in('id', oldIds)
     await loadAll()
     setEditId(null); setHolderId2(''); setSelectedMemberIds([]); setSaving(false)
   }
