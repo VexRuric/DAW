@@ -150,6 +150,9 @@ function BookerModal({
   const [writeInName, setWriteInName]       = useState('')
   const [loading, setLoading]               = useState(true)
   const [locked, setLocked]                 = useState(show.matchcard_locked)
+  // Snapshot of slots taken when an admin reopens a committed card for editing; null = not editing
+  const [editSnapshot, setEditSnapshot]     = useState<{ slots: BookerSlot[]; slotCount: number } | null>(null)
+  const readOnly = locked && !editSnapshot
   const [saving, setSaving]                 = useState(false)
   const [committing, setCommitting]         = useState(false)
   const [saveError, setSaveError]           = useState<string | null>(null)
@@ -482,12 +485,25 @@ function BookerModal({
       const { error } = await supabase.from('shows').update({ matchcard_locked: true }).eq('id', show.id)
       if (error) throw error
       setLocked(true)
+      setEditSnapshot(null)
       onSaved(show.id, savedCount, true)
     } catch (e: any) {
       setSaveError(e?.message ?? 'Commit failed')
     } finally {
       setCommitting(false)
     }
+  }
+
+  function startEditingCommitted() {
+    setEditSnapshot({ slots: slots.map(s => ({ ...s, participants: [...s.participants] })), slotCount })
+    setSaveError(null)
+  }
+
+  function cancelEditingCommitted() {
+    if (editSnapshot) { setSlots(editSnapshot.slots); setSlotCount(editSnapshot.slotCount) }
+    setEditSnapshot(null)
+    setSelectedSlot(null)
+    setSaveError(null)
   }
 
   function exportToDiscord() {
@@ -560,10 +576,32 @@ function BookerModal({
             <button onClick={exportToDiscord} className="btn" style={{ padding: '0.55rem 1rem', fontSize: '0.65rem' }}>
               {copied ? '✓ Copied!' : '📋 Discord'}
             </button>
-            {locked ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'rgba(0,200,100,0.1)', border: '1px solid #00c864' }}>
-                <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', fontWeight: 700, letterSpacing: '0.1em' }}>✓ MATCHCARD COMMITTED</span>
-              </div>
+            {readOnly ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'rgba(0,200,100,0.1)', border: '1px solid #00c864' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', fontWeight: 700, letterSpacing: '0.1em' }}>✓ MATCHCARD COMMITTED</span>
+                </div>
+                <button onClick={startEditingCommitted} className="btn" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
+                  ✎ Edit Matchcard
+                </button>
+              </>
+            ) : locked ? (
+              <>
+                {/* Editing an already-committed card: changes save straight to the live card */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
+                  <input type="range" min={9} max={20} value={slotCount}
+                    onChange={e => changeSlotCount(Number(e.target.value))}
+                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+                  <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
+                </div>
+                <button onClick={cancelEditingCommitted} disabled={committing} className="btn" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
+                  Cancel
+                </button>
+                <button onClick={commitMatchcard} disabled={committing} className="btn btn-primary" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
+                  {committing ? 'Saving…' : 'Save Changes'}
+                </button>
+              </>
             ) : (
               <>
                 {/* Slot count slider */}
@@ -590,7 +628,7 @@ function BookerModal({
 
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--text-dim)', letterSpacing: '0.2em' }}>Loading…</div>
-        ) : locked ? (
+        ) : readOnly ? (
           /* ── Read-only committed matchcard view ── */
           <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,200,100,0.08)', border: '1px solid #00c864', color: '#00c864', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', letterSpacing: '0.1em', fontWeight: 700 }}>
@@ -1304,7 +1342,7 @@ export default function AdminScheduleBuilder() {
                   {!isSkip && (
                     <button onClick={() => setSelectedShow(show)} className="btn btn-primary"
                       style={{ padding: '0.45rem 0.9rem', fontSize: '0.62rem', flexShrink: 0, background: isLocked ? 'transparent' : hasMatchcard ? 'transparent' : undefined, border: (isLocked || hasMatchcard) ? `1px solid ${statusColor}` : undefined, color: isLocked ? '#00c864' : hasMatchcard ? '#3b82f6' : undefined }}>
-                      {isLocked ? 'View Card ▶' : show.match_count === 0 ? 'Build Card ▶' : 'Edit Card ▶'}
+                      {isLocked ? 'View / Edit ▶' : show.match_count === 0 ? 'Build Card ▶' : 'Edit Card ▶'}
                     </button>
                   )}
                   <button onClick={() => deleteShow(show.id)}
