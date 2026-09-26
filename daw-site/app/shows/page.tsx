@@ -55,12 +55,39 @@ const FALLBACK_EXCERPTS: TemplateMap = {
   winner_excerpt:   ['{winner} picks up the win over {loser} in a {match_type}.'],
 }
 
-function deriveHashtag(match: any, andNewIds: Set<string>): 'ANDNEW' | 'ANDSTILL' | 'WINNER' {
-  if (match.is_title_match) return andNewIds.has(match.id) ? 'ANDNEW' : 'ANDSTILL'
-  return 'WINNER'
+function deriveHashtag(
+  match: any,
+  andNewIds: Set<string>,
+  preShowReignHolders?: Map<string, Map<string, string>>,
+  showDate?: string,
+): 'ANDNEW' | 'ANDSTILL' | 'WINNER' {
+  if (!match.is_title_match) return 'WINNER'
+  if (andNewIds.has(match.id)) return 'ANDNEW'
+
+  if (preShowReignHolders && showDate) {
+    const titleId = match.titles?.id
+    if (titleId) {
+      const holdersMap = preShowReignHolders.get(titleId)
+      if (holdersMap) {
+        const winners = (match.match_participants ?? []).filter((p: any) => p.result === 'winner')
+        for (const w of winners) {
+          const holderId = w.wrestler_id ?? w.team_id
+          if (holderId) {
+            const wonDate = holdersMap.get(holderId)
+            if (wonDate !== undefined) {
+              return wonDate < showDate ? 'ANDSTILL' : 'ANDNEW'
+            }
+          }
+        }
+        return 'ANDNEW'
+      }
+    }
+  }
+
+  return 'ANDSTILL'
 }
 
-function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap): string {
+function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap, preShowReignHolders?: Map<string, Map<string, string>>, showDate?: string): string {
   const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
   const promoLabel = match.scheme === 'Promo' && match.stipulation ? match.stipulation : effectiveType
   const winner = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
@@ -74,7 +101,7 @@ function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap):
   const lName = losers.length === 0 ? '' : losers.length <= 3
     ? losers.map((p: any) => participantName(p)).join(' & ')
     : losers.slice(0, 2).map((p: any) => participantName(p)).join(', ') + ' & more'
-  const hashtag = deriveHashtag(match, andNewIds)
+  const hashtag = deriveHashtag(match, andNewIds, preShowReignHolders, showDate)
   const titleName = match.titles?.name ?? 'Title'
   const tokens = { winner: wName, loser: lName || wName, title: titleName, match_type: promoLabel }
   const catKey = hashtag === 'ANDNEW' ? 'andnew_headline' : hashtag === 'ANDSTILL' ? 'andstill_headline' : 'winner_headline'
@@ -82,12 +109,12 @@ function buildHeadline(match: any, andNewIds: Set<string>, tplMap: TemplateMap):
   return fillTemplate(pick(pool, match.id), tokens)
 }
 
-function buildExcerpt(match: any, andNewIds: Set<string>, tplMap: TemplateMap): string {
+function buildExcerpt(match: any, andNewIds: Set<string>, tplMap: TemplateMap, preShowReignHolders?: Map<string, Map<string, string>>, showDate?: string): string {
   const winner = (match.match_participants ?? []).find((p: any) => p.result === 'winner')
   const losers = (match.match_participants ?? []).filter((p: any) => p.result === 'loser')
   const wName = winner ? participantName(winner) : ''
   const lStr  = losers.map((p: any) => participantName(p)).join(' and ')
-  const hashtag = deriveHashtag(match, andNewIds)
+  const hashtag = deriveHashtag(match, andNewIds, preShowReignHolders, showDate)
   const titleName = match.titles?.name ?? 'title'
   const effectiveType = match.scheme === 'Promo' ? 'Promo' : match.match_type
   const matchLabel = `${effectiveType}${match.stipulation ? ` ${match.stipulation}` : ''}`
@@ -166,6 +193,27 @@ export default async function ShowsPage({ searchParams }: PageProps) {
     }
   }
 
+  // Build pre-show reign holders: titleId -> holderId -> won_date
+  const preShowReignHolders = new Map<string, Map<string, string>>()
+  const allTitleIds = [...new Set(
+    Object.values(matchesByShow).flat()
+      .filter((m: any) => m.is_title_match && m.titles?.id)
+      .map((m: any) => m.titles.id as string)
+  )]
+  if (allTitleIds.length > 0) {
+    const { data: activeReigns } = await supabase
+      .from('title_reigns')
+      .select('title_id, holder_wrestler_id, holder_team_id, won_date')
+      .in('title_id', allTitleIds)
+      .is('lost_date', null)
+    for (const r of activeReigns ?? []) {
+      if (!preShowReignHolders.has(r.title_id)) preShowReignHolders.set(r.title_id, new Map())
+      const holders = preShowReignHolders.get(r.title_id)!
+      if (r.holder_wrestler_id) holders.set(r.holder_wrestler_id, r.won_date)
+      if (r.holder_team_id) holders.set(r.holder_team_id, r.won_date)
+    }
+  }
+
   function buildUrl(p: number) {
     return `/shows?page=${p}`
   }
@@ -217,9 +265,9 @@ export default async function ShowsPage({ searchParams }: PageProps) {
                 {/* Match cards grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
                   {completedMatches.map((match: any) => {
-                    const hashtag = deriveHashtag(match, andNewIds)
-                    const headline = buildHeadline(match, andNewIds, tplMap)
-                    const excerpt  = buildExcerpt(match, andNewIds, tplMap)
+                    const hashtag = deriveHashtag(match, andNewIds, preShowReignHolders, show.show_date)
+                    const headline = buildHeadline(match, andNewIds, tplMap, preShowReignHolders, show.show_date)
+                    const excerpt  = buildExcerpt(match, andNewIds, tplMap, preShowReignHolders, show.show_date)
                     const imageWinner = winnerForImage(match.match_participants ?? [])
                     const firstP   = (match.match_participants ?? []).find((p: any) => p.wrestlers?.render_url)
                       ?? (match.match_participants ?? [])[0]

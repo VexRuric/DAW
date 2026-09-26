@@ -938,6 +938,10 @@ function ResultsEntry() {
       }
       setSavedMatch(matchId)
       setTimeout(() => setSavedMatch(null), 3000)
+      // Auto-sync championships when editing a completed show
+      if (match.is_title_match && selectedShow?.status === 'completed') {
+        fetch('/api/admin/rebuild-reigns', { method: 'POST' }).catch(() => {})
+      }
     } finally {
       setSavingMatch(null)
     }
@@ -1064,6 +1068,8 @@ function ResultsEntry() {
       setShows((prev) => prev.map((s) => s.id === selectedShow.id ? { ...s, status: 'completed' } : s))
       setSelectedShow((prev) => prev ? { ...prev, status: 'completed' } : prev)
       setSubmitDone(true)
+      // Auto-rebuild title reigns now that the show is completed
+      fetch('/api/admin/rebuild-reigns', { method: 'POST' }).catch(() => {})
     } catch (e: any) {
       setSubmitError(e?.message ?? 'Submit failed — please try again.')
     } finally {

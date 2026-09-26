@@ -186,7 +186,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {filtered.slice(0, 6).map((card, i) => {
+              {filtered.map((card, i) => {
                 const isFeatured = filtered[featIdx]?.id === card.id
                 return (
                   <div
