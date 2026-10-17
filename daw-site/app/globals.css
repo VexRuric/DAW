@@ -895,7 +895,7 @@ html.has-custom-cursor { --cursor-none: none; }
 
 .admin-content {
   padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.25rem, 4vw, 3rem);
-  overflow-y: auto;
+  /* No overflow here: a scroll container breaks position: sticky for panels inside (e.g. the schedule edit panel) */
 }
 
 /* ============================================================

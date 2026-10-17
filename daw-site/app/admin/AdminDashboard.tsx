@@ -3059,7 +3059,7 @@ function ScheduleEditor() {
 
           {/* Edit panel */}
           {editForm && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', top: '1.5rem' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', position: 'sticky', top: '5rem', maxHeight: 'calc(100vh - 6rem)', overflowY: 'auto' }}>
               <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
                 <div>
                   <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.52rem', color: 'var(--text-dim)', letterSpacing: '0.15em', fontWeight: 700 }}>
