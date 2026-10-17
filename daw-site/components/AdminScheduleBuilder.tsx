@@ -1040,6 +1040,7 @@ export default function AdminScheduleBuilder() {
   const [ppvNameInput, setPpvNameInput]     = useState('')
   const [ppvSaving, setPpvSaving]           = useState(false)
   const [skipSaving, setSkipSaving]         = useState(false)
+  const [newShowDate, setNewShowDate] = useState('')
 
   const [editNames, setEditNames]           = useState<Record<string, string>>({})
   const [editPPVNames, setEditPPVNames]     = useState<Record<string, string>>({})
@@ -1104,13 +1105,18 @@ export default function AdminScheduleBuilder() {
     load()
   }, [])
 
-  function nextShowDate(): string {
+  function defaultShowDate(): string {
     const lastDate = shows.length > 0 ? shows[shows.length - 1].show_date : toDateStr(new Date())
     return nextFridayAfter(lastDate)
+  }
+  // Date for the next Weekly / Skip show: the admin's pick, else the next Friday after the last show
+  function nextShowDate(): string {
+    return newShowDate || defaultShowDate()
   }
 
   async function addWeekly() {
     const newDate  = nextShowDate()
+    setNewShowDate('')
     const d        = new Date(newDate + 'T00:00:00')
     const label    = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     const showName = `DAW Warehouse LIVE — ${label}`
@@ -1130,6 +1136,7 @@ export default function AdminScheduleBuilder() {
   async function addSkipWeek() {
     setSkipSaving(true)
     const newDate  = nextShowDate()
+    setNewShowDate('')
     const d        = new Date(newDate + 'T00:00:00')
     const label    = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     const showName = `DAW on Break — ${label}`
@@ -1221,7 +1228,9 @@ export default function AdminScheduleBuilder() {
             Click a show to build or edit its matchcard. Click a date to reschedule.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="date" value={nextShowDate()} onChange={e => setNewShowDate(e.target.value)} title="Date for the next Weekly or Skip show (defaults to the next Friday)"
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.5rem 0.6rem' }} />
           <button onClick={addWeekly} className="btn btn-primary" style={{ padding: '0.6rem 1.1rem', fontSize: '0.65rem' }}>+ Weekly Show</button>
           <button onClick={() => setAddingPPV(!addingPPV)} className="btn" style={{ padding: '0.6rem 1.1rem', fontSize: '0.65rem', borderColor: addingPPV ? 'var(--gold)' : undefined, color: addingPPV ? 'var(--gold)' : undefined }}>
             {addingPPV ? '✕ Cancel' : '+ PPV Event'}
