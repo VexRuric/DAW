@@ -27,6 +27,7 @@ export interface StreamShowInfo {
   show_date: string
   show_type: string
   ppv_name: string | null
+  ppv_logo_url?: string | null
   status: string
 }
 
@@ -247,6 +248,8 @@ export default function HomeStreamSection({
                     {show.status === 'completed' ? '✓ RESULTS' : 'UPCOMING'}
                   </span>
                 </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={show.ppv_logo_url || '/dawlogo.png'} alt={show.ppv_name ?? show.name} style={{ maxHeight: 56, maxWidth: 220, objectFit: 'contain', display: 'block', marginBottom: '0.6rem' }} />
                 <div style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
                   DAW PRESENTS
                 </div>

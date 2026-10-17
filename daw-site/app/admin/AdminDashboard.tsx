@@ -3074,9 +3074,12 @@ function ScheduleEditor() {
                     </div>
                   </div>
 
-                  {/* PPV Logo */}
+                </>)}
+
+                {/* Event Logo — any non-skip show; empty means the public site uses the main DAW logo */}
+                {editForm.show_type !== 'skip' && (
                   <div>
-                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.4rem' }}>PPV LOGO</label>
+                    <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.4rem' }}>EVENT LOGO <span style={{ fontWeight: 400, letterSpacing: '0.04em' }}>(blank = main DAW logo)</span></label>
 
                     {/* Current logo preview */}
                     {editForm.ppv_logo_url && (
@@ -3123,7 +3126,7 @@ function ScheduleEditor() {
                       </div>
                     )}
                   </div>
-                </>)}
+                )}
 
                 {/* Status */}
                 <div>

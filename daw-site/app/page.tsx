@@ -177,6 +177,7 @@ export default async function HomePage() {
           show_date: streamShowRaw.show_date,
           show_type: streamShowRaw.show_type,
           ppv_name: streamShowRaw.ppv_name,
+          ppv_logo_url: streamShowRaw.ppv_logo_url ?? null,
           status: streamShowRaw.status,
         }
       : null
