@@ -352,7 +352,7 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
                 {/* Clickable header row */}
                 <div
                   onClick={() => setExpandedId(expanded ? null : a.id)}
-                  style={{ display:'grid', gridTemplateColumns:'160px 1fr auto auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', cursor:'pointer' }}
+                  style={{ display:'grid', gridTemplateColumns:'160px 1fr auto auto', alignItems:'center', gap:'1.5rem', padding:'1rem 1.25rem', cursor:'var(--cursor-pointer)' }}
                 >
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', letterSpacing:'0.15em', color:'var(--purple-hot)', fontWeight:700 }}>{a.type.toUpperCase()}</span>
@@ -366,8 +366,8 @@ function PendingApprovals({ onCountChange }: { onCountChange: (n: number) => voi
                     {expanded ? '▲ Hide' : '▼ Review'}
                   </span>
                   <div style={{ display:'flex', gap:'0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => approve(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✓ Accept</button>
-                    <button onClick={() => reject(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>✕ Reject</button>
+                    <button onClick={() => approve(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>✓ Accept</button>
+                    <button onClick={() => reject(a)} disabled={acting === a.id} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>✕ Reject</button>
                   </div>
                 </div>
                 {/* Expanded detail panel */}
@@ -867,7 +867,7 @@ function ResultsEntry() {
             <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.56rem', color:'var(--purple-hot)', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.15rem' }}>TWITCH SHOWCASE</p>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>⚡ Quick Match</h3>
           </div>
-          <button onClick={() => setQuickMatchOpen(false)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+          <button onClick={() => setQuickMatchOpen(false)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
         </div>
 
         <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
@@ -894,7 +894,7 @@ function ResultsEntry() {
                 {qmSide1.map(p => (
                   <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.3rem 0.5rem', background:'rgba(128,0,218,0.12)', border:'1px solid rgba(128,0,218,0.3)' }}>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)' }}>{p.name}</span>
-                    <button onClick={() => setQmSide1(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
+                    <button onClick={() => setQmSide1(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
                   </div>
                 ))}
               </div>
@@ -904,7 +904,7 @@ function ResultsEntry() {
                   {qmSearch1 && qmRosterFiltered1.length > 0 && (
                     <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--surface)', border:'1px solid var(--border)', maxHeight:160, overflowY:'auto' }}>
                       {qmRosterFiltered1.map(e => (
-                        <button key={e.id} onClick={() => { setQmSide1(prev => [...prev, e]); setQmSearch1('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'pointer' }}>
+                        <button key={e.id} onClick={() => { setQmSide1(prev => [...prev, e]); setQmSearch1('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'var(--cursor-pointer)' }}>
                           {e.name} <span style={{ color:'var(--text-dim)', fontSize:'0.58rem' }}>{e.kind}</span>
                         </button>
                       ))}
@@ -923,7 +923,7 @@ function ResultsEntry() {
                 {qmSide2.map(p => (
                   <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.3rem 0.5rem', background:'rgba(255,51,85,0.1)', border:'1px solid rgba(255,51,85,0.3)' }}>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)' }}>{p.name}</span>
-                    <button onClick={() => setQmSide2(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
+                    <button onClick={() => setQmSide2(prev => prev.filter(x => x.id !== p.id))} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'0.8rem', padding:'0 0.2rem' }}>✕</button>
                   </div>
                 ))}
               </div>
@@ -933,7 +933,7 @@ function ResultsEntry() {
                   {qmSearch2 && qmRosterFiltered2.length > 0 && (
                     <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--surface)', border:'1px solid var(--border)', maxHeight:160, overflowY:'auto' }}>
                       {qmRosterFiltered2.map(e => (
-                        <button key={e.id} onClick={() => { setQmSide2(prev => [...prev, e]); setQmSearch2('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'pointer' }}>
+                        <button key={e.id} onClick={() => { setQmSide2(prev => [...prev, e]); setQmSearch2('') }} style={{ display:'block', width:'100%', textAlign:'left', padding:'0.45rem 0.75rem', background:'transparent', border:'none', borderBottom:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', cursor:'var(--cursor-pointer)' }}>
                           {e.name} <span style={{ color:'var(--text-dim)', fontSize:'0.58rem' }}>{e.kind}</span>
                         </button>
                       ))}
@@ -954,7 +954,7 @@ function ResultsEntry() {
                 { val: 2, label: qmSide2.length ? qmSide2.map(p => p.name).join(' & ') + ' Win' : 'Side 2 Wins', color: 'var(--accent-red)', bg: 'rgba(255,51,85,0.12)' },
               ] as const).map(({ val, label, color, bg }) => (
                 <button key={val} onClick={() => setQmWinner(val)}
-                  style={{ flex:1, minWidth:100, padding:'0.6rem 0.75rem', background: qmWinner === val ? bg : 'transparent', border:`1px solid ${qmWinner === val ? color : 'var(--border)'}`, color: qmWinner === val ? color : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', textAlign:'center', transition:'all 0.15s', wordBreak:'break-word', lineHeight:1.3 }}>
+                  style={{ flex:1, minWidth:100, padding:'0.6rem 0.75rem', background: qmWinner === val ? bg : 'transparent', border:`1px solid ${qmWinner === val ? color : 'var(--border)'}`, color: qmWinner === val ? color : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)', textAlign:'center', transition:'all 0.15s', wordBreak:'break-word', lineHeight:1.3 }}>
                   {label}
                 </button>
               ))}
@@ -964,7 +964,7 @@ function ResultsEntry() {
           {/* Title Match + Cash In */}
           <div style={{ borderTop:'1px solid var(--border)', paddingTop:'1rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
-              <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'pointer', userSelect:'none' }}>
+              <label style={{ display:'flex', alignItems:'center', gap:'0.6rem', cursor:'var(--cursor-pointer)', userSelect:'none' }}>
                 <input type="checkbox" checked={qmTitleChange} onChange={e => { setQmTitleChange(e.target.checked); setQmTitleId('') }} style={{ accentColor:'var(--gold)', width:15, height:15, flexShrink:0 }} />
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.15em', color: qmTitleChange ? 'var(--gold)' : 'var(--text-dim)' }}>🏆 TITLE MATCH</span>
               </label>
@@ -992,12 +992,12 @@ function ResultsEntry() {
           {qmDone ? (
             <div style={{ padding:'1rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'#00c864', fontWeight:700, letterSpacing:'0.1em' }}>✓ Match Recorded!</span>
-              <button onClick={openQuickMatch} style={{ padding:'0.4rem 0.9rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Another Match</button>
+              <button onClick={openQuickMatch} style={{ padding:'0.4rem 0.9rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>+ Another Match</button>
             </div>
           ) : (
             <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem' }}>
-              <button onClick={() => setQuickMatchOpen(false)} style={{ padding:'0.5rem 1.1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-              <button onClick={createQuickMatch} disabled={qmSaving} style={{ padding:'0.5rem 1.5rem', background:'rgba(128,0,218,0.2)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: qmSaving ? 0.6 : 1 }}>{qmSaving ? 'Recording…' : 'Record Match'}</button>
+              <button onClick={() => setQuickMatchOpen(false)} style={{ padding:'0.5rem 1.1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+              <button onClick={createQuickMatch} disabled={qmSaving} style={{ padding:'0.5rem 1.5rem', background:'rgba(128,0,218,0.2)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', opacity: qmSaving ? 0.6 : 1 }}>{qmSaving ? 'Recording…' : 'Record Match'}</button>
             </div>
           )}
         </div>
@@ -1018,7 +1018,7 @@ function ResultsEntry() {
 
     function ShowButton({ s }: { s: ShowStub }) {
       return (
-        <button onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer', width:'100%' }}
+        <button onClick={() => selectShow(s)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'var(--cursor-pointer)', width:'100%' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
         >
@@ -1036,14 +1036,14 @@ function ResultsEntry() {
         {quickMatchModal}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.25rem', flexWrap:'wrap', gap:'0.75rem' }}>
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Results Entry</h2>
-          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1.1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
+          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1.1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
         </div>
 
         {/* Search mode tabs */}
         <div style={{ display:'flex', gap:'0.25rem', borderBottom:'1px solid var(--border)', marginBottom:'1.25rem' }}>
           {(['show', 'roster'] as const).map((mode) => (
             <button key={mode} onClick={() => { setSearchMode(mode); setSelectedRoster(null); setRosterShows([]) }}
-              style={{ padding:'0.55rem 1rem', background:'transparent', border:'none', borderBottom:`2px solid ${searchMode === mode ? 'var(--purple-hot)' : 'transparent'}`, color: searchMode === mode ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer' }}>
+              style={{ padding:'0.55rem 1rem', background:'transparent', border:'none', borderBottom:`2px solid ${searchMode === mode ? 'var(--purple-hot)' : 'transparent'}`, color: searchMode === mode ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'var(--cursor-pointer)' }}>
               {mode === 'show' ? 'By Show' : 'By Wrestler / Faction'}
             </button>
           ))}
@@ -1060,7 +1060,7 @@ function ResultsEntry() {
                 <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap' }}>
                   {['all', ...allYears].map(y => (
                     <button key={y} onClick={() => setYearFilter(y)}
-                      style={{ padding:'0.3rem 0.75rem', background: yearFilter === y ? 'rgba(128,0,218,0.2)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                      style={{ padding:'0.3rem 0.75rem', background: yearFilter === y ? 'rgba(128,0,218,0.2)' : 'transparent', border:`1px solid ${yearFilter === y ? 'var(--purple)' : 'var(--border)'}`, color: yearFilter === y ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>
                       {y === 'all' ? 'All' : y}
                     </button>
                   ))}
@@ -1084,7 +1084,7 @@ function ResultsEntry() {
               <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', maxHeight:480, overflowY:'auto' }}>
                 {filteredRoster.map((entry) => (
                   <button key={entry.id} onClick={() => loadShowsForRoster(entry)}
-                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.6rem 0.85rem', background: selectedRoster?.id === entry.id ? 'rgba(128,0,218,0.15)' : 'var(--surface)', border:`1px solid ${selectedRoster?.id === entry.id ? 'var(--purple)' : 'var(--border)'}`, textAlign:'left', cursor:'pointer' }}>
+                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.6rem 0.85rem', background: selectedRoster?.id === entry.id ? 'rgba(128,0,218,0.15)' : 'var(--surface)', border:`1px solid ${selectedRoster?.id === entry.id ? 'var(--purple)' : 'var(--border)'}`, textAlign:'left', cursor:'var(--cursor-pointer)' }}>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', color: selectedRoster?.id === entry.id ? 'var(--purple-hot)' : 'var(--text)', letterSpacing:'0.06em' }}>{entry.name}</span>
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.52rem', color:'var(--text-dim)', letterSpacing:'0.12em', textTransform:'uppercase' }}>{entry.kind === 'team' ? 'Faction' : 'Wrestler'}</span>
                   </button>
@@ -1125,12 +1125,12 @@ function ResultsEntry() {
       {quickMatchModal}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
         <div>
-          <button onClick={() => { setSelectedShow(null); setMatches([]) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em', background:'none', border:'none', cursor:'pointer', padding:0, marginBottom:'0.5rem' }}>← All Shows</button>
+          <button onClick={() => { setSelectedShow(null); setMatches([]) }} style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.12em', background:'none', border:'none', cursor:'var(--cursor-pointer)', padding:0, marginBottom:'0.5rem' }}>← All Shows</button>
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1 }}>{selectedShow.name}</h2>
           <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color:'var(--text-dim)', letterSpacing:'0.1em', marginTop:'0.25rem' }}>{new Date(selectedShow.show_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
         </div>
         <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
-          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
+          <button onClick={openQuickMatch} style={{ padding:'0.5rem 1rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}>⚡ Quick Match</button>
           <button className="btn btn-primary" onClick={submitResults} disabled={submitting || submitDone} style={{ padding:'0.65rem 1.5rem' }}>{submitting ? 'Saving…' : submitDone ? '✓ Results Saved' : 'Submit All Results'}</button>
         </div>
       </div>
@@ -1140,7 +1140,7 @@ function ResultsEntry() {
           <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.15em', marginBottom:'0.3rem' }}>▶ YOUTUBE STREAM URL</p>
           <input className="form-input" placeholder="https://www.youtube.com/watch?v=..." value={streamUrl} onChange={(e) => { setStreamUrl(e.target.value); setStreamSaved(false) }} style={{ fontSize:'0.72rem' }} />
         </div>
-        <button onClick={saveStreamUrl} disabled={savingStream} style={{ padding:'0.5rem 1rem', background: streamSaved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${streamSaved ? '#00c864' : 'var(--purple)'}`, color: streamSaved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', flexShrink:0 }}>{savingStream ? 'Saving…' : streamSaved ? '✓ Saved' : 'Save URL'}</button>
+        <button onClick={saveStreamUrl} disabled={savingStream} style={{ padding:'0.5rem 1rem', background: streamSaved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${streamSaved ? '#00c864' : 'var(--purple)'}`, color: streamSaved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', flexShrink:0 }}>{savingStream ? 'Saving…' : streamSaved ? '✓ Saved' : 'Save URL'}</button>
       </div>
 
       {submitError && <div style={{ padding:'0.75rem 1rem', background:'rgba(255,51,85,0.1)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.68rem', letterSpacing:'0.08em', marginBottom:'1rem' }}>✕ {submitError}</div>}
@@ -1165,7 +1165,7 @@ function ResultsEntry() {
                       <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.12em' }}>{match.match_type}{match.stipulation ? ` · ${match.stipulation}` : ''}{match.is_title_match ? ' · 🏆 Title' : ''}</span>
                     )}
                     <button onClick={() => setEditingMatch(editingMatch === match.id ? null : match.id)}
-                      style={{ padding:'0.2rem 0.6rem', background: editingMatch === match.id ? 'rgba(255,201,51,0.15)' : 'transparent', border:`1px solid ${editingMatch === match.id ? 'var(--gold)' : 'var(--border)'}`, color: editingMatch === match.id ? 'var(--gold)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                      style={{ padding:'0.2rem 0.6rem', background: editingMatch === match.id ? 'rgba(255,201,51,0.15)' : 'transparent', border:`1px solid ${editingMatch === match.id ? 'var(--gold)' : 'var(--border)'}`, color: editingMatch === match.id ? 'var(--gold)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>
                       {editingMatch === match.id ? 'Done' : 'Edit'}
                     </button>
                   </div>
@@ -1199,15 +1199,15 @@ function ResultsEntry() {
                         <div key={p.mp_id} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', background:'var(--surface-2)', border:'1px solid var(--border)' }}>
                           <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{p.name}</span>
                           <button type="button" onClick={() => removeParticipant(match.id, p.mp_id)}
-                            style={{ background:'none', border:'none', color:'var(--accent-red)', fontSize:'0.75rem', cursor:'pointer', padding:'0 2px', lineHeight:1, flexShrink:0 }}
+                            style={{ background:'none', border:'none', color:'var(--accent-red)', fontSize:'0.75rem', cursor:'var(--cursor-pointer)', padding:'0 2px', lineHeight:1, flexShrink:0 }}
                             title="Remove participant">✕</button>
                         </div>
                       ) : (
-                        <button key={p.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: p.mp_id })} style={{ padding:'0.5rem 1rem', background: selected ? 'rgba(0,200,100,0.15)' : 'var(--surface-2)', border:`1px solid ${selected ? '#00c864' : 'var(--border)'}`, color: selected ? '#00c864' : 'var(--text-muted)', fontFamily:'var(--font-display)', fontSize:'0.85rem', textTransform:'uppercase', cursor:'pointer' }}>{selected && '✓ '}{p.name}</button>
+                        <button key={p.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: p.mp_id })} style={{ padding:'0.5rem 1rem', background: selected ? 'rgba(0,200,100,0.15)' : 'var(--surface-2)', border:`1px solid ${selected ? '#00c864' : 'var(--border)'}`, color: selected ? '#00c864' : 'var(--text-muted)', fontFamily:'var(--font-display)', fontSize:'0.85rem', textTransform:'uppercase', cursor:'var(--cursor-pointer)' }}>{selected && '✓ '}{p.name}</button>
                       )
                     })}
                     {editingMatch !== match.id && (
-                      <button type="button" onClick={() => updateForm(match.id, { winner_mp_id: '' })} style={{ padding:'0.5rem 1rem', background: form.winner_mp_id === '' ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)', border:`1px solid ${form.winner_mp_id === '' ? '#f59e0b' : 'var(--border)'}`, color: form.winner_mp_id === '' ? '#f59e0b' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', letterSpacing:'0.1em', cursor:'pointer' }}>Draw / No Contest</button>
+                      <button type="button" onClick={() => updateForm(match.id, { winner_mp_id: '' })} style={{ padding:'0.5rem 1rem', background: form.winner_mp_id === '' ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)', border:`1px solid ${form.winner_mp_id === '' ? '#f59e0b' : 'var(--border)'}`, color: form.winner_mp_id === '' ? '#f59e0b' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Draw / No Contest</button>
                     )}
                   </div>
                   {(() => {
@@ -1235,7 +1235,7 @@ function ResultsEntry() {
                           const computedResult = form.winner_mp_id === '' ? 'draw' : (directSelected || (factionSide >= 0 && factionSide === winningSide)) ? 'winner' : 'loser'
                           const isWin = computedResult === 'winner'; const isDraw = computedResult === 'draw'
                           return (
-                            <button key={fp.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: fp.mp_id })} style={{ padding:'0.35rem 0.75rem', background: isWin ? 'rgba(0,200,100,0.1)' : isDraw ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)', border:`1px solid ${isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--border)'}`, display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
+                            <button key={fp.mp_id} type="button" onClick={() => updateForm(match.id, { winner_mp_id: fp.mp_id })} style={{ padding:'0.35rem 0.75rem', background: isWin ? 'rgba(0,200,100,0.1)' : isDraw ? 'rgba(245,158,11,0.1)' : 'var(--surface-2)', border:`1px solid ${isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--border)'}`, display:'flex', alignItems:'center', gap:'0.4rem', cursor:'var(--cursor-pointer)' }}>
                               <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.45rem', fontWeight:700, letterSpacing:'0.08em', padding:'1px 4px', background:'rgba(128,0,218,0.2)', color:'var(--purple-hot)' }}>FACTION</span>
                               <span style={{ fontFamily:'var(--font-display)', fontSize:'0.82rem', color: isWin ? '#00c864' : isDraw ? '#f59e0b' : 'var(--text-muted)', textTransform:'uppercase' }}>{isWin ? '✓ ' : ''}{fp.name}</span>
                             </button>
@@ -1253,7 +1253,7 @@ function ResultsEntry() {
                   <div>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.35rem' }}>
                       <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>MATCH NOTES</p>
-                      <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
+                      <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'var(--cursor-pointer)' }}>
                         <input type="checkbox" checked={form.add_to_story_board} onChange={(e) => updateForm(match.id, { add_to_story_board: e.target.checked })} style={{ accentColor:'var(--purple-hot)' }} />
                         <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color: form.add_to_story_board ? 'var(--purple-hot)' : 'var(--text-dim)', letterSpacing:'0.1em' }}>Add to Story Board</span>
                       </label>
@@ -1271,7 +1271,7 @@ function ResultsEntry() {
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: fines.length > 0 || addingFine === match.id ? '0.5rem' : 0 }}>
                         <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'rgba(255,51,85,0.8)', letterSpacing:'0.15em', fontWeight:700 }}>FINES{fines.length > 0 ? ` (${fines.length})` : ''}</p>
                         {addingFine !== match.id && (
-                          <button onClick={() => { setAddingFine(match.id); setNewFine({ participant_key: '', amount: '', reason: '' }) }} style={{ padding:'0.2rem 0.6rem', background:'transparent', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.8)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Add Fine</button>
+                          <button onClick={() => { setAddingFine(match.id); setNewFine({ participant_key: '', amount: '', reason: '' }) }} style={{ padding:'0.2rem 0.6rem', background:'transparent', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.8)', fontFamily:'var(--font-meta)', fontSize:'0.54rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>+ Add Fine</button>
                         )}
                       </div>
                       {fines.length > 0 && (
@@ -1282,7 +1282,7 @@ function ResultsEntry() {
                               <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-strong)', fontWeight:700, flexShrink:0 }}>{f.name}</span>
                               <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.reason}</span>
                               {!f.id && (
-                                <button onClick={() => setMatchFines(prev => ({ ...prev, [match.id]: (prev[match.id] ?? []).filter((_, j) => j !== i) }))} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'pointer', flexShrink:0, lineHeight:1 }}>×</button>
+                                <button onClick={() => setMatchFines(prev => ({ ...prev, [match.id]: (prev[match.id] ?? []).filter((_, j) => j !== i) }))} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'var(--cursor-pointer)', flexShrink:0, lineHeight:1 }}>×</button>
                               )}
                             </div>
                           ))}
@@ -1306,8 +1306,8 @@ function ResultsEntry() {
                             const fine: MatchFine = { wrestler_id: kind === 'w' ? id : null, team_id: kind === 't' ? id : null, name, amount: newFine.amount, reason: newFine.reason }
                             setMatchFines(prev => ({ ...prev, [match.id]: [...(prev[match.id] ?? []), fine] }))
                             setNewFine({ participant_key: '', amount: '', reason: '' }); setAddingFine(null)
-                          }} style={{ padding:'0.3rem 0.65rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.9)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>Add</button>
-                          <button onClick={() => setAddingFine(null)} style={{ padding:'0.3rem 0.65rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer', flexShrink:0 }}>Cancel</button>
+                          }} style={{ padding:'0.3rem 0.65rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.4)', color:'rgba(255,51,85,0.9)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'var(--cursor-pointer)', flexShrink:0 }}>Add</button>
+                          <button onClick={() => setAddingFine(null)} style={{ padding:'0.3rem 0.65rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'var(--cursor-pointer)', flexShrink:0 }}>Cancel</button>
                         </div>
                       )}
                     </div>
@@ -1336,7 +1336,7 @@ function ResultsEntry() {
                   {matchWinnerImages[match.id] && (
                     <img src={matchWinnerImages[match.id]!} alt="winner" style={{ width:48, height:48, objectFit:'cover', objectPosition:'top', border:'1px solid var(--border)', flexShrink:0 }} />
                   )}
-                  <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', flexShrink:0 }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', cursor:'var(--cursor-pointer)', flexShrink:0 }}>
                     <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => uploadMatchImage(match.id, e)} disabled={uploadingMatchImage === match.id} />
                     <span style={{ padding:'0.3rem 0.75rem', background:'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', opacity: uploadingMatchImage === match.id ? 0.6 : 1 }}>
                       {uploadingMatchImage === match.id ? 'Uploading…' : matchWinnerImages[match.id] ? 'Change Winner Image' : 'Upload Winner Image'}
@@ -1352,11 +1352,11 @@ function ResultsEntry() {
                     <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--purple-hot)', letterSpacing:'0.15em', fontWeight:700, marginBottom:'0.5rem' }}>ADD PARTICIPANT — RUN IN / CASH IN</p>
                     <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.5rem', flexWrap:'wrap' }}>
                       <input className="form-input" placeholder="Search roster…" value={addSearch} onChange={e => setAddSearch(e.target.value)} style={{ flex:1, minWidth:180, fontSize:'0.72rem' }} autoFocus />
-                      <button onClick={() => { setAddingTo(null); setAddSearch(''); setAddWriteIn('') }} style={{ padding:'0.35rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer' }}>Cancel</button>
+                      <button onClick={() => { setAddingTo(null); setAddSearch(''); setAddWriteIn('') }} style={{ padding:'0.35rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'var(--cursor-pointer)' }}>Cancel</button>
                     </div>
                     <div style={{ maxHeight:160, overflowY:'auto', display:'flex', flexDirection:'column', gap:'0.25rem', marginBottom:'0.5rem' }}>
                       {rosterEntries.filter(e => !addSearch || e.name.toLowerCase().includes(addSearch.toLowerCase())).map(entry => (
-                        <button key={entry.id} onClick={() => addParticipant(match.id, entry)} disabled={addingEntry} style={{ textAlign:'left', padding:'0.35rem 0.75rem', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                        <button key={entry.id} onClick={() => addParticipant(match.id, entry)} disabled={addingEntry} style={{ textAlign:'left', padding:'0.35rem 0.75rem', background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text-muted)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', cursor:'var(--cursor-pointer)', display:'flex', justifyContent:'space-between', alignItems:'center' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                         >
@@ -1367,11 +1367,11 @@ function ResultsEntry() {
                     </div>
                     <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                       <input className="form-input" placeholder="Write-in name (mystery entrant)…" value={addWriteIn} onChange={e => setAddWriteIn(e.target.value)} style={{ flex:1, fontSize:'0.68rem' }} />
-                      <button onClick={() => addWriteIn.trim() && addParticipant(match.id, null, addWriteIn.trim())} disabled={addingEntry || !addWriteIn.trim()} style={{ padding:'0.35rem 0.75rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'pointer' }}>Add Write-In</button>
+                      <button onClick={() => addWriteIn.trim() && addParticipant(match.id, null, addWriteIn.trim())} disabled={addingEntry || !addWriteIn.trim()} style={{ padding:'0.35rem 0.75rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, cursor:'var(--cursor-pointer)' }}>Add Write-In</button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={() => { setAddingTo(match.id); setAddSearch('') }} style={{ marginTop:'0.75rem', padding:'0.35rem 0.85rem', background:'transparent', border:'1px dashed rgba(128,0,218,0.4)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', width:'100%' }}>
+                  <button onClick={() => { setAddingTo(match.id); setAddSearch('') }} style={{ marginTop:'0.75rem', padding:'0.35rem 0.85rem', background:'transparent', border:'1px dashed rgba(128,0,218,0.4)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', width:'100%' }}>
                     + Add Participant (Run In / Cash In)
                   </button>
                 )}
@@ -1380,7 +1380,7 @@ function ResultsEntry() {
                   <button
                     onClick={() => saveMatch(match.id)}
                     disabled={savingMatch === match.id}
-                    style={{ padding:'0.4rem 1rem', background: savedMatch === match.id ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.12)', border:`1px solid ${savedMatch === match.id ? '#00c864' : 'var(--purple)'}`, color: savedMatch === match.id ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}
+                    style={{ padding:'0.4rem 1rem', background: savedMatch === match.id ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.12)', border:`1px solid ${savedMatch === match.id ? '#00c864' : 'var(--purple)'}`, color: savedMatch === match.id ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}
                   >
                     {savingMatch === match.id ? '…' : savedMatch === match.id ? '✓ Saved' : 'Save Match'}
                   </button>
@@ -1601,7 +1601,7 @@ function ChampionsSection() {
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Champion Management</h2>
           <button
             onClick={() => { setAddTitlePanel({ name:'', category:'Singles' }); setAddTitleError(null) }}
-            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}
           >
             + Add Title
           </button>
@@ -1610,14 +1610,14 @@ function ChampionsSection() {
         <button
           onClick={syncMissedChanges}
           disabled={rebuilding}
-          style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: rebuilding ? 0.5 : 1 }}
+          style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', opacity: rebuilding ? 0.5 : 1 }}
         >
           {rebuilding ? 'Working…' : '↻ Sync Missed Changes'}
         </button>
         <button
           onClick={rebuildFromMatches}
           disabled={rebuilding}
-          style={{ padding:'0.55rem 1.1rem', background:'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', flexShrink:0, opacity: rebuilding ? 0.5 : 1 }}
+          style={{ padding:'0.55rem 1.1rem', background:'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', flexShrink:0, opacity: rebuilding ? 0.5 : 1 }}
         >
           {rebuilding ? 'Rebuilding…' : '⟳ Rebuild from Matches'}
         </button>
@@ -1643,8 +1643,8 @@ function ChampionsSection() {
               </select>
             </div>
             <div style={{ display:'flex', gap:'0.5rem' }}>
-              <button onClick={addTitle} disabled={addTitleSaving || !addTitlePanel.name.trim()} style={{ padding:'0.65rem 1.1rem', background: addTitlePanel.name.trim() ? '#00c864' : 'var(--surface-3)', border:'none', color: addTitlePanel.name.trim() ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: addTitleSaving ? 0.6 : 1 }}>{addTitleSaving ? 'Adding…' : 'Add Title'}</button>
-              <button onClick={() => setAddTitlePanel(null)} style={{ padding:'0.65rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', cursor:'pointer' }}>Cancel</button>
+              <button onClick={addTitle} disabled={addTitleSaving || !addTitlePanel.name.trim()} style={{ padding:'0.65rem 1.1rem', background: addTitlePanel.name.trim() ? '#00c864' : 'var(--surface-3)', border:'none', color: addTitlePanel.name.trim() ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', opacity: addTitleSaving ? 0.6 : 1 }}>{addTitleSaving ? 'Adding…' : 'Add Title'}</button>
+              <button onClick={() => setAddTitlePanel(null)} style={{ padding:'0.65rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', cursor:'var(--cursor-pointer)' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1671,13 +1671,13 @@ function ChampionsSection() {
                         autoFocus
                         style={{ fontFamily:'var(--font-display)', fontSize:'1rem', textTransform:'uppercase', padding:'0.3rem 0.6rem', width: 280 }}
                       />
-                      <button onClick={() => saveRename(title.id)} disabled={renameSaving || !renameValue.trim()} style={{ padding:'0.3rem 0.75rem', background:'var(--gold)', border:'none', color:'var(--bg-top)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{renameSaving ? '…' : '✓'}</button>
-                      <button onClick={() => setRenamingId(null)} style={{ padding:'0.3rem 0.6rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'pointer' }}>✕</button>
+                      <button onClick={() => saveRename(title.id)} disabled={renameSaving || !renameValue.trim()} style={{ padding:'0.3rem 0.75rem', background:'var(--gold)', border:'none', color:'var(--bg-top)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{renameSaving ? '…' : '✓'}</button>
+                      <button onClick={() => setRenamingId(null)} style={{ padding:'0.3rem 0.6rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'var(--cursor-pointer)' }}>✕</button>
                     </div>
                   ) : (
                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
                       <p style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', lineHeight:1.1 }}>{title.name}</p>
-                      <button onClick={() => startRename(title.id, title.name)} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'pointer', padding:'0 0.25rem', lineHeight:1, flexShrink:0 }} title="Rename title">✎</button>
+                      <button onClick={() => startRename(title.id, title.name)} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.75rem', cursor:'var(--cursor-pointer)', padding:'0 0.25rem', lineHeight:1, flexShrink:0 }} title="Rename title">✎</button>
                     </div>
                   )}
                   {champ ? (
@@ -1687,9 +1687,9 @@ function ChampionsSection() {
                   )}
                 </div>
                 <div style={{ display:'flex', gap:'0.5rem' }}>
-                  <button onClick={() => isEditing ? setEditId(null) : openEdit(title.id)} style={{ padding:'0.5rem 1rem', background: isEditing ? 'var(--surface-3)' : 'rgba(255,201,51,0.12)', border:`1px solid ${isEditing ? 'var(--border)' : 'var(--gold)'}`, color: isEditing ? 'var(--text-dim)' : 'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{isEditing ? 'Cancel' : champ ? 'Change' : 'Assign'}</button>
-                  {champ && !isEditing && <button onClick={() => vacate(title.id)} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Vacate</button>}
-                  {!isEditing && <button onClick={() => retire(title.id, title.name)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }} title="Mark this title as retired and remove it from the active roster">Retire</button>}
+                  <button onClick={() => isEditing ? setEditId(null) : openEdit(title.id)} style={{ padding:'0.5rem 1rem', background: isEditing ? 'var(--surface-3)' : 'rgba(255,201,51,0.12)', border:`1px solid ${isEditing ? 'var(--border)' : 'var(--gold)'}`, color: isEditing ? 'var(--text-dim)' : 'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{isEditing ? 'Cancel' : champ ? 'Change' : 'Assign'}</button>
+                  {champ && !isEditing && <button onClick={() => vacate(title.id)} style={{ padding:'0.5rem 1rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Vacate</button>}
+                  {!isEditing && <button onClick={() => retire(title.id, title.name)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }} title="Mark this title as retired and remove it from the active roster">Retire</button>}
                 </div>
               </div>
               {isEditing && (() => {
@@ -1703,7 +1703,7 @@ function ChampionsSection() {
                   {isTagTitle && (
                     <div style={{ display:'flex', gap:'0.5rem' }}>
                       {(['wrestler', 'team'] as const).map((t) => (
-                        <button key={t} onClick={() => { setHolderType(t); setHolderId(''); setHolderId2(''); setTeamMembers([]); setSelectedMemberIds([]) }} style={{ padding:'0.35rem 0.85rem', background: holderType === t ? 'var(--purple)' : 'transparent', border:'1px solid var(--border)', color: holderType === t ? 'white' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer' }}>{t === 'wrestler' ? 'Wrestlers' : 'Tag Team'}</button>
+                        <button key={t} onClick={() => { setHolderType(t); setHolderId(''); setHolderId2(''); setTeamMembers([]); setSelectedMemberIds([]) }} style={{ padding:'0.35rem 0.85rem', background: holderType === t ? 'var(--purple)' : 'transparent', border:'1px solid var(--border)', color: holderType === t ? 'white' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', cursor:'var(--cursor-pointer)' }}>{t === 'wrestler' ? 'Wrestlers' : 'Tag Team'}</button>
                       ))}
                     </div>
                   )}
@@ -1721,7 +1721,7 @@ function ChampionsSection() {
                       <label className="form-label">Won Date</label>
                       <input type="date" className="form-input" value={wonDate} onChange={(e) => setWonDate(e.target.value)} />
                     </div>
-                    <button onClick={save} disabled={!holderId || saving} style={{ padding:'0.65rem 1.25rem', background: holderId ? 'var(--gold)' : 'var(--surface-3)', border:'none', color: holderId ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: saving ? 0.6 : 1, height:'fit-content' }}>{saving ? 'Saving…' : 'Set Champion'}</button>
+                    <button onClick={save} disabled={!holderId || saving} style={{ padding:'0.65rem 1.25rem', background: holderId ? 'var(--gold)' : 'var(--surface-3)', border:'none', color: holderId ? 'var(--bg-top)' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', opacity: saving ? 0.6 : 1, height:'fit-content' }}>{saving ? 'Saving…' : 'Set Champion'}</button>
                   </div>
 
                   {/* Wrestler 2 — only for wrestler-type Tag titles */}
@@ -1748,7 +1748,7 @@ function ChampionsSection() {
                         {teamMembers.map((m) => {
                           const checked = selectedMemberIds.includes(m.id)
                           return (
-                            <label key={m.id} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.35rem 0.65rem', background: checked ? 'rgba(255,201,51,0.12)' : 'var(--surface)', border:`1px solid ${checked ? 'rgba(255,201,51,0.5)' : 'var(--border)'}`, cursor:'pointer', fontFamily:'var(--font-meta)', fontSize:'0.65rem', color: checked ? 'var(--gold)' : 'var(--text-muted)', letterSpacing:'0.08em' }}>
+                            <label key={m.id} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.35rem 0.65rem', background: checked ? 'rgba(255,201,51,0.12)' : 'var(--surface)', border:`1px solid ${checked ? 'rgba(255,201,51,0.5)' : 'var(--border)'}`, cursor:'var(--cursor-pointer)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', color: checked ? 'var(--gold)' : 'var(--text-muted)', letterSpacing:'0.08em' }}>
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -1757,7 +1757,7 @@ function ChampionsSection() {
                                     prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
                                   )
                                 }}
-                                style={{ accentColor:'var(--gold)', cursor:'pointer' }}
+                                style={{ accentColor:'var(--gold)', cursor:'var(--cursor-pointer)' }}
                               />
                               {m.name}
                             </label>
@@ -1855,7 +1855,7 @@ function OwnershipSection() {
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{item.name}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', color: STATUS_COLOR[item.status] ?? 'var(--text-dim)' }}>{item.status.toUpperCase()}</span>
                 {(() => { const u = item.submitted_by ? allUsers.find(a => a.id === item.submitted_by) : null; return <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color: u ? 'var(--text-muted)' : 'var(--text-dim)', letterSpacing:'0.05em' }}>{u ? u.name : <span style={{ color:'var(--text-dim)', fontStyle:'italic' }}>Unassigned</span>}</span> })()}
-                <button onClick={() => { setExpandedId(expandedId === item.id ? null : item.id); setProfileQuery(''); setProfileResults([]) }} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{expandedId === item.id ? '✕ Cancel' : 'Assign Owner'}</button>
+                <button onClick={() => { setExpandedId(expandedId === item.id ? null : item.id); setProfileQuery(''); setProfileResults([]) }} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{expandedId === item.id ? '✕ Cancel' : 'Assign Owner'}</button>
               </div>
               {expandedId === item.id && (
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(128,0,218,0.05)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--purple)' }}>
@@ -1866,7 +1866,7 @@ function OwnershipSection() {
                   {profileResults.length > 0 && (
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', marginBottom:'0.75rem', maxWidth:400 }}>
                       {profileResults.map((p) => (
-                        <button key={p.id} onClick={() => assign(item.id, p.id)} disabled={acting} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.55rem 0.9rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
+                        <button key={p.id} onClick={() => assign(item.id, p.id)} disabled={acting} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.55rem 0.9rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'var(--cursor-pointer)' }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple)' }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                         >
@@ -1876,7 +1876,7 @@ function OwnershipSection() {
                       ))}
                     </div>
                   )}
-                  {item.submitted_by && <button onClick={() => assign(item.id, null)} disabled={acting} style={{ padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Owner</button>}
+                  {item.submitted_by && <button onClick={() => assign(item.id, null)} disabled={acting} style={{ padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Remove Current Owner</button>}
                 </div>
               )}
             </div>
@@ -1966,7 +1966,7 @@ function RosterImages() {
                 </div>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{item.name}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', color: item.status === 'hired' ? '#00c864' : item.status === 'pending' ? '#f59e0b' : 'var(--text-dim)', textTransform:'uppercase' }}>{item.status}</span>
-                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{expandedId === item.id ? '✕ Cancel' : item.render_url ? 'Replace' : 'Upload'}</button>
+                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{expandedId === item.id ? '✕ Cancel' : item.render_url ? 'Replace' : 'Upload'}</button>
               </div>
               {expandedId === item.id && (
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(128,0,218,0.05)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--purple)' }}>
@@ -1974,7 +1974,7 @@ function RosterImages() {
                   <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
                     <AdminDropZone onFile={(file) => handleUpload(item.id, file)} uploading={uploading} />
                   </div>
-                  {item.render_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Image</button>}
+                  {item.render_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Remove Current Image</button>}
                 </div>
               )}
             </div>
@@ -2048,7 +2048,7 @@ function TitleImages() {
                   )}
                 </div>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.75rem', color:'var(--text-strong)', letterSpacing:'0.05em' }}>{item.name}</span>
-                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(255,201,51,0.2)' : 'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{expandedId === item.id ? '✕ Cancel' : item.image_url ? 'Replace' : 'Upload'}</button>
+                <button onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} style={{ padding:'0.35rem 0.75rem', background: expandedId === item.id ? 'rgba(255,201,51,0.2)' : 'rgba(255,201,51,0.1)', border:'1px solid var(--gold)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{expandedId === item.id ? '✕ Cancel' : item.image_url ? 'Replace' : 'Upload'}</button>
               </div>
               {expandedId === item.id && (
                 <div style={{ padding:'1rem 1rem 1rem 2rem', background:'rgba(255,201,51,0.04)', borderBottom:'1px solid var(--border)', borderLeft:'3px solid var(--gold)' }}>
@@ -2056,7 +2056,7 @@ function TitleImages() {
                   <div style={{ display:'flex', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
                     <AdminDropZone onFile={(file) => handleUpload(item.id, file)} uploading={uploading} accent="var(--gold)" border="rgba(255,201,51,0.5)" />
                   </div>
-                  {item.image_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Remove Current Image</button>}
+                  {item.image_url && <button onClick={() => removeImage(item.id)} style={{ marginTop:'0.75rem', padding:'0.4rem 0.85rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Remove Current Image</button>}
                 </div>
               )}
             </div>
@@ -2224,7 +2224,7 @@ function RosterEdits() {
 
   const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
     padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
-    letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
+    letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', border: `1px solid ${active ? borderC : 'var(--border)'}`,
     background: active ? `rgba(128,0,218,0.15)` : 'transparent',
     color: active ? color : 'var(--text-dim)',
   })
@@ -2236,7 +2236,7 @@ function RosterEdits() {
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Roster Edits</h2>
           <button
             onClick={() => { setAddPanel({ name:'', gender:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
-            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}>
             + Add Wrestler
           </button>
         </div>
@@ -2298,7 +2298,7 @@ function RosterEdits() {
                     <option value="">—</option>
                     {['Face','Heel'].map((o) => <option key={o}>{o}</option>)}
                   </select>
-                  <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'pointer' }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', cursor:'var(--cursor-pointer)' }}>
                     <input type="checkbox" checked={row.injured} onChange={(e) => update(row.id, 'injured', e.target.checked)} style={{ accentColor:'var(--accent-red)' }} />
                     <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.62rem', color: row.injured ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing:'0.08em' }}>{row.injured ? 'Yes' : 'No'}</span>
                   </label>
@@ -2306,10 +2306,10 @@ function RosterEdits() {
                     <option value="">—</option>
                     {['hired','released','retired'].map((o) => <option key={o}>{o}</option>)}
                   </select>
-                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
-                  <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Retire</button>
-                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
-                  <button onClick={() => openFines(row.id, row.name)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid rgba(255,51,85,0.35)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Fines</button>
+                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                  <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Retire</button>
+                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                  <button onClick={() => openFines(row.id, row.name)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid rgba(255,51,85,0.35)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>Fines</button>
                 </div>
               ))}
             </div>
@@ -2331,7 +2331,7 @@ function RosterEdits() {
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.gender ?? '—'}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.division ?? '—'}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.role ?? '—'}</span>
-                <button onClick={() => reinstate(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
+                <button onClick={() => reinstate(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
               </div>
             ))}
           </div>
@@ -2343,7 +2343,7 @@ function RosterEdits() {
           <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column' }}>
             <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Backstory — {backstoryEdit.name}</h3>
-              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
             </div>
             <div style={{ padding:'1.25rem' }}>
               <textarea
@@ -2354,8 +2354,8 @@ function RosterEdits() {
                 style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.78rem', lineHeight:1.7, padding:'0.75rem', resize:'vertical', boxSizing:'border-box' }}
               />
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
-                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-                <button onClick={saveBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
+                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                <button onClick={saveBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
               </div>
             </div>
           </div>
@@ -2369,9 +2369,9 @@ function RosterEdits() {
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--accent-red)', textTransform:'uppercase', margin:0 }}>Fines — {finesPanel.name}</h3>
               <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
                 {!addingBill && (
-                  <button onClick={() => setAddingBill(true)} style={{ padding:'0.35rem 0.9rem', background:'rgba(255,51,85,0.12)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>+ Bill</button>
+                  <button onClick={() => setAddingBill(true)} style={{ padding:'0.35rem 0.9rem', background:'rgba(255,51,85,0.12)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>+ Bill</button>
                 )}
-                <button onClick={() => { setFinesPanel(null); setAddingBill(false) }} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+                <button onClick={() => { setFinesPanel(null); setAddingBill(false) }} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
               </div>
             </div>
             {addingBill && (
@@ -2388,8 +2388,8 @@ function RosterEdits() {
                   </div>
                 </div>
                 <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem' }}>
-                  <button onClick={() => { setAddingBill(false); setNewBill({ amount:'', reason:'' }) }} style={{ padding:'0.4rem 0.9rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-                  <button onClick={saveBill} disabled={billSaving || !newBill.amount.trim()} style={{ padding:'0.4rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: billSaving ? 0.6 : 1 }}>{billSaving ? 'Saving…' : 'Issue Fine'}</button>
+                  <button onClick={() => { setAddingBill(false); setNewBill({ amount:'', reason:'' }) }} style={{ padding:'0.4rem 0.9rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                  <button onClick={saveBill} disabled={billSaving || !newBill.amount.trim()} style={{ padding:'0.4rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', opacity: billSaving ? 0.6 : 1 }}>{billSaving ? 'Saving…' : 'Issue Fine'}</button>
                 </div>
               </div>
             )}
@@ -2408,9 +2408,9 @@ function RosterEdits() {
                         <p style={{ margin:0, fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'var(--text-dim)', letterSpacing:'0.08em', marginTop:'0.15rem' }}>{fine.issued_date ?? ''}{fine.paid ? ' · PAID' : ''}</p>
                       </div>
                       {!fine.paid && (
-                        <button onClick={() => payFine(fine.id)} style={{ padding:'0.3rem 0.7rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', whiteSpace:'nowrap' }}>Pay Off</button>
+                        <button onClick={() => payFine(fine.id)} style={{ padding:'0.3rem 0.7rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}>Pay Off</button>
                       )}
-                      <button onClick={() => deleteFineFromPanel(fine.id)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.9rem', lineHeight:1, padding:'0.2rem', flexShrink:0 }}>✕</button>
+                      <button onClick={() => deleteFineFromPanel(fine.id)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'0.9rem', lineHeight:1, padding:'0.2rem', flexShrink:0 }}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -2431,7 +2431,7 @@ function RosterEdits() {
           <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid #00c864', width:'100%', maxWidth:480, display:'flex', flexDirection:'column' }}>
             <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Add Wrestler</h3>
-              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
             </div>
             <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
               {addError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{addError}</p>}
@@ -2470,8 +2470,8 @@ function RosterEdits() {
                 </div>
               </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.25rem' }}>
-                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-                <button onClick={addWrestler} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add to Roster'}</button>
+                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                <button onClick={addWrestler} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add to Roster'}</button>
               </div>
             </div>
           </div>
@@ -2618,7 +2618,7 @@ function FactionEdits() {
 
   const chipStyle = (active: boolean, color = 'var(--purple-hot)', borderC = 'var(--purple)'): React.CSSProperties => ({
     padding: '0.2rem 0.55rem', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700,
-    letterSpacing: '0.1em', cursor: 'pointer', border: `1px solid ${active ? borderC : 'var(--border)'}`,
+    letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', border: `1px solid ${active ? borderC : 'var(--border)'}`,
     background: active ? `rgba(128,0,218,0.15)` : 'transparent',
     color: active ? color : 'var(--text-dim)',
   })
@@ -2630,7 +2630,7 @@ function FactionEdits() {
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:'2rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Faction Edits</h2>
           <button
             onClick={() => { setAddPanel({ name:'', division:'', role:'', brand:'DAW' }); setAddError(null) }}
-            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', whiteSpace:'nowrap' }}>
+            style={{ padding:'0.4rem 0.9rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)', whiteSpace:'nowrap' }}>
             + Add Faction
           </button>
         </div>
@@ -2679,10 +2679,10 @@ function FactionEdits() {
                     <option value="">—</option>
                     {['hired','released','disbanded'].map((o) => <option key={o}>{o}</option>)}
                   </select>
-                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.5rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
-                  <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Dissolve</button>
-                  <button onClick={() => openMembers(row)} style={{ padding:'0.35rem 0.5rem', background:'rgba(0,200,100,0.08)', border:'1px solid rgba(0,200,100,0.4)', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>Members</button>
-                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                  <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.5rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
+                  <button onClick={() => dissolve(row.id)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Dissolve</button>
+                  <button onClick={() => openMembers(row)} style={{ padding:'0.35rem 0.5rem', background:'rgba(0,200,100,0.08)', border:'1px solid rgba(0,200,100,0.4)', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>Members</button>
+                  <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
                 </div>
               ))}
             </div>
@@ -2703,7 +2703,7 @@ function FactionEdits() {
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.brand ?? '—'}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.division ?? '—'}</span>
                 <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.68rem', color:'var(--text-dim)' }}>{row.role ?? '—'}</span>
-                <button onClick={() => reinstateFaction(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
+                <button onClick={() => reinstateFaction(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
               </div>
             ))}
           </div>
@@ -2716,7 +2716,7 @@ function FactionEdits() {
           <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:480, maxHeight:'80vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
             <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Members — {membersPopup.teamName}</h3>
-              <button onClick={() => setMembersPopup(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              <button onClick={() => setMembersPopup(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
             </div>
             <div style={{ overflowY:'auto', flex:1, padding:'1rem 1.25rem' }}>
               <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.58rem', color:'#00c864', letterSpacing:'0.2em', fontWeight:700, marginBottom:'0.5rem' }}>CURRENT MEMBERS</p>
@@ -2727,7 +2727,7 @@ function FactionEdits() {
                   {membersList.map((m) => (
                     <div key={m.membershipId} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.45rem 0.75rem', borderBottom:'1px solid rgba(42,42,51,0.5)' }}>
                       <span style={{ fontFamily:'var(--font-display)', fontSize:'0.85rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{m.name}</span>
-                      <button onClick={() => removeMember(m.membershipId)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'pointer' }}>Remove</button>
+                      <button onClick={() => removeMember(m.membershipId)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'var(--cursor-pointer)' }}>Remove</button>
                     </div>
                   ))}
                 </div>
@@ -2741,7 +2741,7 @@ function FactionEdits() {
                   .map((w) => (
                     <div key={w.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.4rem 0.75rem', borderBottom:'1px solid rgba(42,42,51,0.3)' }}>
                       <span style={{ fontFamily:'var(--font-display)', fontSize:'0.8rem', color:'var(--text-muted)', textTransform:'uppercase' }}>{w.name}</span>
-                      <button onClick={() => addMember(w.id, w.name)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'pointer' }}>Add</button>
+                      <button onClick={() => addMember(w.id, w.name)} disabled={memberOp} style={{ padding:'0.25rem 0.6rem', background:'rgba(128,0,218,0.1)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, cursor:'var(--cursor-pointer)' }}>Add</button>
                     </div>
                   ))}
               </div>
@@ -2756,7 +2756,7 @@ function FactionEdits() {
           <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column' }}>
             <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Backstory — {backstoryEdit.name}</h3>
-              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              <button onClick={() => setBackstoryEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
             </div>
             <div style={{ padding:'1.25rem' }}>
               <textarea
@@ -2767,8 +2767,8 @@ function FactionEdits() {
                 style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.78rem', lineHeight:1.7, padding:'0.75rem', resize:'vertical', boxSizing:'border-box' }}
               />
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
-                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-                <button onClick={saveFactionBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
+                <button onClick={() => setBackstoryEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                <button onClick={saveFactionBackstory} disabled={backstorySaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{backstorySaving ? 'Saving…' : 'Save Backstory'}</button>
               </div>
             </div>
           </div>
@@ -2780,7 +2780,7 @@ function FactionEdits() {
           <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid #00c864', width:'100%', maxWidth:420, display:'flex', flexDirection:'column' }}>
             <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Add Faction</h3>
-              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+              <button onClick={() => setAddPanel(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
             </div>
             <div style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
               {addError && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', color:'var(--accent-red)', letterSpacing:'0.08em' }}>{addError}</p>}
@@ -2812,8 +2812,8 @@ function FactionEdits() {
                 </div>
               </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.25rem' }}>
-                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>Cancel</button>
-                <button onClick={addFaction} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add Faction'}</button>
+                <button onClick={() => setAddPanel(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                <button onClick={addFaction} disabled={addSaving || !addPanel.name.trim()} style={{ padding:'0.5rem 1.25rem', background:'rgba(0,200,100,0.15)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', opacity: addSaving ? 0.6 : 1 }}>{addSaving ? 'Adding…' : 'Add Faction'}</button>
               </div>
             </div>
           </div>
@@ -2965,7 +2965,7 @@ function ScheduleEditor() {
           border: isFri ? `${isDraft ? '1px dashed' : '1px solid'} ${borderColor}` : undefined,
           outline: isSelected ? '2px solid #fff' : undefined, outlineOffset: -2,
           opacity: isDraft ? 0.7 : isPast && !show ? 0.28 : 1,
-          cursor: 'pointer',
+          cursor: 'var(--cursor-pointer)',
           transition: 'filter 0.1s',
         }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4)' }}
@@ -3028,7 +3028,7 @@ function ScheduleEditor() {
         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.12em', marginRight: '0.25rem' }}>YEAR</span>
           {PLAN_YEARS.map(y => (
-            <button key={y} onClick={() => setYear(y)} style={{ padding: '0.3rem 0.6rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', background: year === y ? 'rgba(128,0,218,0.15)' : 'transparent', border: `1px solid ${year === y ? 'var(--purple)' : 'var(--border)'}`, color: year === y ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{y}</button>
+            <button key={y} onClick={() => setYear(y)} style={{ padding: '0.3rem 0.6rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', background: year === y ? 'rgba(128,0,218,0.15)' : 'transparent', border: `1px solid ${year === y ? 'var(--purple)' : 'var(--border)'}`, color: year === y ? 'var(--purple-hot)' : 'var(--text-dim)' }}>{y}</button>
           ))}
         </div>
       </div>
@@ -3072,7 +3072,7 @@ function ScheduleEditor() {
                     {new Date((editForm.show_date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </p>
                 </div>
-                <button onClick={closePanel} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', flexShrink: 0 }}>✕</button>
+                <button onClick={closePanel} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'var(--cursor-pointer)', fontSize: '0.8rem', flexShrink: 0 }}>✕</button>
               </div>
 
               <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -3112,7 +3112,7 @@ function ScheduleEditor() {
                   <div>
                     <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>EVENT COLOR</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                      <input type="color" value={editForm.ppv_color ?? '#a855f7'} onChange={e => setEditForm(f => f ? { ...f, ppv_color: e.target.value } : f)} style={{ width: 40, height: 30, border: 'none', background: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                      <input type="color" value={editForm.ppv_color ?? '#a855f7'} onChange={e => setEditForm(f => f ? { ...f, ppv_color: e.target.value } : f)} style={{ width: 40, height: 30, border: 'none', background: 'none', cursor: 'var(--cursor-pointer)', padding: 0, flexShrink: 0 }} />
                       <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.06em', flexShrink: 0 }}>{editForm.ppv_color ?? '#a855f7'}</span>
                       <span style={{ flex: 1, height: 22, background: editForm.ppv_color ?? '#a855f7', borderRadius: 2 }} />
                     </div>
@@ -3130,7 +3130,7 @@ function ScheduleEditor() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.35rem 0.5rem', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={editForm.ppv_logo_url} alt="PPV Logo" style={{ maxHeight: 40, maxWidth: 120, objectFit: 'contain', display: 'block' }} />
-                        <button onClick={() => setEditForm(f => f ? { ...f, ppv_logo_url: null } : f)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '0.7rem', lineHeight: 1, padding: '2px 4px', flexShrink: 0 }}>✕</button>
+                        <button onClick={() => setEditForm(f => f ? { ...f, ppv_logo_url: null } : f)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'var(--cursor-pointer)', fontSize: '0.7rem', lineHeight: 1, padding: '2px 4px', flexShrink: 0 }}>✕</button>
                       </div>
                     )}
 
@@ -3155,7 +3155,7 @@ function ScheduleEditor() {
                                 padding: '0.3rem',
                                 background: editForm.ppv_logo_url === logo.url ? 'rgba(168,85,247,0.15)' : 'var(--surface-2)',
                                 border: editForm.ppv_logo_url === logo.url ? '1px solid var(--purple-hot)' : '1px solid var(--border)',
-                                cursor: 'pointer',
+                                cursor: 'var(--cursor-pointer)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -3184,11 +3184,11 @@ function ScheduleEditor() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border)' }}>
-                  <button onClick={saveShow} disabled={saving} style={{ padding: '0.5rem 1rem', background: 'rgba(128,0,218,0.15)', border: '1px solid var(--purple-hot)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.63rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'pointer', width: '100%' }}>
+                  <button onClick={saveShow} disabled={saving} style={{ padding: '0.5rem 1rem', background: 'rgba(128,0,218,0.15)', border: '1px solid var(--purple-hot)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.63rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'var(--cursor-pointer)', width: '100%' }}>
                     {saving ? 'Saving…' : isExistingShow ? 'Save Changes' : 'Create Show'}
                   </button>
                   {isExistingShow && (
-                    <button onClick={deleteShow} disabled={deleting} style={{ padding: '0.42rem 1rem', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: 'rgba(239,68,68,0.8)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'pointer', width: '100%' }}>
+                    <button onClick={deleteShow} disabled={deleting} style={{ padding: '0.42rem 1rem', background: 'transparent', border: '1px solid rgba(239,68,68,0.4)', color: 'rgba(239,68,68,0.8)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', cursor: 'var(--cursor-pointer)', width: '100%' }}>
                       {deleting ? 'Deleting…' : 'Delete Show'}
                     </button>
                   )}
@@ -3323,7 +3323,7 @@ function StoryDevelopment() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
                 {tagWrestlers.map((id) => {
                   const w = wrestlers.find((x) => x.id === id)
-                  return w ? <span key={id} onClick={() => setTagWrestlers((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'pointer' }}>{w.name} ×</span> : null
+                  return w ? <span key={id} onClick={() => setTagWrestlers((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'var(--cursor-pointer)' }}>{w.name} ×</span> : null
                 })}
               </div>
             )}
@@ -3338,7 +3338,7 @@ function StoryDevelopment() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
                 {tagTeams.map((id) => {
                   const t = teams.find((x) => x.id === id)
-                  return t ? <span key={id} onClick={() => setTagTeams((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'pointer' }}>{t.name} ×</span> : null
+                  return t ? <span key={id} onClick={() => setTagTeams((p) => p.filter((x) => x !== id))} style={{ ...dimStyle, padding: '0.2rem 0.5rem', background: 'rgba(128,0,218,0.12)', border: '1px solid var(--purple)', cursor: 'var(--cursor-pointer)' }}>{t.name} ×</span> : null
                 })}
               </div>
             )}
@@ -3363,7 +3363,7 @@ function StoryDevelopment() {
           {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
         {(filterWrestler || filterTeam) && (
-          <button onClick={() => { setFilterWrestler(''); setFilterTeam('') }} style={{ ...dimStyle, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ Clear</button>
+          <button onClick={() => { setFilterWrestler(''); setFilterTeam('') }} style={{ ...dimStyle, background: 'none', border: 'none', cursor: 'var(--cursor-pointer)', padding: 0 }}>✕ Clear</button>
         )}
         <span style={{ ...dimStyle, marginLeft: 'auto' }}>{filteredNotes.length} note{filteredNotes.length !== 1 ? 's' : ''}</span>
       </div>
@@ -3391,7 +3391,7 @@ function StoryDevelopment() {
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
                     {n.author_name && <span style={dimStyle}>{n.author_name}</span>}
                     <span style={dimStyle}>{new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <button onClick={() => toggleResolved(n)} title={n.resolved ? 'Mark active' : 'Mark done / scrapped'} style={{ background: 'none', border: '1px solid var(--border)', color: n.resolved ? 'var(--text-dim)' : 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', padding: '0.2rem 0.5rem', cursor: 'pointer', letterSpacing: '0.08em' }}>
+                    <button onClick={() => toggleResolved(n)} title={n.resolved ? 'Mark active' : 'Mark done / scrapped'} style={{ background: 'none', border: '1px solid var(--border)', color: n.resolved ? 'var(--text-dim)' : 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', padding: '0.2rem 0.5rem', cursor: 'var(--cursor-pointer)', letterSpacing: '0.08em' }}>
                       {n.resolved ? 'REOPEN' : 'DONE'}
                     </button>
                   </div>
@@ -3487,7 +3487,7 @@ function SuggestionCard({ s, inDumpster, acting, chatEnabled, onApprove, onRejec
           </button>
         )}
         {chatEnabled && isAcknowledged && !inDumpster && (
-          <button onClick={() => setChatOpen(v => !v)} style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}>
+          <button onClick={() => setChatOpen(v => !v)} style={{ fontSize: '0.62rem', padding: '0.35rem 0.75rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)' }}>
             💬 {chatOpen ? 'Hide Chat' : `Chat${(s.messages?.length ?? 0) > 0 ? ` (${s.messages!.length})` : ''}`}
           </button>
         )}
@@ -3526,7 +3526,7 @@ function SuggestionCard({ s, inDumpster, acting, chatEnabled, onApprove, onRejec
             <button
               onClick={handleSend}
               disabled={!msgDraft.trim() || sendingMsg}
-              style={{ padding: '0.4rem 0.85rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', opacity: (!msgDraft.trim() || sendingMsg) ? 0.5 : 1, flexShrink: 0 }}
+              style={{ padding: '0.4rem 0.85rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', opacity: (!msgDraft.trim() || sendingMsg) ? 0.5 : 1, flexShrink: 0 }}
             >{sendingMsg ? '…' : 'Send'}</button>
           </div>
         </div>
@@ -3696,7 +3696,7 @@ function StorySuggestions() {
           <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
             <button
               onClick={() => setShowDumpster((v) => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: showDumpster ? '1rem' : 0 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'none', border: 'none', cursor: 'var(--cursor-pointer)', padding: 0, marginBottom: showDumpster ? '1rem' : 0 }}
             >
               <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
                 🗑 Dumpster
@@ -3751,7 +3751,7 @@ function StoryNotesWindow({ onClose }: { onClose: () => void }) {
     <div className="float-panel" style={{ left: pos.x, top: pos.y }}>
       <div className="float-panel-header" onMouseDown={onMouseDown}>
         <span>📋 Story Notes</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'var(--cursor-pointer)', fontSize: '0.9rem' }}>✕</button>
       </div>
       <div className="float-panel-body">
         {notes.length === 0 ? (
@@ -3973,7 +3973,7 @@ function AccountManagement() {
                     {nicknameMap[u.id] ? (
                       <div style={{ display:'flex', alignItems:'center', gap:'0.35rem', marginTop:'0.15rem' }}>
                         <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--purple-hot)', letterSpacing:'0.06em' }}>"{nicknameMap[u.id]}"</span>
-                        <button onClick={() => { setEditNicknameId(u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.6rem', cursor:'pointer', padding:0, lineHeight:1 }} title="Edit nickname">✎</button>
+                        <button onClick={() => { setEditNicknameId(u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ background:'none', border:'none', color:'var(--text-dim)', fontSize:'0.6rem', cursor:'var(--cursor-pointer)', padding:0, lineHeight:1 }} title="Edit nickname">✎</button>
                       </div>
                     ) : (
                       <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.05em', marginTop:'0.1rem' }}>ID: {u.id.slice(0, 8)}…</p>
@@ -4001,17 +4001,17 @@ function AccountManagement() {
                       <button
                         onClick={() => changeTier(u.id, isSub ? 'fan' : 'subscriber')}
                         disabled={savingTier === u.id}
-                        style={{ padding:'0.3rem 0.55rem', background: isSub ? 'rgba(0,200,100,0.15)' : 'rgba(0,0,0,0.15)', border:`1px solid ${isSub ? '#00c864' : 'var(--border)'}`, color: isSub ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.52rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: savingTier === u.id ? 0.5 : 1, whiteSpace:'nowrap' }}
+                        style={{ padding:'0.3rem 0.55rem', background: isSub ? 'rgba(0,200,100,0.15)' : 'rgba(0,0,0,0.15)', border:`1px solid ${isSub ? '#00c864' : 'var(--border)'}`, color: isSub ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.52rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)', opacity: savingTier === u.id ? 0.5 : 1, whiteSpace:'nowrap' }}
                         title={isSub ? 'Click to remove subscriber status' : 'Click to grant subscriber perks'}
                       >
                         {isSub ? '★ Sub' : '☆ Fan'}
                       </button>
                     )
                   })()}
-                  <button onClick={() => { setEditNicknameId(editNicknameId === u.id ? null : u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ padding:'0.3rem 0.55rem', background: editNicknameId === u.id ? 'rgba(168,77,255,0.2)' : 'rgba(168,77,255,0.08)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>✎ Nickname</button>
-                  <button onClick={() => { setProviderExpandedId(providerExpandedId === u.id ? null : u.id); setCombineExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: providerExpandedId === u.id ? 'rgba(88,101,242,0.25)' : 'rgba(88,101,242,0.08)', border:'1px solid rgba(88,101,242,0.5)', color:'#8b9cff', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⊕ Providers</button>
-                  <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch(''); setProviderExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>⇄ Merge</button>
-                  <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
+                  <button onClick={() => { setEditNicknameId(editNicknameId === u.id ? null : u.id); setNicknameInput(nicknameMap[u.id] ?? '') }} style={{ padding:'0.3rem 0.55rem', background: editNicknameId === u.id ? 'rgba(168,77,255,0.2)' : 'rgba(168,77,255,0.08)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>✎ Nickname</button>
+                  <button onClick={() => { setProviderExpandedId(providerExpandedId === u.id ? null : u.id); setCombineExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: providerExpandedId === u.id ? 'rgba(88,101,242,0.25)' : 'rgba(88,101,242,0.08)', border:'1px solid rgba(88,101,242,0.5)', color:'#8b9cff', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>⊕ Providers</button>
+                  <button onClick={() => { setCombineExpandedId(combineExpandedId === u.id ? null : u.id); setCombineSearch(''); setProviderExpandedId(null) }} style={{ padding:'0.3rem 0.55rem', background: combineExpandedId === u.id ? 'rgba(255,159,0,0.2)' : 'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.5)', color:'var(--gold)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>⇄ Merge</button>
+                  <button onClick={() => retireUser(u.id, u.name)} disabled={retiring === u.id} style={{ padding:'0.3rem 0.55rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.56rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)', opacity: retiring === u.id ? 0.4 : 1 }}>Retire</button>
                 </div>
               </div>
               {editNicknameId === u.id && (
@@ -4026,8 +4026,8 @@ function AccountManagement() {
                     autoFocus
                     style={{ fontSize:'0.72rem', maxWidth:280, flex:1, minWidth:160 }}
                   />
-                  <button onClick={() => saveNickname(u.id)} disabled={savingNickname} style={{ padding:'0.4rem 0.9rem', background:'var(--purple)', border:'none', color:'white', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer', opacity: savingNickname ? 0.6 : 1, whiteSpace:'nowrap' }}>{savingNickname ? 'Saving…' : nicknameInput.trim() ? 'Save' : 'Clear'}</button>
-                  <button onClick={() => setEditNicknameId(null)} style={{ padding:'0.4rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'pointer' }}>Cancel</button>
+                  <button onClick={() => saveNickname(u.id)} disabled={savingNickname} style={{ padding:'0.4rem 0.9rem', background:'var(--purple)', border:'none', color:'white', fontFamily:'var(--font-meta)', fontSize:'0.62rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)', opacity: savingNickname ? 0.6 : 1, whiteSpace:'nowrap' }}>{savingNickname ? 'Saving…' : nicknameInput.trim() ? 'Save' : 'Clear'}</button>
+                  <button onClick={() => setEditNicknameId(null)} style={{ padding:'0.4rem 0.75rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.62rem', cursor:'var(--cursor-pointer)' }}>Cancel</button>
                 </div>
               )}
               {providerExpandedId === u.id && (() => {
@@ -4059,7 +4059,7 @@ function AccountManagement() {
                                   onClick={() => unlinkIdentity(u.id, identity.identity_id, meta.label)}
                                   disabled={unlinkingId === identity.identity_id}
                                   title={`Remove ${meta.label}`}
-                                  style={{ background:'transparent', border:'none', color:'var(--text-dim)', cursor:'pointer', fontSize:'0.7rem', lineHeight:1, padding:'0.15rem', flexShrink:0, opacity: unlinkingId === identity.identity_id ? 0.4 : 1 }}
+                                  style={{ background:'transparent', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'0.7rem', lineHeight:1, padding:'0.15rem', flexShrink:0, opacity: unlinkingId === identity.identity_id ? 0.4 : 1 }}
                                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
                                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)'}
                                 >✕</button>
@@ -4090,7 +4090,7 @@ function AccountManagement() {
                     ) : (
                       <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', maxWidth:400 }}>
                         {matches.map(target => (
-                          <button key={target.id} onClick={() => combineAccounts(u.id, target)} disabled={combining} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.55rem 0.9rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'pointer' }}
+                          <button key={target.id} onClick={() => combineAccounts(u.id, target)} disabled={combining} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'0.55rem 0.9rem', background:'var(--surface)', border:'1px solid var(--border)', textAlign:'left', cursor:'var(--cursor-pointer)' }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)' }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                           >
@@ -4161,7 +4161,7 @@ function LegendsSection() {
           background: on ? 'rgba(192,192,208,0.12)' : 'rgba(128,0,218,0.12)',
           border: `1px solid ${on ? '#c0c0d0' : 'var(--purple)'}`,
           color: on ? '#c0c0d0' : 'var(--purple-hot)',
-          cursor: 'pointer', transition: 'all 0.15s',
+          cursor: 'var(--cursor-pointer)', transition: 'all 0.15s',
         }}
       >
         {toggling === row.id ? '…' : on ? '★ Legend' : 'Mark Legend'}
@@ -4373,7 +4373,7 @@ function SiteSettings() {
               <img src={imgPreview} alt="Title image preview" style={{ display:'block', maxWidth:320, border:'1px solid var(--border)', marginBottom:'0.75rem' }} />
             )}
             <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
-              <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', color:'var(--purple-hot)', border:'1px solid var(--purple)', padding:'0.45rem 0.9rem', cursor:'pointer' }}>
+              <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', color:'var(--purple-hot)', border:'1px solid var(--purple)', padding:'0.45rem 0.9rem', cursor:'var(--cursor-pointer)' }}>
                 Choose File
                 <input type="file" accept="image/*" style={{ display:'none' }} onChange={(e) => {
                   const f = e.target.files?.[0]
@@ -4381,7 +4381,7 @@ function SiteSettings() {
                 }} />
               </label>
               {imgFile && (
-                <button onClick={uploadImage} disabled={uploading} style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', padding:'0.45rem 0.9rem', background:'rgba(168,77,255,0.15)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', cursor:'pointer' }}>
+                <button onClick={uploadImage} disabled={uploading} style={{ fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', padding:'0.45rem 0.9rem', background:'rgba(168,77,255,0.15)', border:'1px solid var(--purple-hot)', color:'var(--purple-hot)', cursor:'var(--cursor-pointer)' }}>
                   {uploading ? 'Uploading…' : '↑ Upload'}
                 </button>
               )}
@@ -4394,8 +4394,8 @@ function SiteSettings() {
           <div>
             <span style={label}>Matchcard Images</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={matchcardShowImages} onChange={e => setMatchcardShowImages(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'var(--cursor-pointer)' }}>
+                <input type="checkbox" checked={matchcardShowImages} onChange={e => setMatchcardShowImages(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'var(--cursor-pointer)' }} />
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-strong)', letterSpacing: '0.04em' }}>Show wrestler &amp; team images</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: matchcardShowImages ? 'pointer' : 'default', opacity: matchcardShowImages ? 1 : 0.4 }}>
@@ -4409,8 +4409,8 @@ function SiteSettings() {
           {/* Suggestion Chat */}
           <div>
             <span style={label}>Story Suggestion Chat</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={suggestionChatEnabled} onChange={e => setSuggestionChatEnabled(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'var(--cursor-pointer)' }}>
+              <input type="checkbox" checked={suggestionChatEnabled} onChange={e => setSuggestionChatEnabled(e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--purple-hot)', cursor: 'var(--cursor-pointer)' }} />
               <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: 'var(--text-strong)', letterSpacing: '0.04em' }}>Enable back-and-forth chat on suggestions</span>
             </label>
             <p style={hint}>When enabled, admins can acknowledge a suggestion to open a discussion thread. Fans can reply to refine their idea before it is approved or rejected.</p>
@@ -4421,7 +4421,7 @@ function SiteSettings() {
             <button
               onClick={save}
               disabled={saving}
-              style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border:`1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor:'pointer', transition:'all 0.2s' }}
+              style={{ fontFamily:'var(--font-meta)', fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.12em', padding:'0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border:`1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor:'var(--cursor-pointer)', transition:'all 0.2s' }}
             >
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Settings'}
             </button>
@@ -4512,7 +4512,7 @@ function RolePermissions() {
                     <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.68rem', color: 'var(--text-strong)', letterSpacing: '0.06em' }}>{sec.label}</span>
                     {check('var(--gold)')}
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                      <input type="checkbox" checked={creativeSections.includes(sec.id)} onChange={() => toggle(sec.id)} style={{ width: 16, height: 16, accentColor: 'var(--purple-hot)', cursor: 'pointer' }} />
+                      <input type="checkbox" checked={creativeSections.includes(sec.id)} onChange={() => toggle(sec.id)} style={{ width: 16, height: 16, accentColor: 'var(--purple-hot)', cursor: 'var(--cursor-pointer)' }} />
                     </div>
                     {dash()}
                   </div>
@@ -4569,7 +4569,7 @@ function RolePermissions() {
 
           {/* Save */}
           <div>
-            <button onClick={save} disabled={saving} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border: `1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button onClick={save} disabled={saving} style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', padding: '0.6rem 1.5rem', background: saved ? 'rgba(0,200,100,0.15)' : 'rgba(168,77,255,0.15)', border: `1px solid ${saved ? '#00c864' : 'var(--purple-hot)'}`, color: saved ? '#00c864' : 'var(--purple-hot)', cursor: 'var(--cursor-pointer)', transition: 'all 0.2s' }}>
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Permissions'}
             </button>
           </div>
@@ -4655,7 +4655,7 @@ function NewsTemplates() {
             onKeyDown={e => e.key === 'Enter' && addTemplate()}
             style={{ flex: 1, minWidth: 260, fontFamily: 'var(--font-meta)', fontSize: '0.65rem', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-strong)', padding: '0.5rem 0.75rem' }} />
           <button onClick={addTemplate} disabled={saving || !addText.trim()}
-            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(168,77,255,0.15)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', padding: '0.5rem 1.25rem', cursor: 'pointer', opacity: (!addText.trim() || saving) ? 0.5 : 1 }}>
+            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(168,77,255,0.15)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', padding: '0.5rem 1.25rem', cursor: 'var(--cursor-pointer)', opacity: (!addText.trim() || saving) ? 0.5 : 1 }}>
             {saving ? 'Saving…' : '+ Add'}
           </button>
         </div>
@@ -4678,11 +4678,11 @@ function NewsTemplates() {
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.04)', opacity: t.active ? 1 : 0.45 }}>
                 <span style={{ flex: 1, fontFamily: 'var(--font-meta)', fontSize: '0.63rem', color: t.active ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing: '0.04em' }}>{t.template}</span>
                 <button onClick={() => toggleActive(t)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: t.active ? 'rgba(34,204,102,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${t.active ? '#22cc66' : 'var(--border)'}`, color: t.active ? '#22cc66' : 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'pointer', flexShrink: 0 }}>
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: t.active ? 'rgba(34,204,102,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${t.active ? '#22cc66' : 'var(--border)'}`, color: t.active ? '#22cc66' : 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'var(--cursor-pointer)', flexShrink: 0 }}>
                   {t.active ? 'Active' : 'Inactive'}
                 </button>
                 <button onClick={() => deleteTemplate(t.id)}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'pointer', flexShrink: 0 }}
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.3rem 0.65rem', cursor: 'var(--cursor-pointer)', flexShrink: 0 }}
                   onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
                   onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}>
                   Delete
@@ -4799,7 +4799,7 @@ export default function AdminDashboard() {
             </div>
           ))}
           <div style={{ marginTop:'auto', padding:'1rem 1.5rem', borderTop:'1px solid var(--border)' }}>
-            <button onClick={() => setShowNotes(!showNotes)} style={{ width:'100%', padding:'0.65rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer' }}>📋 Story Notes</button>
+            <button onClick={() => setShowNotes(!showNotes)} style={{ width:'100%', padding:'0.65rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'var(--cursor-pointer)' }}>📋 Story Notes</button>
             <Link href="/" className="admin-nav-item" style={{ marginTop:'0.5rem', display:'flex', borderLeft:'none', color:'var(--text-dim)' }}>← Back to Site</Link>
           </div>
         </aside>
@@ -4890,7 +4890,7 @@ function SupportTickets() {
                   </span>
                 </div>
                 {tab === 'open' && (
-                  <button onClick={() => dismiss(t.id)} disabled={dismissing === t.id} style={{ padding:'0.25rem 0.65rem', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+                  <button onClick={() => dismiss(t.id)} disabled={dismissing === t.id} style={{ padding:'0.25rem 0.65rem', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>
                     {dismissing === t.id ? '…' : 'Dismiss'}
                   </button>
                 )}
@@ -4969,7 +4969,7 @@ function FinesSection() {
             </p>
           )}
         </div>
-        <button onClick={() => setAddOpen(o => !o)} style={{ padding:'0.5rem 1rem', background: addOpen ? 'rgba(255,51,85,0.15)' : 'rgba(255,51,85,0.1)', border:'1px solid rgba(255,51,85,0.4)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'pointer' }}>
+        <button onClick={() => setAddOpen(o => !o)} style={{ padding:'0.5rem 1rem', background: addOpen ? 'rgba(255,51,85,0.15)' : 'rgba(255,51,85,0.1)', border:'1px solid rgba(255,51,85,0.4)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>
           {addOpen ? '✕ Cancel' : '+ Add Fine'}
         </button>
       </div>
@@ -5000,7 +5000,7 @@ function FinesSection() {
             <label style={{ fontFamily:'var(--font-meta)', fontSize:'0.55rem', color:'var(--text-dim)', letterSpacing:'0.15em' }}>DATE</label>
             <input className="form-input" type="date" value={form.issued_date} onChange={e => setForm(p => ({ ...p, issued_date: e.target.value }))} style={{ fontSize:'0.68rem' }} />
           </div>
-          <button onClick={addFine} disabled={saving || !form.entity_key || !form.amount} style={{ padding:'0.45rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.5)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+          <button onClick={addFine} disabled={saving || !form.entity_key || !form.amount} style={{ padding:'0.45rem 1rem', background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.5)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, cursor:'var(--cursor-pointer)', flexShrink:0 }}>
             {saving ? 'Saving…' : 'Issue Fine'}
           </button>
         </div>
@@ -5008,7 +5008,7 @@ function FinesSection() {
 
       <div style={{ display:'flex', gap:'0.75rem', alignItems:'center', marginBottom:'1rem', flexWrap:'wrap' }}>
         <input className="form-input" placeholder="Search by name…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
-        <label style={{ display:'flex', alignItems:'center', gap:'0.35rem', cursor:'pointer' }}>
+        <label style={{ display:'flex', alignItems:'center', gap:'0.35rem', cursor:'var(--cursor-pointer)' }}>
           <input type="checkbox" checked={showPaid} onChange={e => setShowPaid(e.target.checked)} style={{ accentColor:'var(--purple-hot)' }} />
           <span style={{ fontFamily:'var(--font-meta)', fontSize:'0.6rem', color:'var(--text-dim)', letterSpacing:'0.1em' }}>Show Paid</span>
         </label>
@@ -5038,10 +5038,10 @@ function FinesSection() {
                   </p>
                 </div>
                 <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
-                  <button onClick={() => togglePaid(f)} style={{ padding:'0.25rem 0.6rem', background: f.paid ? 'rgba(0,200,100,0.1)' : 'transparent', border:`1px solid ${f.paid ? '#00c864' : 'var(--border)'}`, color: f.paid ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.08em', cursor:'pointer' }}>
+                  <button onClick={() => togglePaid(f)} style={{ padding:'0.25rem 0.6rem', background: f.paid ? 'rgba(0,200,100,0.1)' : 'transparent', border:`1px solid ${f.paid ? '#00c864' : 'var(--border)'}`, color: f.paid ? '#00c864' : 'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.55rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>
                     {f.paid ? 'Paid ✓' : 'Mark Paid'}
                   </button>
-                  <button onClick={() => deleteFine(f.id)} style={{ padding:'0.25rem 0.5rem', background:'transparent', border:'1px solid var(--border)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'pointer' }}>✕</button>
+                  <button onClick={() => deleteFine(f.id)} style={{ padding:'0.25rem 0.5rem', background:'transparent', border:'1px solid var(--border)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', cursor:'var(--cursor-pointer)' }}>✕</button>
                 </div>
               </div>
             )

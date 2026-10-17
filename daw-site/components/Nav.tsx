@@ -86,7 +86,7 @@ export default function Nav() {
                 <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', color: isAdmin ? 'var(--gold)' : 'var(--purple-hot)' }}>{user.nickname || user.name}</span>
               </div>
               <button onClick={handleLogout}
-                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.4rem 0.8rem', cursor: 'var(--cursor-none)', transition: 'all 0.15s' }}
+                style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.4rem 0.8rem', cursor: 'var(--cursor-pointer)', transition: 'all 0.15s' }}
                 onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}>
                 Sign Out
@@ -153,7 +153,7 @@ export default function Nav() {
                   {isAdmin ? '⚙️' : isCreative ? '🎨' : '👤'} {user.nickname || user.name}
                 </span>
                 <button onClick={handleLogout}
-                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.5rem 1rem', cursor: 'pointer' }}>
+                  style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.5rem 1rem', cursor: 'var(--cursor-pointer)' }}>
                   Sign Out
                 </button>
               </>

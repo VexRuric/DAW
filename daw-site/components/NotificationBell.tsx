@@ -71,7 +71,7 @@ export default function NotificationBell() {
           color: hasUnread ? 'var(--gold)' : 'var(--text-dim)',
           width: 34, height: 34,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer',
+          cursor: 'var(--cursor-pointer)',
           transition: 'border-color 0.2s, color 0.2s',
           flexShrink: 0,
         }}
@@ -104,7 +104,7 @@ export default function NotificationBell() {
               NOTIFICATIONS {muted ? '· MUTED' : ''}
             </span>
             {unread > 0 && !muted && (
-              <button onClick={markAllRead} style={{ background: 'none', border: 'none', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', cursor: 'pointer', letterSpacing: '0.08em', padding: 0 }}>
+              <button onClick={markAllRead} style={{ background: 'none', border: 'none', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', cursor: 'var(--cursor-pointer)', letterSpacing: '0.08em', padding: 0 }}>
                 Mark all read
               </button>
             )}

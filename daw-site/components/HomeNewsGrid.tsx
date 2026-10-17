@@ -100,14 +100,14 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <button
                   onClick={prev}
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontSize: '1rem', padding: '0.35rem 0.75rem', cursor: 'var(--cursor-none)', transition: 'all .2s' }}
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontSize: '1rem', padding: '0.35rem 0.75rem', cursor: 'var(--cursor-pointer)', transition: 'all .2s' }}
                   aria-label="Previous"
                 >
                   ‹
                 </button>
                 <button
                   onClick={next}
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontSize: '1rem', padding: '0.35rem 0.75rem', cursor: 'var(--cursor-none)', transition: 'all .2s' }}
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontSize: '1rem', padding: '0.35rem 0.75rem', cursor: 'var(--cursor-pointer)', transition: 'all .2s' }}
                   aria-label="Next"
                 >
                   ›
@@ -120,7 +120,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
                     <button
                       key={i}
                       onClick={() => setFeatIdx(i)}
-                      style={{ width: i === featIdx ? 18 : 6, height: 3, background: i === featIdx ? 'var(--purple-hot)' : 'var(--border)', border: 'none', cursor: 'var(--cursor-none)', transition: 'all .2s', padding: 0 }}
+                      style={{ width: i === featIdx ? 18 : 6, height: 3, background: i === featIdx ? 'var(--purple-hot)' : 'var(--border)', border: 'none', cursor: 'var(--cursor-pointer)', transition: 'all .2s', padding: 0 }}
                       aria-label={`Story ${i + 1}`}
                     />
                   ))}
@@ -159,7 +159,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                     padding: '0.45rem 0.7rem',
-                    cursor: 'var(--cursor-none)',
+                    cursor: 'var(--cursor-pointer)',
                     transition: 'all .2s',
                   }}
                 >
@@ -190,7 +190,7 @@ export default function HomeNewsGrid({ cards }: { cards: NewsCard[] }) {
                       borderBottom: '1px solid var(--border)',
                       alignItems: 'center',
                       background: isFeatured ? 'rgba(168,77,255,0.06)' : 'transparent',
-                      cursor: 'var(--cursor-none)',
+                      cursor: 'var(--cursor-pointer)',
                       transition: 'background .15s',
                       borderLeft: isFeatured ? '2px solid var(--purple-hot)' : '2px solid transparent',
                     }}

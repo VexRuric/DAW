@@ -99,7 +99,7 @@ function ShowRow({ show }: { show: ArchiveShow }) {
         <button
           onClick={() => setExpanded(e => !e)}
           style={{
-            flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+            flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'var(--cursor-pointer)',
             padding: 0,
           }}
         >

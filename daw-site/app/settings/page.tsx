@@ -326,7 +326,7 @@ export default function SettingsPage() {
           <div style={{ marginTop: 'auto', padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
             <button
               onClick={handleLogout}
-              style={{ width: '100%', padding: '0.7rem', background: 'rgba(255,51,85,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 0.15s' }}
+              style={{ width: '100%', padding: '0.7rem', background: 'rgba(255,51,85,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)', transition: 'background 0.15s' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,85,0.2)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,51,85,0.1)' }}
             >
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                             {disconnectingId === prov.id ? 'Disconnecting…' : 'Disconnect'}
                           </button>
                         ) : (
-                          <button style={{ padding: '0.5rem 1.1rem', background: prov.color + '22', border: `1px solid ${prov.color}`, color: prov.color, fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', transition: 'background 0.15s', opacity: isWorking ? 0.5 : 1 }} disabled={isWorking} onClick={() => connectProvider(prov.id)}>
+                          <button style={{ padding: '0.5rem 1.1rem', background: prov.color + '22', border: `1px solid ${prov.color}`, color: prov.color, fontFamily: 'var(--font-meta)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', transition: 'background 0.15s', opacity: isWorking ? 0.5 : 1 }} disabled={isWorking} onClick={() => connectProvider(prov.id)}>
                             {connectingId === prov.id ? 'Redirecting…' : 'Connect'}
                           </button>
                         )}
@@ -545,7 +545,7 @@ export default function SettingsPage() {
                           <p style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--text-strong)', textTransform: 'uppercase' }}>Discord not connected</p>
                           <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginTop: '0.2rem' }}>
                             Connect your Discord account to enable DM alerts.{' '}
-                            <button onClick={() => setSection('connections')} style={{ background: 'none', border: 'none', color: '#7289da', cursor: 'pointer', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, padding: 0, letterSpacing: '0.08em' }}>
+                            <button onClick={() => setSection('connections')} style={{ background: 'none', border: 'none', color: '#7289da', cursor: 'var(--cursor-pointer)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, padding: 0, letterSpacing: '0.08em' }}>
                               Go to Connections →
                             </button>
                           </p>

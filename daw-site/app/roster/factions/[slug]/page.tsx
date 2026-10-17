@@ -291,7 +291,7 @@ export default async function FactionStatPage({ params }: PageProps) {
 
             {team.backstory && (
               <details style={{ border: '1px solid var(--border)', marginTop: '1.25rem' }}>
-                <summary style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 1rem', userSelect: 'none' }}>
+                <summary style={{ fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 1rem', userSelect: 'none' }}>
                   <span>Faction Background</span>
                   <span style={{ opacity: 0.5 }}>▾</span>
                 </summary>

@@ -111,7 +111,7 @@ export default function TitleHistoryTab({ reigns }: Props) {
           fontWeight: 700,
           letterSpacing: '0.2em',
           textTransform: 'uppercase',
-          cursor: 'pointer',
+          cursor: 'var(--cursor-pointer)',
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',

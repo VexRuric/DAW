@@ -535,7 +535,7 @@ function BookerModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.35rem 0.75rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+              style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', padding: '0.35rem 0.75rem', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', flexShrink: 0, whiteSpace: 'nowrap' }}
               onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--purple)'; el.style.color = 'var(--purple-hot)' }}
               onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
             >← Back to Schedule</button>
@@ -571,7 +571,7 @@ function BookerModal({
                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
                   <input type="range" min={9} max={20} value={slotCount}
                     onChange={e => changeSlotCount(Number(e.target.value))}
-                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'var(--cursor-pointer)' }} />
                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
                 </div>
                 <button onClick={cancelEditingCommitted} disabled={committing} className="btn" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
@@ -588,7 +588,7 @@ function BookerModal({
                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Slots</span>
                   <input type="range" min={9} max={20} value={slotCount}
                     onChange={e => changeSlotCount(Number(e.target.value))}
-                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'pointer' }} />
+                    style={{ width: 80, accentColor: 'var(--purple)', cursor: 'var(--cursor-pointer)' }} />
                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.72rem', color: 'var(--purple-hot)', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{slotCount}</span>
                 </div>
                 <button onClick={saveMatchcard} disabled={saving || committing || saveDone} className="btn" style={{ padding: '0.55rem 1.1rem', fontSize: '0.65rem' }}>
@@ -657,7 +657,7 @@ function BookerModal({
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                 {(['roster', 'factions'] as const).map(tab => (
                   <button key={tab} onClick={() => setSidebarTab(tab)}
-                    style={{ flex: 1, padding: '0.5rem', background: sidebarTab === tab ? 'var(--surface)' : 'none', border: 'none', borderBottom: sidebarTab === tab ? '2px solid var(--purple)' : '2px solid transparent', color: sidebarTab === tab ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                    style={{ flex: 1, padding: '0.5rem', background: sidebarTab === tab ? 'var(--surface)' : 'none', border: 'none', borderBottom: sidebarTab === tab ? '2px solid var(--purple)' : '2px solid transparent', color: sidebarTab === tab ? 'var(--purple-hot)' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)' }}>
                     {tab === 'roster' ? 'Roster' : 'Factions'}
                   </button>
                 ))}
@@ -672,38 +672,38 @@ function BookerModal({
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '0.4rem' }}>
                         {allBrands.map(b => (
                           <button key={b} onClick={() => setFilterBrand(filterBrand === b ? '' : b)}
-                            style={{ padding: '0.12rem 0.38rem', background: filterBrand === b ? 'var(--purple)' : 'transparent', border: `1px solid ${filterBrand === b ? 'var(--purple)' : 'var(--border)'}`, color: filterBrand === b ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                            style={{ padding: '0.12rem 0.38rem', background: filterBrand === b ? 'var(--purple)' : 'transparent', border: `1px solid ${filterBrand === b ? 'var(--purple)' : 'var(--border)'}`, color: filterBrand === b ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)' }}>
                             {b}
                           </button>
                         ))}
                         {allGenders.map(g => (
                           <button key={g} onClick={() => setFilterGender(filterGender === g ? '' : g)}
-                            style={{ padding: '0.12rem 0.38rem', background: filterGender === g ? 'rgba(34,204,136,0.3)' : 'transparent', border: `1px solid ${filterGender === g ? '#22cc88' : 'var(--border)'}`, color: filterGender === g ? '#22cc88' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                            style={{ padding: '0.12rem 0.38rem', background: filterGender === g ? 'rgba(34,204,136,0.3)' : 'transparent', border: `1px solid ${filterGender === g ? '#22cc88' : 'var(--border)'}`, color: filterGender === g ? '#22cc88' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)' }}>
                             {g}
                           </button>
                         ))}
                         {allDivisions.map(d => (
                           <button key={d} onClick={() => setFilterDivision(filterDivision === d ? '' : d)}
-                            style={{ padding: '0.12rem 0.38rem', background: filterDivision === d ? 'rgba(255,201,51,0.2)' : 'transparent', border: `1px solid ${filterDivision === d ? 'var(--gold)' : 'var(--border)'}`, color: filterDivision === d ? 'var(--gold)' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                            style={{ padding: '0.12rem 0.38rem', background: filterDivision === d ? 'rgba(255,201,51,0.2)' : 'transparent', border: `1px solid ${filterDivision === d ? 'var(--gold)' : 'var(--border)'}`, color: filterDivision === d ? 'var(--gold)' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'var(--cursor-pointer)' }}>
                             {d}
                           </button>
                         ))}
                       </div>
                     )}
-                    <button onClick={() => setShowWriteIn(!showWriteIn)} style={{ width: '100%', padding: '0.38rem', background: showWriteIn ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.08)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}>
+                    <button onClick={() => setShowWriteIn(!showWriteIn)} style={{ width: '100%', padding: '0.38rem', background: showWriteIn ? 'rgba(128,0,218,0.2)' : 'rgba(128,0,218,0.08)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)' }}>
                       {showWriteIn ? '▲ Hide Write-In' : '+ Write-In Wrestler'}
                     </button>
                     {showWriteIn && (
                       <div style={{ marginTop: '0.45rem', display: 'flex', gap: '0.4rem' }}>
                         <input className="form-input" placeholder="Guest name…" value={writeInName} onChange={e => setWriteInName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addWriteIn() }} style={{ fontSize: '0.7rem', flex: 1 }} />
-                        <button onClick={addWriteIn} disabled={!writeInName.trim() || selectedSlot === null} style={{ padding: '0 0.65rem', background: 'rgba(128,0,218,0.15)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0, opacity: (!writeInName.trim() || selectedSlot === null) ? 0.4 : 1 }}>Add</button>
+                        <button onClick={addWriteIn} disabled={!writeInName.trim() || selectedSlot === null} style={{ padding: '0 0.65rem', background: 'rgba(128,0,218,0.15)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, cursor: 'var(--cursor-pointer)', flexShrink: 0, opacity: (!writeInName.trim() || selectedSlot === null) ? 0.4 : 1 }}>Add</button>
                       </div>
                     )}
                   </div>
                   <div style={{ overflowY: 'auto', flex: 1 }}>
                     {filteredRoster.map(w => (
                       <button key={w.id} onClick={() => assignRosterWrestler(w)}
-                        style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.85rem', background: 'none', border: 'none', borderBottom: '1px solid rgba(42,42,51,0.5)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', opacity: w.injured ? 0.5 : 1 }}
+                        style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.85rem', background: 'none', border: 'none', borderBottom: '1px solid rgba(42,42,51,0.5)', cursor: 'var(--cursor-pointer)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', opacity: w.injured ? 0.5 : 1 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
                       >
@@ -754,7 +754,7 @@ function BookerModal({
                                       assignFactionMembers(faction)
                                     }
                                   }}
-                                  style={{ flex: 1, textAlign: 'left', padding: '0.65rem 0.85rem', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}
+                                  style={{ flex: 1, textAlign: 'left', padding: '0.65rem 0.85rem', background: 'none', border: 'none', cursor: 'var(--cursor-pointer)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)' }}
                                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
                                 >
@@ -768,7 +768,7 @@ function BookerModal({
                                   <button
                                     onClick={() => assignFactionMembers(faction)}
                                     title="Add all members"
-                                    style={{ padding: '0.3rem 0.5rem', background: 'none', border: 'none', borderLeft: '1px solid rgba(42,42,51,0.5)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', cursor: 'pointer', letterSpacing: '0.06em', flexShrink: 0, whiteSpace: 'nowrap' }}
+                                    style={{ padding: '0.3rem 0.5rem', background: 'none', border: 'none', borderLeft: '1px solid rgba(42,42,51,0.5)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.5rem', cursor: 'var(--cursor-pointer)', letterSpacing: '0.06em', flexShrink: 0, whiteSpace: 'nowrap' }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--gold)' }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)' }}
                                   >All ▶</button>
@@ -782,7 +782,7 @@ function BookerModal({
                                     const isChecked = checkedMemberIds.has(m.id)
                                     return (
                                       <label key={m.id}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.85rem 0.3rem 1rem', cursor: 'pointer' }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.85rem 0.3rem 1rem', cursor: 'var(--cursor-pointer)' }}
                                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none' }}
                                       >
@@ -793,7 +793,7 @@ function BookerModal({
                                             isChecked ? next.delete(m.id) : next.add(m.id)
                                             setCheckedMemberIds(next)
                                           }}
-                                          style={{ accentColor: 'var(--purple-hot)', cursor: 'pointer', flexShrink: 0 }}
+                                          style={{ accentColor: 'var(--purple-hot)', cursor: 'var(--cursor-pointer)', flexShrink: 0 }}
                                         />
                                         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: isChecked ? 'var(--text-strong)' : 'var(--text-muted)', letterSpacing: '0.05em' }}>{m.name}</span>
                                       </label>
@@ -803,7 +803,7 @@ function BookerModal({
                                     <div style={{ padding: '0.4rem 0.85rem 0 1rem' }}>
                                       <button
                                         onClick={addCheckedFactionMembers}
-                                        style={{ width: '100%', padding: '0.38rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer' }}
+                                        style={{ width: '100%', padding: '0.38rem', background: 'rgba(128,0,218,0.2)', border: '1px solid var(--purple)', color: 'var(--purple-hot)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)' }}
                                       >
                                         + Add {checkedMemberIds.size} Selected
                                       </button>
@@ -822,7 +822,7 @@ function BookerModal({
                                         if (entry) assignRosterWrestler(entry)
                                         else assignRosterWrestler({ id: m.id, name: m.name, isChamp: false, champTitle: null, role: null, injured: false, brand: null, gender: null, division: null })
                                       }}
-                                      style={{ textAlign: 'left', padding: '0.2rem 0.55rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', cursor: 'pointer', letterSpacing: '0.05em' }}
+                                      style={{ textAlign: 'left', padding: '0.2rem 0.55rem', background: 'none', border: 'none', color: 'var(--text-muted)', fontFamily: 'var(--font-meta)', fontSize: '0.62rem', cursor: 'var(--cursor-pointer)', letterSpacing: '0.05em' }}
                                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-strong)' }}
                                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
                                     >
@@ -861,7 +861,7 @@ function BookerModal({
                     onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (dragSlotId !== null && dragSlotId !== slot.id) setDragOverSlotId(slot.id) }}
                     onDragLeave={e => { e.stopPropagation(); setDragOverSlotId(v => v === slot.id ? null : v) }}
                     onDrop={e => { e.preventDefault(); e.stopPropagation(); if (dragSlotId !== null) { moveSlot(dragSlotId, slot.id) } setDragSlotId(null); setDragOverSlotId(null) }}
-                    style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : isDragOver ? 'rgba(128,0,218,0.6)' : isSelected ? 'var(--purple)' : 'var(--border)'}`, padding: '0.85rem 1rem', cursor: 'pointer', opacity: isDragging ? 0.45 : 1, transition: 'border-color 0.1s, opacity 0.1s' }}
+                    style={{ background: 'var(--surface-2)', border: `2px solid ${slot.isMainEvent ? 'var(--gold)' : isDragOver ? 'rgba(128,0,218,0.6)' : isSelected ? 'var(--purple)' : 'var(--border)'}`, padding: '0.85rem 1rem', cursor: 'var(--cursor-pointer)', opacity: isDragging ? 0.45 : 1, transition: 'border-color 0.1s, opacity 0.1s' }}
                   >
                     {/* Slot header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.45rem' }}>
@@ -894,7 +894,7 @@ function BookerModal({
                         )}
                         {slot.scheme === 'Write-In' && (
                           <>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'var(--cursor-pointer)' }} onClick={e => e.stopPropagation()}>
                               <input type="checkbox" checked={slot.writeInHasType} onChange={e => updateSlotField(slot.id, 'writeInHasType', e.target.checked)} style={{ accentColor: 'var(--accent-red)' }} />
                               <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: slot.writeInHasType ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing: '0.06em' }}>Type</span>
                             </label>
@@ -911,7 +911,7 @@ function BookerModal({
                           <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
                             {([4, 6] as const).map(n => (
                               <button key={n} onClick={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchSize', n) }}
-                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>
+                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'var(--cursor-pointer)' }}>
                                 {n === 4 ? '2v2' : '3v3'}
                               </button>
                             ))}
@@ -922,7 +922,7 @@ function BookerModal({
                           <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
                             {[6, 8].map(n => (
                               <button key={n} onClick={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchSize', n) }}
-                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>{n}</button>
+                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'var(--cursor-pointer)' }}>{n}</button>
                             ))}
                           </div>
                         )}
@@ -931,11 +931,11 @@ function BookerModal({
                           <div style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
                             {[30, 40].map(n => (
                               <button key={n} onClick={e => { e.stopPropagation(); updateSlotField(slot.id, 'matchSize', n) }}
-                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>{n}</button>
+                                style={{ padding: '0.28rem 0.55rem', background: slot.matchSize === n ? 'var(--purple)' : 'transparent', border: `1px solid ${slot.matchSize === n ? 'var(--purple)' : 'var(--border)'}`, color: slot.matchSize === n ? 'white' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, cursor: 'var(--cursor-pointer)' }}>{n}</button>
                             ))}
                           </div>
                         )}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'var(--cursor-pointer)' }} onClick={e => e.stopPropagation()}>
                           <input type="checkbox" checked={slot.isTitleMatch} onChange={e => updateSlotField(slot.id, 'isTitleMatch', e.target.checked)} style={{ accentColor: 'var(--gold)' }} />
                           <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: slot.isTitleMatch ? 'var(--gold)' : 'var(--text-dim)', letterSpacing: '0.1em' }}>Title</span>
                         </label>
@@ -951,7 +951,7 @@ function BookerModal({
 
                     {/* Stipulation */}
                     <div style={{ marginBottom: '0.6rem' }} onClick={e => e.stopPropagation()}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', marginBottom: slot.hasStipulation ? '0.45rem' : 0 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'var(--cursor-pointer)', marginBottom: slot.hasStipulation ? '0.45rem' : 0 }}>
                         <input type="checkbox" checked={slot.hasStipulation} onChange={e => updateSlotField(slot.id, 'hasStipulation', e.target.checked)} style={{ accentColor: 'var(--accent-red)' }} />
                         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', color: slot.hasStipulation ? 'var(--accent-red)' : 'var(--text-dim)', letterSpacing: '0.1em', fontWeight: slot.hasStipulation ? 700 : 400 }}>Stipulation</span>
                         {slot.hasStipulation && slot.stipTags.length > 0 && (
@@ -966,7 +966,7 @@ function BookerModal({
                               const color  = STIP_COLORS[tag] ?? 'var(--text-dim)'
                               return (
                                 <button key={tag} onClick={e => { e.stopPropagation(); toggleStipTag(slot.id, tag) }}
-                                  style={{ padding: '0.15rem 0.42rem', background: active ? `${color}22` : 'transparent', border: `1px solid ${active ? color : 'var(--border)'}`, color: active ? color : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: active ? 700 : 400, letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                  style={{ padding: '0.15rem 0.42rem', background: active ? `${color}22` : 'transparent', border: `1px solid ${active ? color : 'var(--border)'}`, color: active ? color : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.46rem', fontWeight: active ? 700 : 400, letterSpacing: '0.08em', cursor: 'var(--cursor-pointer)', transition: 'all 0.15s' }}>
                                   {tag}
                                 </button>
                               )
@@ -994,7 +994,7 @@ function BookerModal({
                                 <div style={{ padding: '0.35rem 0.65rem', background: p.name ? (p.type === 'writein' ? 'rgba(128,0,218,0.1)' : 'var(--surface)') : 'transparent', border: `1px solid ${p.name ? (p.type === 'writein' ? 'var(--purple)' : 'var(--border-hot)') : 'rgba(42,42,51,0.5)'}`, display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 80 }}>
                                   {p.type === 'writein' && p.name && <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.42rem', color: 'var(--purple-hot)', fontWeight: 700, letterSpacing: '0.08em', background: 'rgba(128,0,218,0.2)', padding: '1px 4px', flexShrink: 0 }}>GUEST</span>}
                                   <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.66rem', color: p.name ? 'var(--text-strong)' : 'var(--text-dim)', letterSpacing: '0.06em', flex: 1 }}>{p.name || `Slot ${startIdx + i + 1}`}</span>
-                                  {p.name && <button onClick={e => { e.stopPropagation(); removeParticipant(slot.id, startIdx + i) }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.65rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>✕</button>}
+                                  {p.name && <button onClick={e => { e.stopPropagation(); removeParticipant(slot.id, startIdx + i) }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.65rem', cursor: 'var(--cursor-pointer)', padding: 0, lineHeight: 1 }}>✕</button>}
                                 </div>
                               </div>
                             ))}
@@ -1296,7 +1296,7 @@ export default function AdminScheduleBuilder() {
                     </span>
                   )}
                   <input type="date" value={show.show_date} onChange={e => updateDate(show.id, e.target.value)}
-                    style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'pointer', flexShrink: 0 }} />
+                    style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: isSkip ? 'var(--text-dim)' : 'var(--text-strong)', background: 'transparent', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', letterSpacing: '0.05em', cursor: 'var(--cursor-pointer)', flexShrink: 0 }} />
                   <input type="text" value={editNames[show.id] ?? show.name}
                     onChange={e => setEditNames(prev => ({ ...prev, [show.id]: e.target.value }))}
                     onBlur={() => updateName(show.id)}
@@ -1323,7 +1323,7 @@ export default function AdminScheduleBuilder() {
                   {/* Edit show button */}
                   {!isSkip && (
                     <button onClick={() => setEditingShowId(isEditing ? null : show.id)}
-                      style={{ padding: '0.38rem 0.7rem', background: isEditing ? 'rgba(59,130,246,0.15)' : 'transparent', border: `1px solid ${isEditing ? '#3b82f6' : 'var(--border)'}`, color: isEditing ? '#3b82f6' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', flexShrink: 0 }}>
+                      style={{ padding: '0.38rem 0.7rem', background: isEditing ? 'rgba(59,130,246,0.15)' : 'transparent', border: `1px solid ${isEditing ? '#3b82f6' : 'var(--border)'}`, color: isEditing ? '#3b82f6' : 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', flexShrink: 0 }}>
                       {isEditing ? '✕ Close' : '✎ Edit'}
                     </button>
                   )}
@@ -1334,7 +1334,7 @@ export default function AdminScheduleBuilder() {
                     </button>
                   )}
                   <button onClick={() => deleteShow(show.id)}
-                    style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.75rem', flexShrink: 0 }}
+                    style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'var(--cursor-pointer)', fontSize: '0.75rem', flexShrink: 0 }}
                     onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
                     onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
                     title={isSkip ? 'Remove break week' : 'Delete show'}>✕</button>
@@ -1355,7 +1355,7 @@ export default function AdminScheduleBuilder() {
                     <button
                       onClick={() => saveStreamUrl(show.id)}
                       disabled={savingStreamId === show.id}
-                      style={{ padding: '0.4rem 0.85rem', background: savedStreamId === show.id ? 'rgba(0,200,100,0.15)' : 'rgba(59,130,246,0.15)', border: `1px solid ${savedStreamId === show.id ? '#00c864' : '#3b82f6'}`, color: savedStreamId === show.id ? '#00c864' : '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', flexShrink: 0 }}>
+                      style={{ padding: '0.4rem 0.85rem', background: savedStreamId === show.id ? 'rgba(0,200,100,0.15)' : 'rgba(59,130,246,0.15)', border: `1px solid ${savedStreamId === show.id ? '#00c864' : '#3b82f6'}`, color: savedStreamId === show.id ? '#00c864' : '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', flexShrink: 0 }}>
                       {savingStreamId === show.id ? 'Saving…' : savedStreamId === show.id ? '✓ Saved' : 'Save URL'}
                     </button>
                     {show.stream_url && (

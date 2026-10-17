@@ -409,7 +409,7 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                 <summary style={{
                   fontFamily: 'var(--font-meta)', fontSize: '0.62rem', fontWeight: 700,
                   color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase',
-                  cursor: 'pointer', listStyle: 'none',
+                  cursor: 'var(--cursor-pointer)', listStyle: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '0.65rem 1rem', userSelect: 'none',
                 }}>

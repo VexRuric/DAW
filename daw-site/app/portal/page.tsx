@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
@@ -93,7 +93,7 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
             className="color-input-native"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: 36, height: 36, cursor: 'var(--cursor-none)' }}
+            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: 36, height: 36, cursor: 'var(--cursor-pointer)' }}
           />
         </div>
         <input
@@ -370,7 +370,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                       <input
                         type="range" min={48} max={95} value={heightInches}
                         onChange={(e) => setHeightInches(Number(e.target.value))}
-                        style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-none)', margin: '0.35rem 0 0.15rem' }}
+                        style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-pointer)', margin: '0.35rem 0 0.15rem' }}
                       />
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-meta)', fontSize: '0.53rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
                         <span>4ft 0in</span>
@@ -625,7 +625,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
               <input
                 type="range" min={2} max={5} value={memberCount}
                 onChange={(e) => updateMemberCount(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-none)' }}
+                style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-pointer)' }}
               />
             </div>
 
@@ -708,6 +708,96 @@ const STATUS_CONFIG: Record<CreationStatus, { label: string; color: string; bg: 
 
 /* ── Portal Page ──────────────────────────────────── */
 
+// Module-level + memo so typing elsewhere on the page doesn't re-render every card (and its full-size image)
+const CreationCard = memo(function CreationCard({ c, deleting, onEdit, onDelete }: {
+  c: Creation; deleting: boolean; onEdit: (c: Creation) => void; onDelete: (id: string, type: 'wrestler' | 'faction') => void
+}) {
+  const cfg = STATUS_CONFIG[c.status]
+  return (
+    <div
+    style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    textAlign: 'left',
+                    aspectRatio: '3/4',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      position: 'relative',
+                    }}
+                  >
+                    {c.render_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.render_url} alt={c.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                    ) : (
+                      <span style={{ fontSize: c.type === 'faction' ? '3rem' : '2rem', opacity: 0.35 }}>
+                        {c.type === 'faction' ? '🤝' : '🧍'}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ padding: '0.75rem 0.85rem', borderTop: '1px solid var(--border)' }}>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: '0.35rem' }}>
+                      {c.name}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        {c.type}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-meta)',
+                          fontSize: '0.6rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.1em',
+                          padding: '0.2rem 0.5rem',
+                          background: cfg.bg,
+                          color: cfg.color,
+                          border: `1px solid ${cfg.color}`,
+                        }}
+                      >
+                        {cfg.icon} {cfg.label}
+                      </span>
+                    </div>
+                    {c.twitchLinked ? (
+                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        🔗 Twitch Linked
+                      </div>
+                    ) : c.editPending ? (
+                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                        ✎ EDIT PENDING
+                      </div>
+                    ) : c.status === 'rejected' ? (
+                      <button
+                        onClick={() => onDelete(c.id, c.type)}
+                        disabled={deleting}
+                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid rgba(255,60,60,0.4)', color: '#ff4444', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'var(--cursor-pointer)', textTransform: 'uppercase', opacity: deleting ? 0.5 : 1 }}
+                      >
+                        {deleting ? '…' : '✕ Delete'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onEdit(c)}
+                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'var(--cursor-pointer)', textTransform: 'uppercase' }}
+                      >
+                        ✎ Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+  )
+})
+
 export default function PortalPage() {
   const { isFan, user, loading } = useAuth()
   const router = useRouter()
@@ -738,6 +828,8 @@ export default function PortalPage() {
   const [suggSubmitting, setSuggSubmitting]   = useState(false)
   const [suggError, setSuggError]             = useState<string | null>(null)
   const [suggToast, setSuggToast]             = useState(false)
+  const suggPreviewUrl = useMemo(() => (suggImageFile ? URL.createObjectURL(suggImageFile) : null), [suggImageFile])
+  useEffect(() => () => { if (suggPreviewUrl) URL.revokeObjectURL(suggPreviewUrl) }, [suggPreviewUrl])
 
   useEffect(() => {
     if (!loading && !isFan) router.push('/login')
@@ -834,6 +926,11 @@ export default function PortalPage() {
       if (data?.subscription_tier === 'subscriber') setSubscriptionTier('subscriber')
     })
   }, [user])
+
+  // Stable references so memoized CreationCards aren't re-rendered by unrelated state changes
+  const deleteRef = useRef<(id: string, type: 'wrestler' | 'faction') => void>(() => {})
+  const onDeleteCreation = useCallback((id: string, type: 'wrestler' | 'faction') => deleteRef.current(id, type), [])
+  const onEditCreation = useCallback((c: Creation) => { if (c.type === 'wrestler') setEditingWrestler(c); else setEditingFaction(c) }, [])
 
   async function deleteCreation(id: string, type: 'wrestler' | 'faction') {
     if (!confirm('Delete this creation permanently? This cannot be undone, but your slot will reopen.')) return
@@ -933,6 +1030,7 @@ export default function PortalPage() {
 
   if (loading || !isFan || !user) return null
 
+  deleteRef.current = deleteCreation
   return (
     <>
       <div className="section-sm" style={{ borderTop: 'none' }}>
@@ -962,93 +1060,9 @@ export default function PortalPage() {
               Loading…
             </div>
           ) : (
-            creations.map((c) => {
-              const cfg = STATUS_CONFIG[c.status]
-              return (
-                <div
-                  key={c.id}
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    textAlign: 'left',
-                    aspectRatio: '3/4',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  <div
-                    style={{
-                      flex: 1,
-                      background: 'linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      position: 'relative',
-                    }}
-                  >
-                    {c.render_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.render_url} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-                    ) : (
-                      <span style={{ fontSize: c.type === 'faction' ? '3rem' : '2rem', opacity: 0.35 }}>
-                        {c.type === 'faction' ? '🤝' : '🧍'}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ padding: '0.75rem 0.85rem', borderTop: '1px solid var(--border)' }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: '0.35rem' }}>
-                      {c.name}
-                    </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                        {c.type}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-meta)',
-                          fontSize: '0.6rem',
-                          fontWeight: 700,
-                          letterSpacing: '0.1em',
-                          padding: '0.2rem 0.5rem',
-                          background: cfg.bg,
-                          color: cfg.color,
-                          border: `1px solid ${cfg.color}`,
-                        }}
-                      >
-                        {cfg.icon} {cfg.label}
-                      </span>
-                    </div>
-                    {c.twitchLinked ? (
-                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--purple-hot)', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        🔗 Twitch Linked
-                      </div>
-                    ) : c.editPending ? (
-                      <div style={{ marginTop: '0.4rem', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
-                        ✎ EDIT PENDING
-                      </div>
-                    ) : c.status === 'rejected' ? (
-                      <button
-                        onClick={() => deleteCreation(c.id, c.type)}
-                        disabled={deletingId === c.id}
-                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid rgba(255,60,60,0.4)', color: '#ff4444', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'pointer', textTransform: 'uppercase', opacity: deletingId === c.id ? 0.5 : 1 }}
-                      >
-                        {deletingId === c.id ? '…' : '✕ Delete'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => { if (c.type === 'wrestler') setEditingWrestler(c); else setEditingFaction(c) }}
-                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'var(--cursor-none)', textTransform: 'uppercase' }}
-                      >
-                        ✎ Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })
+            creations.map((c) => (
+              <CreationCard key={c.id} c={c} deleting={deletingId === c.id} onEdit={onEditCreation} onDelete={onDeleteCreation} />
+            ))
           )}
 
           {/* New Wrestler card — hidden when at limit (staff are never limited) */}
@@ -1159,7 +1173,7 @@ export default function PortalPage() {
                 }}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: '0.4rem', padding: '1.25rem', cursor: 'pointer',
+                  gap: '0.4rem', padding: '1.25rem', cursor: 'var(--cursor-pointer)',
                   border: `2px dashed ${suggDragOver ? 'var(--purple-hot)' : suggImageFile ? '#00c864' : 'var(--border)'}`,
                   background: suggDragOver ? 'rgba(128,0,218,0.06)' : 'transparent',
                   transition: 'border-color 0.15s, background 0.15s',
@@ -1168,13 +1182,13 @@ export default function PortalPage() {
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => setSuggImageFile(e.target.files?.[0] ?? null)} />
                 {suggImageFile ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <img src={URL.createObjectURL(suggImageFile)} alt="Preview" style={{ maxHeight: 72, maxWidth: 100, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }} />
+                    <img src={suggPreviewUrl ?? ''} alt="Preview" style={{ maxHeight: 72, maxWidth: 100, objectFit: 'cover', border: '1px solid var(--border)', display: 'block' }} />
                     <div>
                       <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.65rem', color: '#00c864', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>✓ {suggImageFile.name}</p>
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); setSuggImageFile(null) }}
-                        style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', letterSpacing: '0.08em', padding: 0 }}
+                        style={{ fontFamily: 'var(--font-meta)', fontSize: '0.58rem', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'var(--cursor-pointer)', letterSpacing: '0.08em', padding: 0 }}
                       >✕ remove</button>
                     </div>
                   </div>
@@ -1222,7 +1236,7 @@ export default function PortalPage() {
                         <div style={{ marginTop: '0.65rem' }}>
                           <button
                             onClick={() => setOpenChatId(chatOpen ? null : s.id)}
-                            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '0.3rem 0.7rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', cursor: 'pointer' }}
+                            style={{ fontFamily: 'var(--font-meta)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '0.3rem 0.7rem', background: chatOpen ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.07)', border: '1px solid #3b82f6', color: '#3b82f6', cursor: 'var(--cursor-pointer)' }}
                           >
                             💬 {chatOpen ? 'Hide' : `View Discussion${(s.messages?.length ?? 0) > 0 ? ` (${s.messages!.length})` : ''}`}
                           </button>
@@ -1262,7 +1276,7 @@ export default function PortalPage() {
                                 <button
                                   onClick={() => sendFanMessage(s.id)}
                                   disabled={!chatMsg.trim() || sendingChatMsg}
-                                  style={{ padding: '0.4rem 0.85rem', background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', opacity: (!chatMsg.trim() || sendingChatMsg) ? 0.5 : 1, flexShrink: 0 }}
+                                  style={{ padding: '0.4rem 0.85rem', background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: '#3b82f6', fontFamily: 'var(--font-meta)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'var(--cursor-pointer)', opacity: (!chatMsg.trim() || sendingChatMsg) ? 0.5 : 1, flexShrink: 0 }}
                                 >{sendingChatMsg ? '…' : 'Send'}</button>
                               </div>
                             </div>

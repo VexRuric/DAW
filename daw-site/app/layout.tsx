@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Anton, Archivo, Bebas_Neue, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
-import CursorGlow from '@/components/CursorGlow'
 import TopBar from '@/components/TopBar'
 import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
@@ -49,7 +48,6 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <CursorGlow />
           <div className="stack">
             <TopBar />
             <Nav />
