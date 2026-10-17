@@ -293,10 +293,10 @@ function CalendarCell({
   const dateStr     = toDateStr(date)
   const isPast      = date < today && dateStr !== toDateStr(today)
   const isToday     = dateStr === toDateStr(today)
-  const isFri       = isFriday(date)
   const ppv         = ppvMap[dateStr]
   const hasPPV      = !!ppv
   const dbShow      = showMap[dateStr]
+  const isFri       = isFriday(date) || (!!dbShow && dbShow.show_type !== 'skip') // shows can be on any date
   const hasAlt      = !!altShowMap[dateStr]
   const isSkip      = dbShow?.show_type === 'skip'
   const isTwitch    = dbShow?.show_type === 'twitch'

@@ -2933,8 +2933,9 @@ function ScheduleEditor() {
   function PlannerCell({ date }: { date: Date | null }) {
     if (!date) return <div style={{ aspectRatio: '1', minHeight: 30 }} />
     const dateStr  = planDateStr(date)
-    const isFri    = date.getDay() === 5
+    const isFriDay = date.getDay() === 5
     const show     = showMap[dateStr]
+    const isFri    = isFriDay || !!show // any date can hold a show; Fridays are just highlighted
     const isSelected  = selected === dateStr
     const isPpv       = show?.show_type === 'ppv'
     const isSkip      = show?.show_type === 'skip'
@@ -2949,12 +2950,12 @@ function ScheduleEditor() {
       : isCompleted ? '#00c864'
       : isCommitted ? 'var(--purple-hot)'
       : isDraft ? 'rgba(128,0,218,0.4)'
-      : isFri ? 'rgba(128,0,218,0.18)'
+      : isFriDay ? 'rgba(128,0,218,0.18)'
       : 'transparent'
 
     return (
       <div
-        onClick={() => isFri && selectDate(dateStr)}
+        onClick={() => selectDate(dateStr)}
         style={{
           aspectRatio: '1', minHeight: 30,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -2962,12 +2963,12 @@ function ScheduleEditor() {
           border: isFri ? `${isDraft ? '1px dashed' : '1px solid'} ${borderColor}` : undefined,
           outline: isSelected ? '2px solid #fff' : undefined, outlineOffset: -2,
           opacity: isDraft ? 0.7 : isPast && !show ? 0.28 : 1,
-          cursor: isFri ? 'pointer' : 'default',
+          cursor: 'pointer',
           transition: 'filter 0.1s',
         }}
-        onMouseEnter={(e) => { if (isFri) (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4)' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = '' }}
-        title={show ? `${show.name}${isDraft ? ' (DRAFT)' : ''}` : isFri ? 'Click to add show' : undefined}
+        title={show ? `${show.name}${isDraft ? ' (DRAFT)' : ''}` : 'Click to add show'}
       >
         <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', lineHeight: 1, color: isPpv && !isDraft ? '#fff' : isFri ? (isCompleted ? '#00c864' : isCommitted ? 'var(--purple-hot)' : isDraft ? 'rgba(168,85,247,0.8)' : 'var(--text-dim)') : 'var(--text-dim)' }}>
           {date.getDate()}
@@ -3045,7 +3046,7 @@ function ScheduleEditor() {
             <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em' }}>{label}</span>
           </div>
         ))}
-        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginLeft: 'auto' }}>Click any Friday to add or edit a show</span>
+        <span style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', color: 'var(--text-dim)', letterSpacing: '0.08em', marginLeft: 'auto' }}>Click any date to add or edit a show (Fridays highlighted)</span>
       </div>
 
       {loading ? (
