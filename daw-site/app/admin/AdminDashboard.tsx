@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
@@ -1069,7 +1069,7 @@ function ResultsEntry() {
                   style={{ fontSize:'0.7rem', flex:1, minWidth:160, maxWidth:280 }} />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                {filteredShows.map((s) => <ShowButton key={s.id} s={s} />)}
+                {filteredShows.map((s) => <Fragment key={s.id}>{ShowButton({ s })}</Fragment>)}
                 {filteredShows.length === 0 && <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No shows match your filters.</p>}
               </div>
             </>
@@ -1108,7 +1108,7 @@ function ResultsEntry() {
                     <p style={{ fontFamily:'var(--font-meta)', fontSize:'0.72rem', color:'var(--text-dim)', letterSpacing:'0.12em' }}>No committed or completed shows found for this person.</p>
                   ) : (
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                      {rosterShows.map((s) => <ShowButton key={s.id} s={s} />)}
+                      {rosterShows.map((s) => <Fragment key={s.id}>{ShowButton({ s })}</Fragment>)}
                     </div>
                   )}
                 </>
@@ -2898,6 +2898,8 @@ function ScheduleEditor() {
     if (!editForm) return
     setSaving(true)
     const existing = selected ? showMap[selected] : null
+    const clash = showMap[editForm.show_date]
+    if (clash && clash.id !== existing?.id) { alert(`There is already a show on ${editForm.show_date} (${clash.name}). Pick a different date.`); setSaving(false); return }
     const payload = { name: editForm.name, show_type: editForm.show_type, ppv_name: editForm.ppv_name || null, ppv_color: editForm.ppv_color || null, ppv_abbr: editForm.ppv_abbr || null, ppv_logo_url: editForm.ppv_logo_url || null, show_date: editForm.show_date, status: editForm.status ?? 'draft' }
     if (existing?.id) {
       await supabase.from('shows').update(payload).eq('id', existing.id)
@@ -3010,7 +3012,7 @@ function ScheduleEditor() {
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-          {cells.map((date, i) => <PlannerCell key={i} date={date} />)}
+          {cells.map((date, i) => <Fragment key={i}>{PlannerCell({ date })}</Fragment>)}
         </div>
       </div>
     )
@@ -3055,7 +3057,7 @@ function ScheduleEditor() {
         <div style={{ display: 'grid', gridTemplateColumns: editForm ? '1fr 285px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
           {/* 12-month calendar grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.65rem' }}>
-            {PLAN_MONTHS.map((_, monthIdx) => <PlannerMonthGrid key={monthIdx} month={monthIdx} />)}
+            {PLAN_MONTHS.map((_, monthIdx) => <Fragment key={monthIdx}>{PlannerMonthGrid({ month: monthIdx })}</Fragment>)}
           </div>
 
           {/* Edit panel */}
@@ -3074,6 +3076,12 @@ function ScheduleEditor() {
               </div>
 
               <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                {/* Date — any day, so a show can be moved off Friday (e.g. around a vacation) */}
+                <div>
+                  <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>DATE</label>
+                  <input className="form-input" type="date" value={editForm.show_date} onChange={e => e.target.value && setEditForm(f => f ? { ...f, show_date: e.target.value } : f)} style={{ width: '100%', fontSize: '0.7rem', padding: '0.38rem 0.55rem', boxSizing: 'border-box' }} />
+                </div>
+
                 {/* Type */}
                 <div>
                   <label style={{ fontFamily: 'var(--font-meta)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-dim)', display: 'block', marginBottom: '0.3rem' }}>TYPE</label>
@@ -4192,7 +4200,7 @@ function LegendsSection() {
                       : <div style={{ width:32, height:40, background:'var(--surface-2)', flexShrink:0 }} />
                     }
                     <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{row.name}</span>
-                    <ToggleBtn row={row} />
+                    <Fragment key={row.id}>{ToggleBtn({ row })}</Fragment>
                   </div>
                 ))}
               </div>
@@ -4211,7 +4219,7 @@ function LegendsSection() {
                       : <div style={{ width:32, height:40, background:'var(--surface-2)', flexShrink:0 }} />
                     }
                     <span style={{ flex:1, fontFamily:'var(--font-display)', fontSize:'1rem', color:'var(--text-strong)', textTransform:'uppercase' }}>{row.name}</span>
-                    <ToggleBtn row={row} />
+                    <Fragment key={row.id}>{ToggleBtn({ row })}</Fragment>
                   </div>
                 ))}
               </div>
