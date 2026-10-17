@@ -95,7 +95,6 @@ a, button { cursor: none; }
   z-index: 2;
   transform: translate3d(-500px, -500px, 0) translate(-50%, -50%);
   transition: opacity 0.3s;
-  mix-blend-mode: screen;
   will-change: transform;
 }
 

@@ -17,11 +17,8 @@ export default function CursorGlow() {
       return
     }
 
-    let rafId = 0
     let mouseX = -500
     let mouseY = -500
-    let glowX = -500
-    let glowY = -500
 
     // transform (not left/top) so moving the cursor never triggers page layout
     const place = (el: HTMLElement, x: number, y: number) => {
@@ -32,7 +29,7 @@ export default function CursorGlow() {
       mouseX = e.clientX
       mouseY = e.clientY
       place(dot, mouseX, mouseY)
-      if (!rafId) rafId = requestAnimationFrame(loop)
+      place(glow, mouseX, mouseY)
     }
 
     const onEnter = () => {
@@ -44,21 +41,12 @@ export default function CursorGlow() {
       }
     }
 
-    // Eases the glow toward the cursor, then stops until the mouse moves again
-    const loop = () => {
-      glowX += (mouseX - glowX) * 0.08
-      glowY += (mouseY - glowY) * 0.08
-      place(glow, glowX, glowY)
-      rafId = Math.abs(mouseX - glowX) + Math.abs(mouseY - glowY) > 0.5 ? requestAnimationFrame(loop) : 0
-    }
-
     document.addEventListener('mousemove', onMove, { passive: true })
     document.addEventListener('mouseover', onEnter, { passive: true })
 
     return () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseover', onEnter)
-      cancelAnimationFrame(rafId)
     }
   }, [])
 
