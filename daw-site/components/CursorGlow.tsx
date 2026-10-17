@@ -25,7 +25,11 @@ export default function CursorGlow() {
       el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
     }
 
+    const root = document.documentElement
+
     const onMove = (e: MouseEvent) => {
+      // Hide the native pointer only once the custom one is running, so it's never hidden before JS loads
+      root.classList.add('has-custom-cursor')
       mouseX = e.clientX
       mouseY = e.clientY
       place(dot, mouseX, mouseY)
@@ -47,6 +51,7 @@ export default function CursorGlow() {
     return () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseover', onEnter)
+      root.classList.remove('has-custom-cursor')
     }
   }, [])
 

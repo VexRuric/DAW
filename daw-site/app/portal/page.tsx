@@ -93,7 +93,7 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
             className="color-input-native"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: 36, height: 36, cursor: 'none' }}
+            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: 36, height: 36, cursor: 'var(--cursor-none)' }}
           />
         </div>
         <input
@@ -370,7 +370,7 @@ export function WrestlerBuilderModal({ onClose, onSubmitted, userId, editData }:
                       <input
                         type="range" min={48} max={95} value={heightInches}
                         onChange={(e) => setHeightInches(Number(e.target.value))}
-                        style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'none', margin: '0.35rem 0 0.15rem' }}
+                        style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-none)', margin: '0.35rem 0 0.15rem' }}
                       />
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-meta)', fontSize: '0.53rem', color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
                         <span>4ft 0in</span>
@@ -625,7 +625,7 @@ export function FactionBuilderModal({ onClose, onSubmitted, userId, editData }: 
               <input
                 type="range" min={2} max={5} value={memberCount}
                 onChange={(e) => updateMemberCount(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'none' }}
+                style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'var(--cursor-none)' }}
               />
             </div>
 
@@ -1040,7 +1040,7 @@ export default function PortalPage() {
                     ) : (
                       <button
                         onClick={() => { if (c.type === 'wrestler') setEditingWrestler(c); else setEditingFaction(c) }}
-                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'none', textTransform: 'uppercase' }}
+                        style={{ marginTop: '0.4rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', fontFamily: 'var(--font-meta)', fontSize: '0.55rem', letterSpacing: '0.1em', padding: '0.2rem 0.5rem', cursor: 'var(--cursor-none)', textTransform: 'uppercase' }}
                       >
                         ✎ Edit
                       </button>

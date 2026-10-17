@@ -1549,6 +1549,32 @@ function ChampionsSection() {
     setRebuilding(false)
   }
 
+  // Non-destructive repair: apply title matches that happened after a title's latest reign
+  // (e.g. the match was flagged as a title match after its result was saved). Oldest first.
+  async function syncMissedChanges() {
+    setRebuilding(true); setRebuildResult(null); setRebuildError(null)
+    try {
+      const [{ data: ms, error: mErr }, { data: rs, error: rErr }] = await Promise.all([
+        supabase.from('matches').select('id, match_number, title_id, shows!inner(show_date, status)').eq('is_title_match', true).not('title_id', 'is', null).eq('shows.status', 'completed'),
+        supabase.from('title_reigns').select('title_id, won_date'),
+      ])
+      if (mErr) throw mErr
+      if (rErr) throw rErr
+      const latest = new Map<string, string>()
+      for (const r of rs ?? []) if (r.won_date > (latest.get(r.title_id) ?? '')) latest.set(r.title_id, r.won_date)
+      const missed = ((ms ?? []) as any[])
+        .map(m => ({ id: m.id as string, n: m.match_number as number, titleId: m.title_id as string, date: (Array.isArray(m.shows) ? m.shows[0] : m.shows).show_date as string }))
+        .filter(m => m.date > (latest.get(m.titleId) ?? ''))
+        .sort((a, b) => a.date.localeCompare(b.date) || a.n - b.n)
+      for (const m of missed) await syncTitleReign(m.id, m.date)
+      setRebuildResult(missed.length ? `Checked ${missed.length} title match${missed.length !== 1 ? 'es' : ''} — champions updated.` : 'Nothing to sync — all title matches are already applied.')
+      await loadAll()
+    } catch (e: any) {
+      setRebuildError(e?.message ?? 'Sync failed')
+    }
+    setRebuilding(false)
+  }
+
   async function addTitle() {
     if (!addTitlePanel || !addTitlePanel.name.trim()) return
     setAddTitleSaving(true); setAddTitleError(null)
@@ -1580,6 +1606,14 @@ function ChampionsSection() {
             + Add Title
           </button>
         </div>
+        <div style={{ display:'flex', gap:'0.6rem', flexShrink:0, flexWrap:'wrap' }}>
+        <button
+          onClick={syncMissedChanges}
+          disabled={rebuilding}
+          style={{ padding:'0.55rem 1.1rem', background:'rgba(0,200,100,0.12)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.12em', cursor:'pointer', opacity: rebuilding ? 0.5 : 1 }}
+        >
+          {rebuilding ? 'Working…' : '↻ Sync Missed Changes'}
+        </button>
         <button
           onClick={rebuildFromMatches}
           disabled={rebuilding}
@@ -1587,6 +1621,7 @@ function ChampionsSection() {
         >
           {rebuilding ? 'Rebuilding…' : '⟳ Rebuild from Matches'}
         </button>
+        </div>
       </div>
 
       {/* Add Title Modal */}

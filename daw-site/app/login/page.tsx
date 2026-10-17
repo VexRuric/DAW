@@ -240,7 +240,7 @@ function LoginPageInner() {
                         color: emailMode === m ? 'var(--text-strong)' : 'var(--text-dim)',
                         fontFamily: 'var(--font-meta)', fontSize: '0.62rem',
                         fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                        cursor: 'none', transition: 'all .15s',
+                        cursor: 'var(--cursor-none)', transition: 'all .15s',
                       }}
                     >
                       {m === 'signin' ? 'Sign In' : 'Sign Up'}

@@ -6,6 +6,8 @@
    ============================================================ */
 
 :root {
+  /* Native pointer is only hidden once the custom cursor is running (see CursorGlow) */
+  --cursor-none: auto;
   /* Background scale */
   --bg-top:    #000000;
   --bg-mid:    #0a0a0c;
@@ -62,7 +64,7 @@ body {
   line-height: 1.55;
   min-height: 100vh;
   overflow-x: hidden;
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 
 /* Noise texture overlay */
@@ -73,10 +75,9 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 1;
-  mix-blend-mode: overlay;
 }
 
-a, button { cursor: none; }
+a, button { cursor: var(--cursor-none); }
 
 /* Stack above noise */
 .stack { position: relative; z-index: 3; }
@@ -84,6 +85,8 @@ a, button { cursor: none; }
 /* ============================================================
    CUSTOM CURSOR
    ============================================================ */
+
+html.has-custom-cursor { --cursor-none: none; }
 
 .cursor-glow {
   position: fixed;
@@ -215,7 +218,7 @@ a, button { cursor: none; }
   text-decoration: none;
   border: none;
   transition: all 0.2s;
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 
 .btn-primary {
@@ -328,7 +331,7 @@ a, button { cursor: none; }
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 0.55rem 1.1rem;
-  cursor: none;
+  cursor: var(--cursor-none);
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
@@ -579,7 +582,7 @@ a, button { cursor: none; }
   color: var(--text-dim);
   font-size: 1.5rem;
   line-height: 1;
-  cursor: none;
+  cursor: var(--cursor-none);
   padding: 0.25rem;
   transition: color 0.2s;
 }
@@ -659,7 +662,7 @@ a, button { cursor: none; }
   background-repeat: no-repeat;
   background-position: right 0.9rem center;
   padding-right: 2.5rem;
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 
 /* Style pills for form selections */
@@ -679,7 +682,7 @@ a, button { cursor: none; }
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-muted);
-  cursor: none;
+  cursor: var(--cursor-none);
   transition: all 0.15s;
 }
 .style-pill.selected {
@@ -712,7 +715,7 @@ a, button { cursor: none; }
   opacity: 0;
   width: 36px;
   height: 36px;
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 
 /* Personality slider row */
@@ -734,7 +737,7 @@ a, button { cursor: none; }
 .personality-slider {
   flex: 1;
   accent-color: var(--purple);
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 
 /* Drag-drop zone */
@@ -750,7 +753,7 @@ a, button { cursor: none; }
   font-size: 0.75rem;
   letter-spacing: 0.15em;
   transition: border-color 0.2s, background 0.2s;
-  cursor: none;
+  cursor: var(--cursor-none);
   text-align: center;
 }
 .drop-zone:hover,
@@ -804,7 +807,7 @@ a, button { cursor: none; }
   background: var(--surface-3);
   border: 1px solid var(--border);
   transition: background 0.2s;
-  cursor: none;
+  cursor: var(--cursor-none);
 }
 .toggle input:checked + .toggle-track {
   background: var(--purple);
@@ -862,7 +865,7 @@ a, button { cursor: none; }
   border-left: 3px solid transparent;
   width: 100%;
   text-align: left;
-  cursor: none;
+  cursor: var(--cursor-none);
   transition: all 0.15s;
   text-decoration: none;
 }
@@ -1047,7 +1050,7 @@ a, button { cursor: none; }
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  cursor: none;
+  cursor: var(--cursor-none);
   transition: all 0.2s;
   text-decoration: none;
 }

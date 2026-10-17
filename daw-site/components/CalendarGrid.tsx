@@ -149,7 +149,7 @@ function ShowModal({ show, onClose }: { show: ShowStub; onClose: () => void }) {
             </div>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'none', flexShrink: 0, fontSize: '1rem', transition: 'border-color 0.15s, color 0.15s' }}
+              style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-dim)', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'var(--cursor-none)', flexShrink: 0, fontSize: '1rem', transition: 'border-color 0.15s, color 0.15s' }}
               onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'var(--accent-red)'; el.style.color = 'var(--accent-red)' }}
               onMouseLeave={(e) => { const el = e.currentTarget; el.style.borderColor = 'var(--border)'; el.style.color = 'var(--text-dim)' }}
             >
@@ -593,7 +593,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         textTransform: 'uppercase', background: 'transparent', border: 'none',
         borderBottom: sidebarTab === id ? '2px solid var(--purple-hot)' : '2px solid transparent',
         color: sidebarTab === id ? 'var(--purple-hot)' : 'var(--text-dim)',
-        paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s',
+        paddingBottom: '0.4rem', cursor: 'var(--cursor-none)', transition: 'all 0.15s',
       }}
     >
       {label}
@@ -624,7 +624,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           background: !showTwitch ? 'var(--purple)' : 'transparent',
           color: !showTwitch ? 'var(--text-strong)' : 'var(--text-muted)',
           border: 'none', borderRight: '1px solid var(--border)',
-          cursor: 'none', transition: 'all 0.15s',
+          cursor: 'var(--cursor-none)', transition: 'all 0.15s',
         }}
       >
         Live Shows
@@ -637,7 +637,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
           background: showTwitch ? 'rgba(255,51,85,0.25)' : 'transparent',
           color: showTwitch ? 'var(--accent-red)' : 'var(--text-muted)',
           border: 'none',
-          cursor: 'none', transition: 'all 0.15s',
+          cursor: 'var(--cursor-none)', transition: 'all 0.15s',
         }}
       >
         📺 Twitch
@@ -737,7 +737,7 @@ export default function ScheduleClient({ initialYear }: { initialYear: number })
         <div style={{ padding: '0 3rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--surface-3)', paddingBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
             {[...YEARS].reverse().map((y) => (
-              <button key={y} onClick={() => setYear(y)} style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: year === y ? 'white' : 'var(--text-dim)', background: 'transparent', border: 'none', borderBottom: year === y ? '2px solid var(--purple-hot)' : '2px solid transparent', paddingBottom: '0.4rem', cursor: 'none', transition: 'all 0.15s' }}>
+              <button key={y} onClick={() => setYear(y)} style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: year === y ? 'white' : 'var(--text-dim)', background: 'transparent', border: 'none', borderBottom: year === y ? '2px solid var(--purple-hot)' : '2px solid transparent', paddingBottom: '0.4rem', cursor: 'var(--cursor-none)', transition: 'all 0.15s' }}>
                 {y}
               </button>
             ))}
