@@ -4,6 +4,7 @@ import HomeStreamSection, { CompactMatch, StreamShowInfo } from '@/components/Ho
 import HomeNewsGrid, { NewsCard } from '@/components/HomeNewsGrid'
 import HomeUpcomingEvents, { EventItem } from '@/components/HomeUpcomingEvents'
 import HomeCommunityStrip from '@/components/HomeCommunityStrip'
+import { getParticipantsPerSide } from '@/lib/match-format'
 import { buildAndNewIds, buildReignStarts, deriveHashtag } from '@/lib/title-hashtag'
 import { buildExcerpt, buildHeadline, buildTemplateMap, formatDateLong, formatDateShortAbbr, participantImage, participantName, winnerForImage } from '@/lib/match-news'
 
@@ -19,7 +20,9 @@ function buildSides(participants: any[], matchType: string) {
   for (const p of participants) {
     if (p.team_id && p.teams && !teamMap.has(p.team_id)) teamMap.set(p.team_id, p)
   }
-  if (teamMap.size >= 2) {
+  // Free-for-all formats are every-wrestler-for-themselves: never collapse them into faction sides
+  const isFreeForAll = ['Triple Threat', 'Fatal 4-Way', 'Gauntlet', 'Battle Royal', 'Royal Rumble'].includes(matchType)
+  if (!isFreeForAll && teamMap.size >= 2) {
     return Array.from(teamMap.values()).map(teamRep => {
       const memberships: any[] = teamRep.teams.team_memberships ?? []
       const memberIdSet = new Set(memberships.map((tm: any) => tm.wrestler_id).filter(Boolean))
@@ -44,8 +47,13 @@ function buildSides(participants: any[], matchType: string) {
 
   if (matchType === 'Tag Team') {
     const sides: { name: string; image_url: string | null; isLogo: boolean; members: { name: string; image_url: string | null }[] }[] = []
-    for (let i = 0; i < wrestlers.length; i += 2) {
-      const pair = wrestlers.slice(i, i + 2)
+    // Same split the booker/Results Entry use: 6 wrestlers = 3v3, otherwise 2v2
+    const perSide = getParticipantsPerSide(matchType, wrestlers.length)
+    let start = 0
+    for (const count of perSide) {
+      const pair = wrestlers.slice(start, start + count)
+      start += count
+      if (pair.length === 0) continue
       sides.push({
         name: pair.map((p: any) => participantName(p)).join(' & '),
         image_url: participantImage(pair[0]),

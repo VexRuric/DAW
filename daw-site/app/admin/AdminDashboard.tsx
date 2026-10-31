@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 import AdminScheduleBuilder from '@/components/AdminScheduleBuilder'
+import AnnouncerDesk from './AnnouncerDesk'
 import { MATCH_TYPES, getParticipantsPerSide } from '@/lib/match-format'
 
-type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news' | 'fines'
+type Section = 'approvals' | 'booker' | 'results' | 'schedule' | 'champions' | 'ownership' | 'images' | 'titleimages' | 'edits' | 'factions' | 'story' | 'suggestions' | 'accounts' | 'settings' | 'legends' | 'support' | 'permissions' | 'news' | 'fines' | 'announcer'
 
-const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'schedule', 'booker', 'results', 'story', 'suggestions']
+const DEFAULT_CREATIVE_SECTIONS: Section[] = ['approvals', 'support', 'schedule', 'booker', 'results', 'announcer', 'story', 'suggestions']
 const ADMIN_ONLY_SECTIONS = new Set<Section>(['accounts', 'settings', 'permissions'])
 
 const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
@@ -18,6 +19,7 @@ const PERMISSION_SECTIONS: { id: Section; label: string; group: string }[] = [
   { id: 'schedule',    label: 'Schedule Editor',    group: 'Show Management' },
   { id: 'booker',      label: 'Show Booker',        group: 'Show Management' },
   { id: 'results',     label: 'Results Entry',      group: 'Show Management' },
+  { id: 'announcer',   label: 'Announcer Desk',     group: 'Show Management' },
   { id: 'edits',       label: 'Roster Edits',       group: 'Roster & Factions' },
   { id: 'factions',    label: 'Faction Edits',      group: 'Roster & Factions' },
   { id: 'champions',   label: 'Champions',          group: 'Roster & Factions' },
@@ -60,7 +62,7 @@ interface ProfileResult { id: string; display_name: string | null; twitch_handle
 interface TitleRow { id: string; name: string; category: string; display_order: number }
 interface ChampRow { title_id: string; title_name: string; holder_name: string; holder_wrestler_id: string | null; holder_team_id: string | null; won_date: string; days_held: number }
 interface ImageRow { id: string; name: string; render_url: string | null; status: string }
-interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean; backstory: string | null }
+interface RosterRow { id: string; name: string; brand: string | null; gender: string | null; division: string | null; role: string | null; injured: boolean; status: string; saved: boolean; backstory: string | null; bio: string | null }
 interface FactionRow { id: string; name: string; brand: string | null; division: string | null; role: string | null; status: string; saved: boolean; backstory: string | null }
 interface ScheduleShowRow { id: string; name: string; show_date: string; show_type: string; ppv_name: string | null; ppv_color: string | null; ppv_abbr: string | null; ppv_logo_url: string | null; status: string; saved: boolean }
 
@@ -2069,7 +2071,15 @@ function TitleImages() {
 
 /* ── Roster Edits ────────────────────────────────────── */
 
+// Finishing moves live in the wrestler's bio JSON (no schema change): one move per line, "Name | description"
+function bioObject(bio: string | null): Record<string, unknown> {
+  if (!bio) return {}
+  try { const o = JSON.parse(bio); return o && typeof o === 'object' && !Array.isArray(o) ? o : { text: bio } } catch { return { text: bio } }
+}
+
 function RosterEdits() {
+  const [movesEdit, setMovesEdit] = useState<{ id: string; name: string; text: string } | null>(null)
+  const [movesSaving, setMovesSaving] = useState(false)
   const [tab, setTab]               = useState<'active' | 'retired'>('active')
   const [search, setSearch]         = useState('')
   const [filterBrand, setFilterBrand]   = useState('')
@@ -2096,11 +2106,11 @@ function RosterEdits() {
   useEffect(() => {
     async function load() {
       const [activeRes, retiredRes] = await Promise.all([
-        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', true).order('name'),
-        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory').eq('active', false).order('name'),
+        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory, bio').eq('active', true).order('name'),
+        supabase.from('wrestlers').select('id, name, brand, gender, division, role, injured, status, backstory, bio').eq('active', false).order('name'),
       ])
-      setRows((activeRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
-      setRetiredRows((retiredRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null })))
+      setRows((activeRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null, bio: r.bio ?? null })))
+      setRetiredRows((retiredRes.data ?? []).map((r: any) => ({ ...r, injured: !!r.injured, saved: false, backstory: r.backstory ?? null, bio: r.bio ?? null })))
       setLoading(false)
     }
     load()
@@ -2153,6 +2163,24 @@ function RosterEdits() {
     setRows((prev) => prev.map((r) => r.id === backstoryEdit!.id ? { ...r, backstory: backstoryEdit!.text || null } : r))
     setBackstorySaving(false)
     setBackstoryEdit(null)
+  }
+
+  async function saveMoves() {
+    if (!movesEdit) return
+    setMovesSaving(true)
+    const all = [...rows, ...retiredRows]
+    const current = bioObject(all.find((r) => r.id === movesEdit.id)?.bio ?? null)
+    const text = movesEdit.text.trim()
+    const next: Record<string, unknown> = { ...current }
+    if (text) next.finishers = text; else delete next.finishers
+    const bio = Object.keys(next).length ? JSON.stringify(next) : null
+    const { error } = await supabase.from('wrestlers').update({ bio }).eq('id', movesEdit.id)
+    if (!error) {
+      setRows((prev) => prev.map((r) => r.id === movesEdit.id ? { ...r, bio } : r))
+      setRetiredRows((prev) => prev.map((r) => r.id === movesEdit.id ? { ...r, bio } : r))
+      setMovesEdit(null)
+    }
+    setMovesSaving(false)
   }
 
   async function openFines(id: string, name: string) {
@@ -2309,6 +2337,7 @@ function RosterEdits() {
                   <button onClick={() => save(row.id)} disabled={saving === row.id} style={{ padding:'0.35rem 0.75rem', background: row.saved ? 'rgba(0,200,100,0.15)' : 'rgba(128,0,218,0.15)', border:`1px solid ${row.saved ? '#00c864' : 'var(--purple)'}`, color: row.saved ? '#00c864' : 'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{saving === row.id ? '…' : row.saved ? '✓' : 'Save'}</button>
                   <button onClick={() => retire(row.id)} style={{ padding:'0.35rem 0.75rem', background:'rgba(255,51,85,0.08)', border:'1px solid var(--accent-red)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Retire</button>
                   <button onClick={() => setBackstoryEdit({ id: row.id, name: row.name, text: row.backstory ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>{row.backstory ? '✎ Story' : '+ Story'}</button>
+                  <button onClick={() => setMovesEdit({ id: row.id, name: row.name, text: (bioObject(row.bio).finishers as string | undefined) ?? (bioObject(row.bio).finisher as string | undefined) ?? '' })} style={{ padding:'0.35rem 0.5rem', background:'rgba(128,0,218,0.08)', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>{(bioObject(row.bio).finishers || bioObject(row.bio).finisher) ? '✎ Moves' : '+ Moves'}</button>
                   <button onClick={() => openFines(row.id, row.name)} style={{ padding:'0.35rem 0.5rem', background:'rgba(255,51,85,0.08)', border:'1px solid rgba(255,51,85,0.35)', color:'var(--accent-red)', fontFamily:'var(--font-meta)', fontSize:'0.58rem', fontWeight:700, letterSpacing:'0.08em', cursor:'var(--cursor-pointer)' }}>Fines</button>
                 </div>
               ))}
@@ -2334,6 +2363,30 @@ function RosterEdits() {
                 <button onClick={() => reinstate(row.id)} disabled={reinstating === row.id} style={{ padding:'0.35rem 0.6rem', background:'rgba(0,200,100,0.1)', border:'1px solid #00c864', color:'#00c864', fontFamily:'var(--font-meta)', fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{reinstating === row.id ? '…' : 'Reinstate'}</button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {movesEdit && (
+        <div onClick={() => setMovesEdit(null)} style={{ position:'fixed', inset:0, zIndex:9000, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background:'var(--surface)', border:'1px solid var(--border)', width:'100%', maxWidth:520, display:'flex', flexDirection:'column' }}>
+            <div style={{ padding:'1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.15rem', color:'var(--text-strong)', textTransform:'uppercase', margin:0 }}>Finishing Moves — {movesEdit.name}</h3>
+              <button onClick={() => setMovesEdit(null)} style={{ background:'none', border:'none', color:'var(--text-dim)', cursor:'var(--cursor-pointer)', fontSize:'1.1rem', lineHeight:1, padding:0 }}>✕</button>
+            </div>
+            <div style={{ padding:'1.25rem' }}>
+              <textarea
+                value={movesEdit.text}
+                onChange={(e) => setMovesEdit((prev) => prev ? { ...prev, text: e.target.value } : null)}
+                rows={6}
+                placeholder={'One move per line. Optional description after a |\nThe Killswitch | Cradle piledriver\nSuper Kick'}
+                style={{ width:'100%', background:'var(--surface-2)', border:'1px solid var(--border)', color:'var(--text-strong)', fontFamily:'var(--font-meta)', fontSize:'0.78rem', lineHeight:1.7, padding:'0.75rem', resize:'vertical', boxSizing:'border-box' }}
+              />
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginTop:'0.75rem' }}>
+                <button onClick={() => setMovesEdit(null)} style={{ padding:'0.5rem 1rem', background:'transparent', border:'1px solid var(--border)', color:'var(--text-dim)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>Cancel</button>
+                <button onClick={saveMoves} disabled={movesSaving} style={{ padding:'0.5rem 1.25rem', background:'rgba(128,0,218,0.15)', border:'1px solid var(--purple)', color:'var(--purple-hot)', fontFamily:'var(--font-meta)', fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em', cursor:'var(--cursor-pointer)' }}>{movesSaving ? 'Saving…' : 'Save Moves'}</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -4747,6 +4800,7 @@ export default function AdminDashboard() {
       { id: 'schedule',  label: 'Schedule Editor' },
       { id: 'booker',    label: 'Show Booker' },
       { id: 'results',   label: 'Results Entry' },
+      { id: 'announcer', label: 'Announcer Desk' },
     ]},
     { label: 'Roster & Factions', items: [
       { id: 'edits',     label: 'Roster Edits' },
@@ -4807,6 +4861,7 @@ export default function AdminDashboard() {
           {section === 'approvals'  && canAccess('approvals')  && <PendingApprovals onCountChange={setApprovalCount} />}
           {section === 'booker'      && canAccess('booker')      && <ShowBooker />}
           {section === 'results'     && canAccess('results')     && <ResultsEntry />}
+          {section === 'announcer'   && canAccess('announcer')   && <AnnouncerDesk />}
           {section === 'schedule'    && canAccess('schedule')    && <ScheduleEditor />}
           {section === 'champions'   && canAccess('champions')   && <ChampionsSection />}
           {section === 'ownership'   && canAccess('ownership')   && <OwnershipSection />}

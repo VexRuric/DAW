@@ -14,6 +14,7 @@ interface BioParsed {
   weightClass?: string
   style?: string
   finisher?: string
+  finishers?: string
 }
 
 interface StatLine { w: number; l: number; d: number; total: number }
@@ -168,6 +169,12 @@ export default async function WrestlerStatPage({ params }: PageProps) {
   if (wrestler.bio) {
     try { bio = JSON.parse(wrestler.bio) } catch { /* plain text */ }
   }
+
+  // One move per line, "Name | optional description"
+  const finisherMoves = (bio.finishers ?? '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const [name, ...rest] = l.split('|')
+    return { name: name.trim(), description: rest.join('|').trim() }
+  })
 
   const accentColor = currentReign
     ? 'var(--gold)'
@@ -390,8 +397,21 @@ export default async function WrestlerStatPage({ params }: PageProps) {
                 {wrestler.country && <BioStat label="Hometown"     value={wrestler.country} />}
                 {wrestler.division && <BioStat label="Division"    value={wrestler.division} />}
                 {bio.style       && <BioStat label="Fighting Style" value={bio.style} />}
-                {bio.finisher    && <BioStat label="Finisher"      value={bio.finisher} />}
+                {bio.finisher && !bio.finishers && <BioStat label="Finisher"      value={bio.finisher} />}
               </div>
+              {finisherMoves.length > 0 && (
+                <div style={{ marginTop: '1rem', padding: '0.85rem 1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `3px solid ${accentColor}` }}>
+                  <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.55rem', color: 'var(--text-dim)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                    Finishing Move{finisherMoves.length > 1 ? 's' : ''}
+                  </p>
+                  {finisherMoves.map((m, i) => (
+                    <div key={i} style={{ marginTop: i ? '0.6rem' : 0 }}>
+                      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', color: 'var(--text-strong)', textTransform: 'uppercase', lineHeight: 1.1, margin: 0 }}>{m.name}</p>
+                      {m.description && <p style={{ fontFamily: 'var(--font-meta)', fontSize: '0.7rem', color: 'var(--text-dim)', lineHeight: 1.5, margin: '0.15rem 0 0' }}>{m.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {wrestler.gimmick && (
