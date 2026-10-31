@@ -69,7 +69,7 @@ export default function AnnouncerDesk() {
       try {
         const { data: mData, error: mErr } = await supabase.from('matches')
           .select('id, match_number, match_type, stipulation, is_title_match, scheme, titles(name), match_participants(wrestler_id, write_in_name, wrestlers(id, name, bio))')
-          .eq('show_id', showId).order('match_number')
+          .eq('show_id', showId).order('match_number', { ascending: false }) // most recently booked (main event) first
         if (mErr) throw mErr
         const wrestlers = new Map<string, Wrestler>()
         const views: MatchView[] = []
@@ -213,16 +213,18 @@ function MatchRundown({ match, profiles }: { match: MatchView; profiles: Record<
             <div>
               <p style={label}>Head to head</p>
               {pairs.map(p => {
-                const last = p.meetings[0]
-                const lastWinner = last ? (last.result === 'draw' ? null : last.result === 'winner' ? p.a.w.name : p.b.w.name) : null
+                const decisive = p.meetings.filter(m => m.result !== 'draw')
+                const lastWin = decisive[0]
+                const lastWinner = lastWin ? (lastWin.result === 'winner' ? p.a.w.name : p.b.w.name) : null
+                const leader = p.aWins === p.bWins ? null : p.aWins > p.bWins ? p.a.w.name : p.b.w.name
                 return (
                   <div key={p.a.w.id + p.b.w.id} style={{ marginTop: '0.4rem', ...META, fontSize: '0.75rem', color: 'var(--text-strong)' }}>
                     <strong>{p.a.w.name}</strong> vs <strong>{p.b.w.name}</strong>
                     {p.meetings.length === 0
                       ? <span style={{ color: 'var(--text-dim)' }}> — first-time meeting</span>
                       : <span style={{ color: 'var(--text-dim)' }}>
-                          {' '}— {p.meetings.length} meeting{p.meetings.length > 1 ? 's' : ''} ({p.aWins}–{p.bWins}{p.draws ? `–${p.draws}D` : ''}).{' '}
-                          Last: {lastWinner ? <>won by <span style={{ color: '#22cc66' }}>{lastWinner}</span></> : 'a draw'} on {fmtDate(last.date)} ({last.showName}{last.isTitle ? ', title match' : ''})
+                          {' '}— {p.meetings.length} match{p.meetings.length > 1 ? 'es' : ''} · {leader ? <>most wins: <span style={{ color: '#22cc66' }}>{leader}</span> ({Math.max(p.aWins, p.bWins)}–{Math.min(p.aWins, p.bWins)})</> : <>series tied {p.aWins}–{p.bWins}</>}
+                          {lastWin && <> · last win: <span style={{ color: '#22cc66' }}>{lastWinner}</span> ({fmtDate(lastWin.date)})</>}
                         </span>}
                   </div>
                 )
@@ -248,6 +250,16 @@ function CompetitorCard({ p }: { p: Profile }) {
         <span style={{ ...META, fontSize: '0.62rem', color: 'var(--text-dim)' }}>{p.record.w}W · {p.record.l}L{p.record.d ? ` · ${p.record.d}D` : ''}</span>
       </div>
 
+      {current.length > 0 && current.map((r, i) => (
+        <div key={i} style={{ padding: '0.4rem 0.6rem', background: 'rgba(255,201,51,0.08)', border: '1px solid rgba(255,201,51,0.35)', borderLeft: '3px solid var(--gold)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--gold)', textTransform: 'uppercase' }}>★ {r.titleName}</span>
+          <span style={{ ...META, fontSize: '0.6rem', color: 'var(--text-dim)' }}> · champion since {fmtDate(r.wonDate)}</span>
+        </div>
+      ))}
+      <p style={{ ...META, fontSize: '0.66rem', color: 'var(--text-dim)', margin: 0 }}>
+        {p.reigns.length === 0 ? 'Never held a title' : `${p.reigns.length} title reign${p.reigns.length > 1 ? 's' : ''} total`}
+      </p>
+
       <div>
         <p style={label}>Finishers</p>
         {p.moves.length === 0
@@ -257,16 +269,6 @@ function CompetitorCard({ p }: { p: Profile }) {
                 <strong>{m.name}</strong>{m.description && <span style={{ color: 'var(--text-dim)' }}> — {m.description}</span>}
               </p>
             ))}
-      </div>
-
-      <div>
-        <p style={label}>Titles</p>
-        <p style={{ ...META, fontSize: '0.72rem', color: 'var(--text-strong)', margin: '0.2rem 0 0' }}>
-          {p.reigns.length === 0 ? <span style={{ color: 'var(--text-dim)' }}>Never held a title</span> : <>
-            {p.reigns.length} reign{p.reigns.length > 1 ? 's' : ''} total
-            {current.length > 0 && <> · <span style={{ color: 'var(--gold)' }}>Current: {current.map(r => `${r.titleName} (since ${fmtDate(r.wonDate)})`).join(', ')}</span></>}
-          </>}
-        </p>
       </div>
 
       <div>
