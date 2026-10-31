@@ -10,7 +10,7 @@ import Footer from '@/components/Footer'
 const anton     = Anton({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--ff-anton' })
 const bebas     = Bebas_Neue({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--ff-bebas' })
 const jetbrains = JetBrains_Mono({ weight: ['400', '700'], subsets: ['latin'], display: 'swap', variable: '--ff-mono' })
-const archivo   = Archivo({ weight: ['400', '500', '600', '700', '800', '900'], subsets: ['latin'], display: 'swap', variable: '--ff-archivo' })
+const archivo   = Archivo({ weight: 'variable', subsets: ['latin'], display: 'swap', variable: '--ff-archivo' })
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://daw.wtf'),
